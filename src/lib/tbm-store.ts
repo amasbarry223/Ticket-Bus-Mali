@@ -6,7 +6,7 @@ import {
   initialAudit,
   initialCompanies,
   initialRefunds,
-  initialUsers,
+  initialUserAccounts,
   refundMontantRembourse,
   transactions as initialTransactions,
   type AuditAction,
@@ -18,13 +18,15 @@ import {
   type RefundEvent,
   type RefundVersement,
   type Settings,
-  type BackofficeUser,
+  type UserAccount,
+  type UserRole,
   type Transaction,
 } from "@/components/tbm/data";
 
 let auditSeq = 215;
 let refundEventSeq = 430;
 let refundVersementSeq = 131;
+let userSeq = 13;
 
 function makeAudit(
   entry: Omit<AuditEntry, "id"> & { id?: string }
@@ -34,7 +36,7 @@ function makeAudit(
 
 interface TbmState {
   companies: Company[];
-  users: BackofficeUser[];
+  users: UserAccount[];
   refunds: Refund[];
   audit: AuditEntry[];
   settings: Settings;
@@ -48,7 +50,27 @@ interface TbmState {
     patch: Partial<Omit<Company, "id" | "statut" | "ticketsMois">>,
     auteur: string
   ) => void;
-  toggleUserBlock: (id: string, auteur: string) => void;
+  createProAccount: (
+    input: {
+      nom: string;
+      email: string;
+      telephone: string;
+      role: UserRole;
+      compagnie: string;
+    },
+    auteur: string,
+    role: string
+  ) => void;
+  activateUser: (id: string, auteur: string, role: string) => void;
+  blockUser: (id: string, motif: string, auteur: string, role: string) => void;
+  unblockUser: (id: string, auteur: string, role: string) => void;
+  changeUserRole: (
+    id: string,
+    nouveauRole: UserRole,
+    justification: string,
+    auteur: string,
+    role: string
+  ) => void;
   claimRefund: (id: string, auteur: string, role: string) => void;
   decideRefund: (
     id: string,
@@ -97,7 +119,7 @@ interface TbmState {
  */
 export const useTbmStore = create<TbmState>()((set) => ({
   companies: initialCompanies,
-  users: initialUsers,
+  users: initialUserAccounts,
   refunds: initialRefunds,
   audit: initialAudit,
   settings: defaultSettings,
@@ -195,23 +217,168 @@ export const useTbmStore = create<TbmState>()((set) => ({
       };
     }),
 
-  toggleUserBlock: (id, auteur) =>
+  /**
+   * Création d'un compte professionnel — le compte reste « À activer »
+   * jusqu'à validation TBM (aucun accès tant que le compte n'est pas activé).
+   */
+  createProAccount: (input, auteur, role) =>
     set((state) => {
-      const user = state.users.find((u) => u.id === id);
-      if (!user) return state;
-      const bloque = !user.bloque;
+      const account: UserAccount = {
+        id: `USR-${userSeq++}`,
+        nom: input.nom.trim(),
+        email: input.email.trim().toLowerCase(),
+        telephone: input.telephone.trim() || undefined,
+        role: input.role,
+        compagnie: input.compagnie,
+        statut: "attente",
+        creeLe: "À l'instant",
+        creePar: auteur,
+        connexions: [],
+        actionsSensibles: [],
+      };
       return {
-        users: state.users.map((u) => (u.id === id ? { ...u, bloque } : u)),
+        users: [account, ...state.users],
         audit: [
           makeAudit({
             date: "À l'instant",
             auteur,
-            role: "Session en cours",
-            action: "Utilisateur",
+            role,
+            action: "Utilisateur" as AuditAction,
+            objet: account.nom,
+            detail: `Compte professionnel créé (${account.role} · ${account.compagnie}) — en attente d'activation, aucun accès tant que le compte n'est pas activé.`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Activation d'un compte professionnel — mot de passe provisoire remis par SMS. */
+  activateUser: (id, auteur, role) =>
+    set((state) => {
+      const user = state.users.find((u) => u.id === id);
+      if (!user || user.statut !== "attente") return state;
+      return {
+        users: state.users.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                statut: "actif" as const,
+                activeLe: "À l'instant",
+                activePar: auteur,
+              }
+            : u
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role,
+            action: "Utilisateur" as AuditAction,
             objet: user.nom,
-            detail: bloque
-              ? "Compte bloqué — accès back-office et compagnie retirés."
-              : "Compte débloqué — accès rétabli.",
+            detail: `Compte professionnel activé (${user.role}${user.compagnie ? ` · ${user.compagnie}` : ""}) — mot de passe provisoire envoyé par SMS.`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Blocage d'un compte — motif obligatoire et tracé.
+   * Un administrateur TBM ne peut jamais être bloqué (protection RBAC).
+   */
+  blockUser: (id, motif, auteur, role) =>
+    set((state) => {
+      const user = state.users.find((u) => u.id === id);
+      if (
+        !user ||
+        user.statut === "bloque" ||
+        user.role === "Administrateur TBM" ||
+        !motif.trim()
+      )
+        return state;
+      return {
+        users: state.users.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                statut: "bloque" as const,
+                bloqueMotif: motif.trim(),
+                bloquePar: auteur,
+                bloqueLe: "À l'instant",
+              }
+            : u
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role,
+            action: "Utilisateur" as AuditAction,
+            objet: user.nom,
+            detail: `Compte bloqué — « ${motif.trim()} » — accès back-office et application retirés.`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Déblocage d'un compte — après vérification de l'identité du titulaire. */
+  unblockUser: (id, auteur, role) =>
+    set((state) => {
+      const user = state.users.find((u) => u.id === id);
+      if (!user || user.statut !== "bloque") return state;
+      return {
+        users: state.users.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                statut: "actif" as const,
+                bloqueMotif: undefined,
+                bloquePar: undefined,
+                bloqueLe: undefined,
+              }
+            : u
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role,
+            action: "Utilisateur" as AuditAction,
+            objet: user.nom,
+            detail: "Compte débloqué — accès rétabli après vérification de l'identité.",
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Changement de rôle — justification obligatoire, tracée au journal d'audit.
+   * Le périmètre d'isolation est recalculé automatiquement à partir du rôle.
+   */
+  changeUserRole: (id, nouveauRole, justification, auteur, role) =>
+    set((state) => {
+      const user = state.users.find((u) => u.id === id);
+      if (
+        !user ||
+        user.role === nouveauRole ||
+        user.role === "Administrateur TBM" ||
+        !justification.trim()
+      )
+        return state;
+      return {
+        users: state.users.map((u) =>
+          u.id === id ? { ...u, role: nouveauRole } : u
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role,
+            action: "Utilisateur" as AuditAction,
+            objet: user.nom,
+            detail: `Rôle modifié : ${user.role} → ${nouveauRole} — « ${justification.trim()} ». Périmètre d'accès recalculé.`,
           }),
           ...state.audit,
         ],

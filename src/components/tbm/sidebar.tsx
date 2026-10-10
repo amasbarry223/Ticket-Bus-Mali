@@ -117,6 +117,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
         label: "Utilisateurs",
         icon: Users,
         roles: ["admin"], // A05
+        badge: "2", // comptes professionnels en attente d'activation
       },
       {
         id: "audit",

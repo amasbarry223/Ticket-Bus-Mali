@@ -1414,31 +1414,379 @@ export const initialRefunds: Refund[] = [
   },
 ];
 
-/* ------------------------- Utilisateurs (A05) --------------- */
+/* ----------------- Utilisateurs & accès (A05) --------------- */
 
-export type BackofficeRole =
-  | "Administrateur TBM"
-  | "Support TBM"
-  | "Gestionnaire de compagnie"
+export type UserRole =
+  | "Voyageur"
   | "Agent de guichet"
-  | "Contrôleur";
+  | "Gestionnaire de compagnie"
+  | "Contrôleur"
+  | "Support TBM"
+  | "Administrateur TBM";
 
-export interface BackofficeUser {
+export type UserKind = "voyageur" | "professionnel";
+
+export type UserStatus = "actif" | "attente" | "bloque";
+
+/** Périmètre d'isolation des données : global (plateforme), compagnie (cloisonné), soi (données personnelles). */
+export type AccessScope = "global" | "compagnie" | "soi";
+
+export const USER_ROLE_META: Record<
+  UserRole,
+  {
+    label: string;
+    className: string;
+    kind: UserKind;
+    scope: AccessScope;
+    scopeLabel: string;
+  }
+> = {
+  Voyageur: {
+    label: "Voyageur",
+    className: "bg-neutral-100 text-neutral-600",
+    kind: "voyageur",
+    scope: "soi",
+    scopeLabel: "Ses propres billets et réservations",
+  },
+  "Agent de guichet": {
+    label: "Agent de guichet",
+    className: "bg-amber-50 text-amber-600",
+    kind: "professionnel",
+    scope: "compagnie",
+    scopeLabel: "Sa compagnie uniquement — vente et embarquement",
+  },
+  "Gestionnaire de compagnie": {
+    label: "Gestionnaire",
+    className: "bg-violet-100 text-violet-600",
+    kind: "professionnel",
+    scope: "compagnie",
+    scopeLabel: "Sa compagnie uniquement — départs, tarifs, ventes",
+  },
+  Contrôleur: {
+    label: "Contrôleur",
+    className: "bg-emerald-50 text-emerald-600",
+    kind: "professionnel",
+    scope: "compagnie",
+    scopeLabel: "Sa compagnie uniquement — contrôle à bord",
+  },
+  "Support TBM": {
+    label: "Support TBM",
+    className: "bg-sky-50 text-sky-600",
+    kind: "professionnel",
+    scope: "global",
+    scopeLabel: "Plateforme entière — droits d'assistance limités",
+  },
+  "Administrateur TBM": {
+    label: "Administrateur",
+    className: "bg-coral-50 text-coral-600",
+    kind: "professionnel",
+    scope: "global",
+    scopeLabel: "Plateforme entière — tous droits",
+  },
+};
+
+export const USER_STATUS_META: Record<
+  UserStatus,
+  { label: string; className: string }
+> = {
+  actif: { label: "Actif", className: "bg-emerald-50 text-emerald-600" },
+  attente: { label: "À activer", className: "bg-amber-50 text-amber-600" },
+  bloque: { label: "Bloqué", className: "bg-rose-50 text-rose-600" },
+};
+
+/** Matrice des permissions affichée par rôle (A05 — gestion des rôles et permissions). */
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  Voyageur: [
+    "Consulter les départs, tarifs et disponibilités",
+    "Réserver et payer en ligne (Orange Money / Moov Money)",
+    "Recevoir son billet électronique par SMS",
+    "Demander une annulation ou un remboursement",
+  ],
+  "Agent de guichet": [
+    "Vendre des billets au guichet de sa compagnie",
+    "Consulter les réservations de sa compagnie",
+    "Enregistrer les embarquements (scan des billets)",
+    "Signaler les incidents de voyage",
+  ],
+  "Gestionnaire de compagnie": [
+    "Gérer les départs, lignes et tarifs de sa compagnie",
+    "Suivre les ventes, la commission et les rapprochements",
+    "Consulter les réservations et billets de sa compagnie",
+    "Créer les comptes agents de sa compagnie (activation TBM)",
+  ],
+  Contrôleur: [
+    "Scanner et contrôler les billets à l'embarquement",
+    "Suivre l'historique des scans de sa compagnie",
+    "Signaler les fraudeurs et les incidents de voyage",
+  ],
+  "Support TBM": [
+    "Assister les voyageurs (réservations, billets)",
+    "Traiter les remboursements jusqu'à 15 000 FCFA",
+    "Superviser les transactions et escalader en litige",
+    "Aucun accès au paramétrage ni aux comptes",
+  ],
+  "Administrateur TBM": [
+    "Gérer les compagnies, les utilisateurs et les rôles",
+    "Valider tous les remboursements et lever les litiges",
+    "Paramétrer la plateforme (frais, commissions, blocage)",
+    "Accéder au journal d'audit complet",
+  ],
+};
+
+export interface LoginEvent {
+  id: string;
+  date: string;
+  resultat: "succes" | "echec";
+  ip: string;
+  lieu: string;
+  appareil: string;
+  detail?: string; // ex. « Mot de passe incorrect — 3ᵉ tentative »
+}
+
+export const LOGIN_RESULT_META: Record<
+  LoginEvent["resultat"],
+  { label: string; className: string }
+> = {
+  succes: { label: "Succès", className: "bg-emerald-50 text-emerald-600" },
+  echec: { label: "Échec", className: "bg-rose-50 text-rose-600" },
+};
+
+/** Action sensible : toute opération à forte valeur effectuée par un compte. */
+export interface UserSensitiveAction {
+  id: string;
+  date: string;
+  action: string;
+  detail: string;
+}
+
+export interface UserAccount {
   id: string;
   nom: string;
   email: string;
-  role: BackofficeRole;
-  compagnie?: string;
-  bloque: boolean;
+  telephone?: string;
+  role: UserRole;
+  compagnie?: string; // périmètre d'isolation (comptes de compagnie)
+  statut: UserStatus;
+  bloqueMotif?: string;
+  bloquePar?: string;
+  bloqueLe?: string;
+  creeLe: string;
+  creePar?: string;
+  activeLe?: string;
+  activePar?: string;
+  derniereConnexion?: string;
+  connexions: LoginEvent[];
+  actionsSensibles: UserSensitiveAction[];
 }
 
-export const initialUsers: BackofficeUser[] = [
-  { id: "USR-01", nom: "Daouda FOMBA", email: "admin@tbm.ml", role: "Administrateur TBM", bloque: false },
-  { id: "USR-02", nom: "Mody BARRY", email: "support@tbm.ml", role: "Support TBM", bloque: false },
-  { id: "USR-03", nom: "Aminata Traoré", email: "a.traore@bamakoexpress.ml", role: "Gestionnaire de compagnie", compagnie: "Bamako Express", bloque: false },
-  { id: "USR-04", nom: "Moussa Keïta", email: "m.keita@sahelbus.ml", role: "Agent de guichet", compagnie: "Sahel Bus", bloque: false },
-  { id: "USR-05", nom: "Fatoumata Cissé", email: "f.cisse@djoliba.ml", role: "Gestionnaire de compagnie", compagnie: "Djoliba Transport", bloque: true },
-  { id: "USR-06", nom: "Ibrahim Coulibaly", email: "i.coulibaly@gmail.com", role: "Contrôleur", compagnie: "Sikasso Voyage", bloque: false },
+export const initialUserAccounts: UserAccount[] = [
+  {
+    id: "USR-01",
+    nom: "Daouda FOMBA",
+    email: "admin@tbm.ml",
+    role: "Administrateur TBM",
+    statut: "actif",
+    creeLe: "12/01 09:00",
+    activeLe: "12/01 09:00",
+    derniereConnexion: "Aujourd'hui 08:15",
+    connexions: [
+      { id: "LC-901", date: "Aujourd'hui 08:15", resultat: "succes", ip: "41.79.14.22", lieu: "Bamako · ACI 2000", appareil: "Windows · Chrome" },
+      { id: "LC-902", date: "Hier 18:40", resultat: "succes", ip: "41.79.14.22", lieu: "Bamako · ACI 2000", appareil: "Windows · Chrome" },
+      { id: "LC-903", date: "04/10 09:02", resultat: "succes", ip: "41.79.14.31", lieu: "Bamako · Sogoniko", appareil: "iPhone · Safari" },
+    ],
+    actionsSensibles: [
+      { id: "USA-701", date: "Hier 17:31", action: "Commission modifiée", detail: "Bamako Express : commission passée de 9 % à 10 %." },
+      { id: "USA-702", date: "04/10 09:15", action: "Compte bloqué", detail: "Fatoumata Cissé — 5 échecs de connexion consécutifs." },
+      { id: "USA-703", date: "04/10 11:20", action: "Compagnie suspendue", detail: "Kayes Lines — documents de reversal manquants." },
+    ],
+  },
+  {
+    id: "USR-02",
+    nom: "Mody BARRY",
+    email: "support@tbm.ml",
+    role: "Support TBM",
+    statut: "actif",
+    creeLe: "12/01 09:00",
+    activeLe: "12/01 09:00",
+    derniereConnexion: "Hier 18:20",
+    connexions: [
+      { id: "LC-905", date: "Hier 18:20", resultat: "succes", ip: "41.79.20.8", lieu: "Bamako · Badalabougou", appareil: "Android · Chrome" },
+      { id: "LC-906", date: "05/10 08:44", resultat: "succes", ip: "41.79.20.8", lieu: "Bamako · Badalabougou", appareil: "Android · Chrome" },
+    ],
+    actionsSensibles: [
+      { id: "USA-704", date: "05/10 18:58", action: "Remboursement validé", detail: "RMB-029 · Fatoumata Diallo — 7 500 FCFA (délai > 24 h)." },
+    ],
+  },
+  {
+    id: "USR-03",
+    nom: "Aminata Traoré",
+    email: "a.traore@bamakoexpress.ml",
+    telephone: "+223 76 22 41 09",
+    role: "Gestionnaire de compagnie",
+    compagnie: "Bamako Express",
+    statut: "actif",
+    creeLe: "20/02 10:30",
+    activeLe: "20/02 11:05",
+    derniereConnexion: "Aujourd'hui 07:30",
+    connexions: [
+      { id: "LC-910", date: "Aujourd'hui 07:30", resultat: "succes", ip: "41.79.33.17", lieu: "Bamako · Sogoniko", appareil: "iPhone · Safari" },
+      { id: "LC-911", date: "Hier 19:05", resultat: "succes", ip: "41.79.33.17", lieu: "Bamako · Sogoniko", appareil: "iPhone · Safari" },
+      { id: "LC-912", date: "05/10 10:04", resultat: "succes", ip: "41.79.33.20", lieu: "Bamako · Sogoniko", appareil: "Windows · Edge" },
+    ],
+    actionsSensibles: [
+      { id: "USA-705", date: "05/10 10:12", action: "Tarif modifié", detail: "Bamako → Ségou : 5 500 → 6 000 FCFA." },
+      { id: "USA-706", date: "Aujourd'hui 07:52", action: "Compte agent créé", detail: "Oumar DIARRA (agent de guichet) — en attente d'activation TBM." },
+    ],
+  },
+  {
+    id: "USR-04",
+    nom: "Moussa Keïta",
+    email: "m.keita@sahelbus.ml",
+    telephone: "+223 66 71 55 38",
+    role: "Agent de guichet",
+    compagnie: "Sahel Bus",
+    statut: "actif",
+    creeLe: "02/03 08:10",
+    activeLe: "02/03 09:00",
+    derniereConnexion: "Hier 17:12",
+    connexions: [
+      { id: "LC-915", date: "Hier 17:12", resultat: "succes", ip: "41.79.41.9", lieu: "Bamako · gare de Sogoniko", appareil: "Android · Chrome" },
+      { id: "LC-916", date: "05/10 06:50", resultat: "succes", ip: "41.79.41.9", lieu: "Bamako · gare de Sogoniko", appareil: "Android · Chrome" },
+    ],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-05",
+    nom: "Fatoumata Cissé",
+    email: "f.cisse@djoliba.ml",
+    telephone: "+223 70 18 63 24",
+    role: "Gestionnaire de compagnie",
+    compagnie: "Djoliba Transport",
+    statut: "bloque",
+    bloqueMotif: "5 échecs de connexion consécutifs — vérifier l'identité avant déblocage.",
+    bloquePar: "Daouda FOMBA",
+    bloqueLe: "04/10 09:15",
+    creeLe: "15/02 14:20",
+    activeLe: "15/02 15:00",
+    derniereConnexion: "04/10 08:58",
+    connexions: [
+      { id: "LC-920", date: "04/10 08:47", resultat: "echec", ip: "197.155.22.10", lieu: "Ségou · centre-ville", appareil: "Android · Chrome", detail: "Mot de passe incorrect — 3ᵉ tentative." },
+      { id: "LC-921", date: "04/10 08:52", resultat: "echec", ip: "197.155.22.10", lieu: "Ségou · centre-ville", appareil: "Android · Chrome", detail: "Mot de passe incorrect — 4ᵉ tentative." },
+      { id: "LC-922", date: "04/10 08:58", resultat: "echec", ip: "197.155.22.10", lieu: "Ségou · centre-ville", appareil: "Android · Chrome", detail: "Mot de passe incorrect — compte verrouillé après 5 échecs." },
+      { id: "LC-923", date: "03/10 09:15", resultat: "succes", ip: "197.155.22.10", lieu: "Ségou · centre-ville", appareil: "Android · Chrome" },
+    ],
+    actionsSensibles: [
+      { id: "USA-707", date: "02/10 14:20", action: "Départ modifié", detail: "Départ DJL-MPT 07:00 avancé à 06:30." },
+    ],
+  },
+  {
+    id: "USR-06",
+    nom: "Ibrahim Coulibaly",
+    email: "i.coulibaly@sikassovoyage.ml",
+    telephone: "+223 78 90 12 46",
+    role: "Contrôleur",
+    compagnie: "Sikasso Voyage",
+    statut: "actif",
+    creeLe: "10/03 11:40",
+    activeLe: "10/03 12:20",
+    derniereConnexion: "05/10 06:55",
+    connexions: [
+      { id: "LC-925", date: "05/10 06:55", resultat: "succes", ip: "41.79.50.3", lieu: "Sikasso · gare de Wayerma", appareil: "Android · App TBM" },
+      { id: "LC-926", date: "04/10 06:48", resultat: "succes", ip: "41.79.50.3", lieu: "Sikasso · gare de Wayerma", appareil: "Android · App TBM" },
+    ],
+    actionsSensibles: [
+      { id: "USA-708", date: "05/10 07:20", action: "Embarquement contrôlé", detail: "42 billets scannés — départ SKS-BKO 07:00, 1 billet refusé (déjà scanné)." },
+    ],
+  },
+  {
+    id: "USR-07",
+    nom: "Oumar DIARRA",
+    email: "o.diarra@bamakoexpress.ml",
+    telephone: "+223 76 45 88 10",
+    role: "Agent de guichet",
+    compagnie: "Bamako Express",
+    statut: "attente",
+    creeLe: "Aujourd'hui 07:52",
+    creePar: "Aminata Traoré",
+    connexions: [],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-08",
+    nom: "Kadiatou SANGARÉ",
+    email: "k.sangare@kayeslines.ml",
+    telephone: "+223 74 12 90 55",
+    role: "Gestionnaire de compagnie",
+    compagnie: "Kayes Lines",
+    statut: "attente",
+    creeLe: "05/10 16:20",
+    creePar: "Daouda FOMBA",
+    connexions: [],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-09",
+    nom: "Salif TOURÉ",
+    email: "salif.toure@gmail.com",
+    telephone: "+223 76 55 41 23",
+    role: "Voyageur",
+    statut: "actif",
+    creeLe: "18/04 12:00",
+    derniereConnexion: "Aujourd'hui 07:10",
+    connexions: [
+      { id: "LC-930", date: "Aujourd'hui 07:10", resultat: "succes", ip: "41.79.61.44", lieu: "Bamako · Magnambougou", appareil: "Android · App TBM" },
+      { id: "LC-931", date: "02/10 20:31", resultat: "echec", ip: "41.79.61.44", lieu: "Bamako · Magnambougou", appareil: "Android · App TBM", detail: "Mot de passe incorrect — 1ʳᵉ tentative." },
+      { id: "LC-932", date: "02/10 20:32", resultat: "succes", ip: "41.79.61.44", lieu: "Bamako · Magnambougou", appareil: "Android · App TBM" },
+    ],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-10",
+    nom: "Aïcha DIALLO",
+    email: "aicha.diallo@yahoo.fr",
+    telephone: "+223 66 12 90 44",
+    role: "Voyageur",
+    statut: "actif",
+    creeLe: "22/05 16:45",
+    derniereConnexion: "Hier 21:02",
+    connexions: [
+      { id: "LC-935", date: "Hier 21:02", resultat: "succes", ip: "41.79.63.12", lieu: "Bamako · Djélibougou", appareil: "iPhone · App TBM" },
+      { id: "LC-936", date: "30/09 08:15", resultat: "succes", ip: "41.79.63.12", lieu: "Bamako · Djélibougou", appareil: "iPhone · App TBM" },
+    ],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-11",
+    nom: "Jean KONÉ",
+    email: "j.kone@outlook.com",
+    telephone: "+223 70 33 18 67",
+    role: "Voyageur",
+    statut: "actif",
+    creeLe: "09/06 10:20",
+    derniereConnexion: "04/10 18:40",
+    connexions: [
+      { id: "LC-940", date: "04/10 18:39", resultat: "echec", ip: "41.79.70.5", lieu: "Koutiala · centre", appareil: "Android · App TBM", detail: "Mot de passe incorrect — réinitialisation demandée." },
+      { id: "LC-941", date: "04/10 18:44", resultat: "succes", ip: "41.79.70.5", lieu: "Koutiala · centre", appareil: "Android · App TBM", detail: "Connexion après réinitialisation du mot de passe." },
+    ],
+    actionsSensibles: [],
+  },
+  {
+    id: "USR-12",
+    nom: "Bakary SISSOKO",
+    email: "b.sissoko@gmail.com",
+    telephone: "+223 78 44 52 90",
+    role: "Voyageur",
+    statut: "bloque",
+    bloqueMotif: "Billets falsifiés détectés lors du contrôle — dossier transmis au support.",
+    bloquePar: "Daouda FOMBA",
+    bloqueLe: "05/10 12:05",
+    creeLe: "03/07 09:30",
+    derniereConnexion: "05/10 11:58",
+    connexions: [
+      { id: "LC-945", date: "05/10 11:58", resultat: "succes", ip: "41.79.72.19", lieu: "Bamako · Lafiabougou", appareil: "Android · App TBM" },
+    ],
+    actionsSensibles: [],
+  },
 ];
 
 /* ------------------------ Journal d'audit (A06) ------------- */
