@@ -152,3 +152,21 @@ Stage Summary:
 - Onglet A10 conforme au MVP : toutes les réservations, recherche rapide multi-critères pour le support, passagers + départ associé, 4 statuts de réservation, billet électronique avec QR code, 3 statuts de billet, historique des scans et validations
 - Périmètre respecté : le support consulte et retrouve un billet ; l'émission/reporting restent chez les compagnies
 - Données liées au reste du back-office : départs partagés (companyDepartures), frais de service et blocage RG1 issus du Paramétrage (A04)
+
+---
+Task ID: 5-fix
+Agent: Z.ai Code (main)
+Task: Corriger l'erreur « Module not found: Can't resolve '@/components/tbm/pages/reservations' » remontée par l'utilisateur
+
+Work Log:
+- Diagnostic : le fichier src/components/tbm/pages/reservations.tsx existait bien (export ReservationsPage ligne 840), data.ts exposait tous les symboles importés (reservations, RESERVATION_STATUS_META, TICKET_STATUS_META, SCAN_KIND_META, types Reservation/ScanEvent/Ticket/Settings), `bun run lint` 0 erreur → cause = état intermédiaire du cache Turbopack (fichier créé pendant un scan du compilateur), pas un vrai défaut de code
+- Correctif : arrêt propre des processus `next dev`, suppression du répertoire `.next` (purge cache Turbopack), relance de `bun run dev`
+- Particularité sandbox : le serveur d'origine avait été lancé par la plateforme au boot ; après kill, les relances détachées (setsid/nohup) meurent entre deux appels outils → vérification complète réalisée dans une session unique serveur + agent-browser
+- Vérification Agent Browser (desktop 1440×900, rechargement à neuf) : page de connexion rendue sans erreur, login tbm2026, navigation « Réservations » → KPIs (15 réservations, 2 en attente RG1, 15 billets actifs, 5 annulées/expirées), recherche par téléphone « 76421805 » → RES-2041, par référence « RES-2053 » → fiche guichet annulée (alerte remboursement automatique), billet électronique TKT-2605-40990 avec QR code déterministe + tampon ANNULÉ, historique des scans (2 événements), 0 erreur page/console
+- Vérification mobile iPhone 16 : KPIs 2×2, recherche pleine largeur, tableau scrollable horizontal, fiche RES-2041 complète (téléphone cliquable, passagers Utilisé/Émis, montant 10 500 FCFA avec frais de service, historique 3 événements), 0 erreur
+- dev.log propre : uniquement GET / 200, aucune erreur compile/runtime ; serveur laissé en écoute sur le port 3000 pour le panneau de prévisualisation
+
+Stage Summary:
+- Cause racine : cache Turbopack périmé (pas de régression code) — purge `.next` + redémarrage suffit
+- Page « Réservations & Billets » (A10) confirmée 100 % fonctionnelle après correction : recherche support multi-critères, 4 statuts de réservation, billet électronique + QR code, historique des scans/validations
+- Aucun fichier modifié : intervention purement opérationnelle (cache + process)
