@@ -86,7 +86,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
         label: "Remboursements",
         icon: Undo2,
         roles: ["admin", "support"], // A03
-        badge: "2",
+        badge: "4",
       },
       {
         id: "cities",

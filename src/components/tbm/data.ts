@@ -875,37 +875,543 @@ export const transactions: Transaction[] = [
   },
 ];
 
-/* ----------------------- Remboursements (A03) --------------- */
+/* --------------- Remboursements & litiges (A03) ------------- */
 
-export type RefundStatus = "en_attente" | "traite" | "refuse";
+/** Motif de la demande (spéc MVP : annulation, double paiement, départ annulé, incident). */
+export type RefundReason =
+  | "annulation"
+  | "double_paiement"
+  | "depart_annule"
+  | "incident";
 
-export interface Refund {
-  id: string;
-  transaction: string;
-  passager: string;
-  montant: number;
-  motif: string;
-  demande: string;
-  statut: RefundStatus;
-  justification?: string;
-  traitePar?: string;
-}
+export const REFUND_REASON_META: Record<
+  RefundReason,
+  { label: string; className: string; description: string }
+> = {
+  annulation: {
+    label: "Annulation voyageur",
+    className: "bg-sky-50 text-sky-600",
+    description:
+      "Annulation à l'initiative du voyageur — paliers de remboursement RG5 appliqués.",
+  },
+  double_paiement: {
+    label: "Double paiement",
+    className: "bg-violet-100 text-violet-600",
+    description:
+      "Le compte a été débité plusieurs fois pour une même réservation.",
+  },
+  depart_annule: {
+    label: "Départ annulé",
+    className: "bg-amber-50 text-amber-600",
+    description:
+      "Départ annulé par la compagnie — remboursement intégral du voyageur.",
+  },
+  incident: {
+    label: "Incident",
+    className: "bg-rose-50 text-rose-600",
+    description:
+      "Incident signalé : débit sans billet reçu, panne, problème opérationnel…",
+  },
+};
+
+/** Cycle de vie d'un dossier : en attente → validé → remboursé (ou refusé). */
+export type RefundStatus = "en_attente" | "approuve" | "rembourse" | "refuse";
 
 export const REFUND_STATUS_META: Record<
   RefundStatus,
   { label: string; className: string }
 > = {
   en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
-  traite: { label: "Traité", className: "bg-emerald-50 text-emerald-600" },
+  approuve: { label: "Validé", className: "bg-sky-50 text-sky-600" },
+  rembourse: { label: "Remboursé", className: "bg-emerald-50 text-emerald-600" },
   refuse: { label: "Refusé", className: "bg-rose-50 text-rose-600" },
 };
 
+/**
+ * Droits spécifiques : un agent Support peut décider et exécuter un
+ * remboursement jusqu'à ce seuil ; au-delà, la validation administrateur
+ * est obligatoire. La levée des litiges est réservée à l'administration.
+ */
+export const REFUND_SUPPORT_LIMIT = 15000; // FCFA
+
+/** Tranche de remboursement effectivement exécutée vers l'opérateur. */
+export interface RefundVersement {
+  id: string;
+  date: string;
+  montant: number;
+  refOperateur: string; // référence du versement chez l'opérateur
+  par: string; // agent back-office qui a enregistré le versement
+}
+
+/** Événement de traçabilité d'un dossier (chaque action est signée). */
+export type RefundEventKind =
+  | "demande"
+  | "prise_en_charge"
+  | "decision"
+  | "versement"
+  | "litige_ouvert"
+  | "litige_resolu";
+
+export const REFUND_EVENT_META: Record<
+  RefundEventKind,
+  { label: string; className: string }
+> = {
+  demande: { label: "Demande reçue", className: "bg-neutral-100 text-neutral-500" },
+  prise_en_charge: { label: "Prise en charge", className: "bg-sky-50 text-sky-600" },
+  decision: { label: "Décision", className: "bg-coral-50 text-coral-600" },
+  versement: { label: "Versement opérateur", className: "bg-emerald-50 text-emerald-600" },
+  litige_ouvert: { label: "Litige ouvert", className: "bg-rose-50 text-rose-600" },
+  litige_resolu: { label: "Litige résolu", className: "bg-emerald-50 text-emerald-600" },
+};
+
+export interface RefundEvent {
+  id: string;
+  date: string;
+  type: RefundEventKind;
+  detail: string;
+  par: string; // agent ou « Système — plateforme TBM »
+  role: string; // rôle au moment de l'action
+}
+
+export interface Refund {
+  id: string;
+  transaction: string; // débit d'origine (TXN-xxxxx)
+  refReservation: string | null;
+  passager: string;
+  telephone: string;
+  compagnie: string;
+  operateur: Operator;
+  motif: RefundReason;
+  motifDetail: string; // détail libre de la demande
+  montantRemboursable: number; // montant total éligible (RG11, sans décimales)
+  statut: RefundStatus;
+  demande: string; // réception de la demande
+  traitePar?: string; // agent en charge du dossier
+  justification?: string; // obligatoire pour toute décision
+  litige?: {
+    ouvert: boolean;
+    detail: string;
+    ouvertLe: string;
+    ouvertPar?: string;
+    resolution?: string;
+    resoluPar?: string;
+  };
+  versements: RefundVersement[]; // tranches déjà exécutées vers l'opérateur
+  historique: RefundEvent[];
+}
+
+/** Montant déjà remboursé (somme des versements opérateur). */
+export function refundMontantRembourse(r: Refund): number {
+  return r.versements.reduce((s, v) => s + v.montant, 0);
+}
+
+/** Reste à rembourser sur le dossier. */
+export function refundResteDu(r: Refund): number {
+  return Math.max(0, r.montantRemboursable - refundMontantRembourse(r));
+}
+
 export const initialRefunds: Refund[] = [
-  { id: "RMB-031", transaction: "TXN-10243", passager: "Aïcha Sissoko", montant: 10000, motif: "Départ annulé par la compagnie", demande: "05/10 18:40", statut: "en_attente" },
-  { id: "RMB-030", transaction: "TXN-10244", passager: "Moussa Traoré", montant: 12500, motif: "Argent débité, ticket non reçu", demande: "05/10 18:55", statut: "en_attente" },
-  { id: "RMB-029", transaction: "TXN-10238", passager: "Fatoumata Diallo", montant: 7500, motif: "Annulation voyageur (plus de 24 h)", demande: "04/10 10:12", statut: "traite", justification: "Délai > 24 h — remboursement intégral conforme à la politique.", traitePar: "Mody BARRY" },
-  { id: "RMB-028", transaction: "TXN-10235", passager: "Ibrahim Keïta", montant: 15000, motif: "Paiement en double", demande: "03/10 16:27", statut: "traite", justification: "Double débit confirmé par le relevé Orange Money.", traitePar: "Mody BARRY" },
-  { id: "RMB-027", transaction: "TXN-10233", passager: "Salif Diarra", montant: 5000, motif: "Annulation voyageur (moins de 6 h)", demande: "02/10 09:44", statut: "refuse", justification: "Moins de 6 h avant le départ : aucun remboursement (RG5).", traitePar: "Mody BARRY" },
+  {
+    id: "RMB-031",
+    transaction: "TXN-10245",
+    refReservation: "RES-2042",
+    passager: "Ibrahim Maïga",
+    telephone: "+223 66 05 77 21",
+    compagnie: "Bamako Express",
+    operateur: "Orange Money",
+    motif: "annulation",
+    motifDetail:
+      "Empêchement familial — annulation de la réservation RES-2042 (3 billets) plus de 24 h avant le départ.",
+    montantRemboursable: 13250,
+    statut: "en_attente",
+    demande: "Aujourd'hui 07:45",
+    versements: [],
+    historique: [
+      {
+        id: "RVE-401",
+        date: "Aujourd'hui 07:45",
+        type: "demande",
+        detail: "Demande reçue depuis le formulaire en ligne — pièces jointes : copie de la réservation.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+    ],
+  },
+  {
+    id: "RMB-030",
+    transaction: "TXN-10244",
+    refReservation: null,
+    passager: "Moussa Traoré",
+    telephone: "+223 76 22 41 09",
+    compagnie: "Sikasso Voyage",
+    operateur: "Moov Money",
+    motif: "incident",
+    motifDetail:
+      "Argent débité (MM-2505-117988) mais aucun ticket reçu — anomalie confirmée par le rapprochement du relevé Moov Money.",
+    montantRemboursable: 12500,
+    statut: "en_attente",
+    demande: "Aujourd'hui 06:05",
+    versements: [],
+    historique: [
+      {
+        id: "RVE-402",
+        date: "Aujourd'hui 06:05",
+        type: "demande",
+        detail: "Demande ouverte automatiquement après détection de l'anomalie « débité sans billet » (TXN-10244).",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+    ],
+  },
+  {
+    id: "RMB-032",
+    transaction: "TXN-10246",
+    refReservation: "RES-2045",
+    passager: "Oumar Cissé",
+    telephone: "+223 76 88 51 14",
+    compagnie: "Bamako Express",
+    operateur: "Orange Money",
+    motif: "double_paiement",
+    motifDetail:
+      "Le client signale deux débits de 22 500 FCFA le même jour pour une seule réservation (2 billets, Bamako → Ségou).",
+    montantRemboursable: 22500,
+    statut: "en_attente",
+    demande: "05/10 19:32",
+    litige: {
+      ouvert: true,
+      detail:
+        "Bamako Express conteste : un seul débit figurerait au relevé du 05/10. Capture Orange Money du client contre déclaration de la compagnie — escalade administrative.",
+      ouvertLe: "Hier 20:10",
+      ouvertPar: "Mody BARRY",
+    },
+    versements: [],
+    historique: [
+      {
+        id: "RVE-410",
+        date: "05/10 19:32",
+        type: "demande",
+        detail: "Demande reçue par téléphone au support TBM — capture d'écran du double débit transmise par SMS.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-411",
+        date: "Hier 20:10",
+        type: "litige_ouvert",
+        detail:
+          "Litige ouvert : la compagnie conteste le double débit — escalade à l'administration, dossier gelé jusqu'à résolution.",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+    ],
+  },
+  {
+    id: "RMB-035",
+    transaction: "TXN-10247",
+    refReservation: "RES-2049",
+    passager: "Yacouba Ouattara",
+    telephone: "+223 92 55 10 76",
+    compagnie: "Kayes Lines",
+    operateur: "Moov Money",
+    motif: "incident",
+    motifDetail:
+      "Hospitalisation le jour du départ (justificatif fourni) — le billet n'a pas été scanné, demande de remboursement exceptionnelle.",
+    montantRemboursable: 9250,
+    statut: "en_attente",
+    demande: "Aujourd'hui 08:40",
+    versements: [],
+    historique: [
+      {
+        id: "RVE-403",
+        date: "Aujourd'hui 08:40",
+        type: "demande",
+        detail: "Demande reçue au guichet de Kayes N'Di — certificat médical joint au dossier.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+    ],
+  },
+  {
+    id: "RMB-034",
+    transaction: "TXN-10241",
+    refReservation: "RES-2044",
+    passager: "Sékou Konaté",
+    telephone: "+223 78 30 44 92",
+    compagnie: "Sahel Bus",
+    operateur: "Orange Money",
+    motif: "depart_annule",
+    motifDetail:
+      "Départ Bamako → Mopti annulé par la compagnie (pluies torrentielles RN6) — remboursement validé, versement opérateur à confirmer.",
+    montantRemboursable: 17500,
+    statut: "approuve",
+    demande: "Aujourd'hui 09:05",
+    traitePar: "Daouda FOMBA",
+    justification:
+      "Départ annulé par la compagnie — remboursement intégral (montant > 15 000 FCFA, validation administrateur requise).",
+    versements: [],
+    historique: [
+      {
+        id: "RVE-404",
+        date: "Aujourd'hui 09:05",
+        type: "demande",
+        detail: "Demande reçue depuis le formulaire en ligne — annulation du départ confirmée par le dispatch Sahel Bus.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-405",
+        date: "Aujourd'hui 09:22",
+        type: "prise_en_charge",
+        detail: "Dossier pris en charge après vérification de l'annulation du départ et du débit d'origine.",
+        par: "Daouda FOMBA",
+        role: "Administrateur TBM",
+      },
+      {
+        id: "RVE-406",
+        date: "Aujourd'hui 09:25",
+        type: "decision",
+        detail:
+          "Remboursement validé — « Départ annulé par la compagnie — remboursement intégral (montant > 15 000 FCFA, validation administrateur requise). »",
+        par: "Daouda FOMBA",
+        role: "Administrateur TBM",
+      },
+    ],
+  },
+  {
+    id: "RMB-028",
+    transaction: "TXN-10235",
+    refReservation: null,
+    passager: "Ibrahim Keïta",
+    telephone: "+223 70 45 91 22",
+    compagnie: "Djoliba Transport",
+    operateur: "Orange Money",
+    motif: "double_paiement",
+    motifDetail:
+      "Deux débits de 15 000 FCFA constatés le 03/10 pour une même commande — le second débit est indû.",
+    montantRemboursable: 15000,
+    statut: "approuve",
+    demande: "03/10 16:27",
+    traitePar: "Mody BARRY",
+    justification:
+      "Double débit confirmé par le relevé Orange Money du 03/10 — remboursement du second versement (relevé OM-2503-446611).",
+    versements: [
+      {
+        id: "RVS-118",
+        date: "04/10 10:40",
+        montant: 10000,
+        refOperateur: "OM-RMB-87934",
+        par: "Mody BARRY",
+      },
+    ],
+    historique: [
+      {
+        id: "RVE-407",
+        date: "03/10 16:27",
+        type: "demande",
+        detail: "Demande reçue depuis le formulaire en ligne — relevé Orange Money joint.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-408",
+        date: "03/10 17:02",
+        type: "prise_en_charge",
+        detail: "Dossier pris en charge — vérification des deux débits auprès de l'opérateur.",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+      {
+        id: "RVE-409",
+        date: "03/10 17:15",
+        type: "decision",
+        detail:
+          "Remboursement validé — « Double débit confirmé par le relevé Orange Money du 03/10 — remboursement du second versement (relevé OM-2503-446611). »",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+      {
+        id: "RVE-412",
+        date: "04/10 10:40",
+        type: "versement",
+        detail:
+          "1er versement de 10 000 FCFA exécuté vers le compte d'origine (réf. OM-RMB-87934) — reste 5 000 FCFA à verser.",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+    ],
+  },
+  {
+    id: "RMB-029",
+    transaction: "TXN-10238",
+    refReservation: null,
+    passager: "Fatoumata Diallo",
+    telephone: "+223 66 12 90 04",
+    compagnie: "Djoliba Transport",
+    operateur: "Orange Money",
+    motif: "annulation",
+    motifDetail:
+      "Annulation par le voyageur plus de 24 h avant le départ — palier 100 % (RG5).",
+    montantRemboursable: 7500,
+    statut: "rembourse",
+    demande: "04/10 10:12",
+    traitePar: "Mody BARRY",
+    justification:
+      "Délai > 24 h — remboursement intégral conforme à la politique (RG5).",
+    versements: [
+      {
+        id: "RVS-121",
+        date: "04/10 11:20",
+        montant: 7500,
+        refOperateur: "OM-RMB-88012",
+        par: "Mody BARRY",
+      },
+    ],
+    historique: [
+      {
+        id: "RVE-413",
+        date: "04/10 10:12",
+        type: "demande",
+        detail: "Demande reçue depuis le formulaire en ligne.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-414",
+        date: "04/10 10:40",
+        type: "prise_en_charge",
+        detail: "Dossier pris en charge — délai d'annulation vérifié (34 h avant le départ).",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+      {
+        id: "RVE-415",
+        date: "04/10 11:15",
+        type: "decision",
+        detail:
+          "Remboursement validé — « Délai > 24 h — remboursement intégral conforme à la politique (RG5). »",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+      {
+        id: "RVE-416",
+        date: "04/10 11:20",
+        type: "versement",
+        detail:
+          "Versement intégral de 7 500 FCFA exécuté (réf. OM-RMB-88012) — dossier soldé.",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+    ],
+  },
+  {
+    id: "RMB-026",
+    transaction: "TXN-10236",
+    refReservation: null,
+    passager: "Aïcha Sissoko",
+    telephone: "+223 74 20 61 38",
+    compagnie: "Bamako Express",
+    operateur: "Orange Money",
+    motif: "depart_annule",
+    motifDetail:
+      "Départ Ségou → Mopti annulé la veille par la compagnie — ticket jamais utilisé.",
+    montantRemboursable: 10500,
+    statut: "rembourse",
+    demande: "02/10 15:20",
+    traitePar: "Daouda FOMBA",
+    justification:
+      "Annulation compagnie confirmée au dispatch — remboursement intégral au titre des départs annulés.",
+    versements: [
+      {
+        id: "RVS-114",
+        date: "03/10 09:05",
+        montant: 10500,
+        refOperateur: "OM-RMB-87870",
+        par: "Daouda FOMBA",
+      },
+    ],
+    historique: [
+      {
+        id: "RVE-417",
+        date: "02/10 15:20",
+        type: "demande",
+        detail: "Demande reçue par téléphone au support TBM.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-418",
+        date: "02/10 16:05",
+        type: "prise_en_charge",
+        detail: "Dossier pris en charge — confirmation de l'annulation auprès du dispatch.",
+        par: "Daouda FOMBA",
+        role: "Administrateur TBM",
+      },
+      {
+        id: "RVE-419",
+        date: "02/10 16:12",
+        type: "decision",
+        detail:
+          "Remboursement validé — « Annulation compagnie confirmée au dispatch — remboursement intégral au titre des départs annulés. »",
+        par: "Daouda FOMBA",
+        role: "Administrateur TBM",
+      },
+      {
+        id: "RVE-420",
+        date: "03/10 09:05",
+        type: "versement",
+        detail:
+          "Versement intégral de 10 500 FCFA exécuté (réf. OM-RMB-87870) — dossier soldé.",
+        par: "Daouda FOMBA",
+        role: "Administrateur TBM",
+      },
+    ],
+  },
+  {
+    id: "RMB-027",
+    transaction: "TXN-10233",
+    refReservation: null,
+    passager: "Salif Diarra",
+    telephone: "+223 76 33 08 79",
+    compagnie: "Sahel Bus",
+    operateur: "Moov Money",
+    motif: "annulation",
+    motifDetail:
+      "Annulation demandée 3 h avant le départ — le client sollicite un geste commercial.",
+    montantRemboursable: 5000,
+    statut: "refuse",
+    demande: "02/10 09:44",
+    traitePar: "Mody BARRY",
+    justification:
+      "Moins de 6 h avant le départ : aucun remboursement (RG5). Un avoir de 50 % a été proposé au client.",
+    versements: [],
+    historique: [
+      {
+        id: "RVE-421",
+        date: "02/10 09:44",
+        type: "demande",
+        detail: "Demande reçue depuis le formulaire en ligne.",
+        par: "Système — plateforme TBM",
+        role: "Automatisation",
+      },
+      {
+        id: "RVE-422",
+        date: "02/10 10:30",
+        type: "prise_en_charge",
+        detail: "Dossier pris en charge — délai d'annulation vérifié (3 h avant le départ).",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+      {
+        id: "RVE-423",
+        date: "02/10 10:41",
+        type: "decision",
+        detail:
+          "Remboursement refusé — « Moins de 6 h avant le départ : aucun remboursement (RG5). Un avoir de 50 % a été proposé au client. »",
+        par: "Mody BARRY",
+        role: "Support TBM",
+      },
+    ],
+  },
 ];
 
 /* ------------------------- Utilisateurs (A05) --------------- */
@@ -946,7 +1452,8 @@ export type AuditAction =
   | "Paramétrage"
   | "Utilisateur"
   | "Transaction"
-  | "Rapprochement";
+  | "Rapprochement"
+  | "Litige";
 
 export interface AuditEntry {
   id: string;
@@ -968,6 +1475,7 @@ export const AUDIT_ACTION_META: Record<AuditAction, { className: string }> = {
   Utilisateur: { className: "bg-emerald-50 text-emerald-600" },
   Transaction: { className: "bg-teal-50 text-teal-600" },
   Rapprochement: { className: "bg-lime-50 text-lime-700" },
+  Litige: { className: "bg-rose-100 text-rose-700" },
 };
 
 export const initialAudit: AuditEntry[] = [

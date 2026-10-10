@@ -7,6 +7,7 @@ import {
   initialCompanies,
   initialRefunds,
   initialUsers,
+  refundMontantRembourse,
   transactions as initialTransactions,
   type AuditAction,
   type AuditEntry,
@@ -14,12 +15,16 @@ import {
   type CompanyStatus,
   type Operator,
   type Refund,
+  type RefundEvent,
+  type RefundVersement,
   type Settings,
   type BackofficeUser,
   type Transaction,
 } from "@/components/tbm/data";
 
 let auditSeq = 215;
+let refundEventSeq = 430;
+let refundVersementSeq = 131;
 
 function makeAudit(
   entry: Omit<AuditEntry, "id"> & { id?: string }
@@ -44,11 +49,32 @@ interface TbmState {
     auteur: string
   ) => void;
   toggleUserBlock: (id: string, auteur: string) => void;
-  processRefund: (
+  claimRefund: (id: string, auteur: string, role: string) => void;
+  decideRefund: (
     id: string,
+    approuve: boolean,
     justification: string,
     auteur: string,
-    refuse?: boolean
+    role: string
+  ) => void;
+  addRefundVersement: (
+    id: string,
+    montant: number,
+    refOperateur: string,
+    auteur: string,
+    role: string
+  ) => void;
+  openRefundDispute: (
+    id: string,
+    detail: string,
+    auteur: string,
+    role: string
+  ) => void;
+  resolveRefundDispute: (
+    id: string,
+    resolution: string,
+    auteur: string,
+    role: string
   ) => void;
   saveSettings: (settings: Settings, auteur: string) => void;
   confirmPendingPayment: (id: string, auteur: string) => void;
@@ -83,7 +109,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
       const company = state.companies.find((c) => c.id === id);
       if (!company) return state;
       const entry = makeAudit({
-        date: "À l’instant",
+        date: "À l'instant",
         auteur,
         role: "Session en cours",
         action: "Compagnie" as AuditAction,
@@ -108,7 +134,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
       companies: [company, ...state.companies],
       audit: [
         makeAudit({
-          date: "À l’instant",
+          date: "À l'instant",
           auteur,
           role: "Session en cours",
           action: "Compagnie",
@@ -154,7 +180,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
         ),
         audit: [
           makeAudit({
-            date: "À l’instant",
+            date: "À l'instant",
             auteur,
             role: "Session en cours",
             action: "Compagnie" as AuditAction,
@@ -178,7 +204,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
         users: state.users.map((u) => (u.id === id ? { ...u, bloque } : u)),
         audit: [
           makeAudit({
-            date: "À l’instant",
+            date: "À l'instant",
             auteur,
             role: "Session en cours",
             action: "Utilisateur",
@@ -192,31 +218,235 @@ export const useTbmStore = create<TbmState>()((set) => ({
       };
     }),
 
-  processRefund: (id, justification, auteur, refuse = false) =>
+  /** Prise en charge d'un dossier : l'agent devient responsable du traitement. */
+  claimRefund: (id, auteur, role) =>
     set((state) => {
       const refund = state.refunds.find((r) => r.id === id);
-      if (!refund) return state;
+      if (!refund || refund.traitePar) return state;
+      const event: RefundEvent = {
+        id: `RVE-${refundEventSeq++}`,
+        date: "À l'instant",
+        type: "prise_en_charge",
+        detail:
+          "Dossier pris en charge — vérification du motif, du débit d'origine et des pièces jointes.",
+        par: auteur,
+        role,
+      };
+      return {
+        refunds: state.refunds.map((r) =>
+          r.id === id
+            ? { ...r, traitePar: auteur, historique: [...r.historique, event] }
+            : r
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role: "Session en cours",
+            action: "Remboursement" as AuditAction,
+            objet: `${refund.id} · ${refund.passager}`,
+            detail: "Dossier de remboursement pris en charge.",
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Décision manuelle sur un dossier — justification obligatoire et tracée.
+   * Un dossier en litige est gelé jusqu'à la levée du litige (droits admin).
+   */
+  decideRefund: (id, approuve, justification, auteur, role) =>
+    set((state) => {
+      const refund = state.refunds.find((r) => r.id === id);
+      if (!refund || refund.statut !== "en_attente" || refund.litige?.ouvert)
+        return state;
+      const event: RefundEvent = {
+        id: `RVE-${refundEventSeq++}`,
+        date: "À l'instant",
+        type: "decision",
+        detail: approuve
+          ? `Remboursement validé — « ${justification} »`
+          : `Remboursement refusé — « ${justification} »`,
+        par: auteur,
+        role,
+      };
       return {
         refunds: state.refunds.map((r) =>
           r.id === id
             ? {
                 ...r,
-                statut: refuse ? ("refuse" as const) : ("traite" as const),
-                justification,
+                statut: approuve ? ("approuve" as const) : ("refuse" as const),
                 traitePar: auteur,
+                justification,
+                historique: [...r.historique, event],
               }
             : r
         ),
         audit: [
           makeAudit({
-            date: "À l’instant",
+            date: "À l'instant",
             auteur,
             role: "Session en cours",
-            action: "Remboursement",
+            action: "Remboursement" as AuditAction,
             objet: `${refund.id} · ${refund.passager}`,
-            detail: refuse
-              ? `Remboursement refusé — « ${justification} »`
-              : `Remboursement de ${new Intl.NumberFormat("fr-FR").format(refund.montant)} FCFA validé — « ${justification} »`,
+            detail: approuve
+              ? `Remboursement de ${new Intl.NumberFormat("fr-FR").format(refund.montantRemboursable)} FCFA validé — « ${justification} »`
+              : `Remboursement refusé — « ${justification} »`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Enregistrement d'un versement opérateur (tranche de remboursement).
+   * Le dossier passe à « Remboursé » lorsque le montant éligible est couvert.
+   */
+  addRefundVersement: (id, montant, refOperateur, auteur, role) =>
+    set((state) => {
+      const refund = state.refunds.find((r) => r.id === id);
+      if (
+        !refund ||
+        refund.statut !== "approuve" ||
+        refund.litige?.ouvert ||
+        montant <= 0 ||
+        !refOperateur.trim()
+      )
+        return state;
+      const dejaRembourse = refundMontantRembourse(refund);
+      const resteAvant = Math.max(
+        0,
+        refund.montantRemboursable - dejaRembourse
+      );
+      const montantFinal = Math.min(montant, resteAvant);
+      const solde = montantFinal >= resteAvant;
+      const rang = refund.versements.length + 1;
+      const versement: RefundVersement = {
+        id: `RVS-${refundVersementSeq++}`,
+        date: "À l'instant",
+        montant: montantFinal,
+        refOperateur: refOperateur.trim(),
+        par: auteur,
+      };
+      const refClean = refOperateur.trim();
+      const montantTxt = new Intl.NumberFormat("fr-FR").format(montantFinal);
+      const resteTxt = new Intl.NumberFormat("fr-FR").format(
+        resteAvant - montantFinal
+      );
+      const event: RefundEvent = {
+        id: `RVE-${refundEventSeq++}`,
+        date: "À l'instant",
+        type: "versement",
+        detail: solde
+          ? `Versement de ${montantTxt} FCFA exécuté (réf. ${refClean}) — dossier intégralement remboursé.`
+          : `${rang === 1 ? "1er versement" : `Versement n°${rang}`} de ${montantTxt} FCFA exécuté (réf. ${refClean}) — reste ${resteTxt} FCFA à verser.`,
+        par: auteur,
+        role,
+      };
+      return {
+        refunds: state.refunds.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                statut: solde ? ("rembourse" as const) : r.statut,
+                versements: [...r.versements, versement],
+                historique: [...r.historique, event],
+              }
+            : r
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role: "Session en cours",
+            action: "Remboursement" as AuditAction,
+            objet: `${refund.id} · ${refund.passager}`,
+            detail: `Versement opérateur de ${montantTxt} FCFA enregistré (réf. ${refClean})${solde ? " — dossier soldé" : ""}.`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Escalade d'un dossier en litige — gel des décisions jusqu'à résolution. */
+  openRefundDispute: (id, detail, auteur, role) =>
+    set((state) => {
+      const refund = state.refunds.find((r) => r.id === id);
+      if (!refund || refund.litige?.ouvert) return state;
+      const event: RefundEvent = {
+        id: `RVE-${refundEventSeq++}`,
+        date: "À l'instant",
+        type: "litige_ouvert",
+        detail: `Litige ouvert : ${detail} — dossier gelé jusqu'à résolution administrative.`,
+        par: auteur,
+        role,
+      };
+      return {
+        refunds: state.refunds.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                litige: {
+                  ouvert: true,
+                  detail,
+                  ouvertLe: "À l'instant",
+                  ouvertPar: auteur,
+                },
+                historique: [...r.historique, event],
+              }
+            : r
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role: "Session en cours",
+            action: "Litige" as AuditAction,
+            objet: `${refund.id} · ${refund.passager}`,
+            detail: `Litige ouvert — ${detail}`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Levée d'un litige — réservée à l'administration, justification tracée. */
+  resolveRefundDispute: (id, resolution, auteur, role) =>
+    set((state) => {
+      const refund = state.refunds.find((r) => r.id === id);
+      if (!refund?.litige?.ouvert) return state;
+      const event: RefundEvent = {
+        id: `RVE-${refundEventSeq++}`,
+        date: "À l'instant",
+        type: "litige_resolu",
+        detail: `Litige résolu — « ${resolution} »`,
+        par: auteur,
+        role,
+      };
+      return {
+        refunds: state.refunds.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                litige: {
+                  ...r.litige,
+                  ouvert: false,
+                  resolution,
+                  resoluPar: auteur,
+                },
+                historique: [...r.historique, event],
+              }
+            : r
+        ),
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role: "Session en cours",
+            action: "Litige" as AuditAction,
+            objet: `${refund.id} · ${refund.passager}`,
+            detail: `Litige résolu — « ${resolution} »`,
           }),
           ...state.audit,
         ],
@@ -228,7 +458,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
       settings,
       audit: [
         makeAudit({
-          date: "À l’instant",
+          date: "À l'instant",
           auteur,
           role: "Session en cours",
           action: "Paramétrage",
