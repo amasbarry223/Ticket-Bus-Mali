@@ -1,0 +1,2002 @@
+     1→/* ============================================================
+     2→ *  TBM — Ticket Bus Mali · Back-office
+     3→ *  Données de démonstration (frontend only, aucun backend)
+     4→ *  Règle RG11 : montants en francs CFA, sans décimales.
+     5→ * ============================================================ */
+     6→
+     7→/* ------------------------- Formats ------------------------- */
+     8→
+     9→export function formatFcfa(n: number): string {
+    10→  return `${new Intl.NumberFormat("fr-FR").format(n)} FCFA`;
+    11→}
+    12→
+    13→export function formatNumber(n: number): string {
+    14→  return new Intl.NumberFormat("fr-FR").format(n);
+    15→}
+    16→
+    17→/* ------------------------- Rôles ---------------------------- */
+    18→
+    19→export type StaffRole = "admin" | "support";
+    20→
+    21→export interface StaffUser {
+    22→  name: string;
+    23→  email: string;
+    24→  role: StaffRole;
+    25→}
+    26→
+    27→export const ROLE_LABEL: Record<StaffRole, string> = {
+    28→  admin: "Administrateur TBM",
+    29→  support: "Support TBM",
+    30→};
+    31→
+    32→export const DEMO_ACCOUNTS: Record<
+    33→  StaffRole,
+    34→  { email: string; password: string; name: string }
+    35→> = {
+    36→  admin: {
+    37→    email: "admin@tbm.ml",
+    38→    password: "tbm2026",
+    39→    name: "Daouda FOMBA",
+    40→  },
+    41→  support: {
+    42→    email: "support@tbm.ml",
+    43→    password: "tbm2026",
+    44→    name: "Mody BARRY",
+    45→  },
+    46→};
+    47→
+    48→/* ------------------------ Compagnies (A01) ------------------ */
+    49→
+    50→export type CompanyStatus = "active" | "suspendue" | "attente";
+    51→
+    52→/** Paramètres de vente propres à chaque compagnie. */
+    53→export interface CompanySalesParams {
+    54→  venteEnLigne: boolean;
+    55→  venteGuichet: boolean;
+    56→  reservationJours: number; // délai max de réservation à l'avance
+    57→  annulationGratuite: number; // heures avant départ sans frais
+    58→}
+    59→
+    60→export interface Company {
+    61→  id: string;
+    62→  nom: string;
+    63→  contact: string; // e-mail
+    64→  telephone: string;
+    65→  adresse: string;
+    66→  ville: string;
+    67→  commission: number; // %
+    68→  ticketsMois: number;
+    69→  statut: CompanyStatus;
+    70→  params: CompanySalesParams;
+    71→}
+    72→
+    73→/** Initiales pour l'avatar-logo d'une compagnie (ex. "Bamako Express" → BE). */
+    74→export function companyInitials(nom: string): string {
+    75→  return (
+    76→    nom
+    77→      .split(/\s+/)
+    78→      .map((p) => p[0])
+    79→      .slice(0, 2)
+    80→      .join("")
+    81→      .toUpperCase() || "CP"
+    82→  );
+    83→}
+    84→
+    85→/** Palette de logos (tons chauds, cohérents avec la charte coral). */
+    86→export const COMPANY_LOGO_COLORS: Record<string, string> = {
+    87→  "CPG-001": "bg-coral-50 text-coral-600 ring-coral-200",
+    88→  "CPG-002": "bg-emerald-50 text-emerald-600 ring-emerald-200",
+    89→  "CPG-003": "bg-amber-50 text-amber-600 ring-amber-200",
+    90→  "CPG-004": "bg-violet-100 text-violet-600 ring-violet-200",
+    91→  "CPG-005": "bg-neutral-100 text-neutral-600 ring-neutral-200",
+    92→};
+    93→
+    94→export function companyLogoColor(id: string): string {
+    95→  return (
+    96→    COMPANY_LOGO_COLORS[id] ??
+    97→    "bg-coral-50 text-coral-600 ring-coral-200"
+    98→  );
+    99→}
+   100→
+   101→export const DEFAULT_SALES_PARAMS: CompanySalesParams = {
+   102→  venteEnLigne: true,
+   103→  venteGuichet: true,
+   104→  reservationJours: 30,
+   105→  annulationGratuite: 24,
+   106→};
+   107→
+   108→export const initialCompanies: Company[] = [
+   109→  {
+   110→    id: "CPG-001",
+   111→    nom: "Bamako Express",
+   112→    contact: "contact@bamakoexpress.ml",
+   113→    telephone: "+223 76 12 34 56",
+   114→    adresse: "Rue 224, Hamdallaye ACI 2000",
+   115→    ville: "Bamako",
+   116→    commission: 10,
+   117→    ticketsMois: 1284,
+   118→    statut: "active",
+   119→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 30, annulationGratuite: 24 },
+   120→  },
+   121→  {
+   122→    id: "CPG-002",
+   123→    nom: "Djoliba Transport",
+   124→    contact: "ventes@djoliba.ml",
+   125→    telephone: "+223 66 45 78 90",
+   126→    adresse: "Avenue de l'OUA, Badalabougou",
+   127→    ville: "Bamako",
+   128→    commission: 8,
+   129→    ticketsMois: 967,
+   130→    statut: "active",
+   131→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 21, annulationGratuite: 24 },
+   132→  },
+   133→  {
+   134→    id: "CPG-003",
+   135→    nom: "Sahel Bus",
+   136→    contact: "sahelbus@gmail.com",
+   137→    telephone: "+223 79 20 11 44",
+   138→    adresse: "Quai de Sébougou",
+   139→    ville: "Ségou",
+   140→    commission: 12,
+   141→    ticketsMois: 645,
+   142→    statut: "active",
+   143→    params: { venteEnLigne: true, venteGuichet: false, reservationJours: 14, annulationGratuite: 12 },
+   144→  },
+   145→  {
+   146→    id: "CPG-004",
+   147→    nom: "Sikasso Voyage",
+   148→    contact: "info@sikassovoyage.ml",
+   149→    telephone: "+223 74 88 32 10",
+   150→    adresse: "Gare de Wayerma, sortie nord",
+   151→    ville: "Sikasso",
+   152→    commission: 10,
+   153→    ticketsMois: 516,
+   154→    statut: "attente",
+   155→    params: { venteEnLigne: false, venteGuichet: true, reservationJours: 7, annulationGratuite: 24 },
+   156→  },
+   157→  {
+   158→    id: "CPG-005",
+   159→    nom: "Kayes Lines",
+   160→    contact: "klines@gmail.com",
+   161→    telephone: "+223 70 55 41 23",
+   162→    adresse: "Gare de Kayes N'Di",
+   163→    ville: "Kayes",
+   164→    commission: 11,
+   165→    ticketsMois: 0,
+   166→    statut: "suspendue",
+   167→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 30, annulationGratuite: 24 },
+   168→  },
+   169→];
+   170→
+   171→/* ------- Flotte, lignes, départs & historique compagnies ----- */
+   172→
+   173→export type BusStatus = "en_service" | "au_depot" | "maintenance";
+   174→
+   175→export interface Bus {
+   176→  id: string;
+   177→  compagnie: string; // Company id
+   178→  immatriculation: string;
+   179→  modele: string;
+   180→  places: number;
+   181→  chauffeur: string;
+   182→  statut: BusStatus;
+   183→}
+   184→
+   185→export const BUS_STATUS_META: Record<BusStatus, { label: string; className: string }> = {
+   186→  en_service: { label: "En service", className: "bg-emerald-50 text-emerald-600" },
+   187→  au_depot: { label: "Au dépôt", className: "bg-neutral-100 text-neutral-500" },
+   188→  maintenance: { label: "Maintenance", className: "bg-amber-50 text-amber-600" },
+   189→};
+   190→
+   191→export interface Line {
+   192→  id: string;
+   193→  compagnie: string;
+   194→  depart: string;
+   195→  arrivee: string;
+   196→  duree: string;
+   197→  distanceKm: number;
+   198→  arrets: string[]; // arrêts intermédiaires
+   199→  prix: number; // FCFA
+   200→  frequence: string;
+   201→}
+   202→
+   203→export type DepartureStatus =
+   204→  | "programme"
+   205→  | "embarquement"
+   206→  | "retarde"
+   207→  | "annule"
+   208→  | "termine";
+   209→
+   210→export interface Departure {
+   211→  id: string;
+   212→  compagnie: string;
+   213→  jour: string; // "Aujourd'hui", "Demain"…
+   214→  heure: string;
+   215→  trajet: string; // "Bamako → Ségou"
+   216→  bus: string; // immatriculation
+   217→  prix: number; // FCFA
+   218→  placesTotal: number;
+   219→  placesDispo: number;
+   220→  plateforme?: string;
+   221→  retardMinutes?: number; // si statut = "retarde"
+   222→  statut: DepartureStatus;
+   223→}
+   224→
+   225→export const DEPARTURE_STATUS_META: Record<
+   226→  DepartureStatus,
+   227→  { label: string; className: string }
+   228→> = {
+   229→  programme: { label: "Programmé", className: "bg-neutral-100 text-neutral-500" },
+   230→  embarquement: { label: "Embarquement", className: "bg-coral-50 text-coral-600" },
+   231→  retarde: { label: "Retardé", className: "bg-amber-50 text-amber-600" },
+   232→  annule: { label: "Annulé", className: "bg-rose-50 text-rose-600" },
+   233→  termine: { label: "Terminé", className: "bg-emerald-50 text-emerald-600" },
+   234→};
+   235→
+   236→export type DepartureModificationType =
+   237→  | "retard"
+   238→  | "annulation"
+   239→  | "changement_bus"
+   240→  | "plateforme"
+   241→  | "info";
+   242→
+   243→export interface DepartureModification {
+   244→  id: string;
+   245→  departId: string;
+   246→  date: string;
+   247→  type: DepartureModificationType;
+   248→  detail: string;
+   249→  auteur: string;
+   250→}
+   251→
+   252→export const DEPARTURE_MODIFICATION_META: Record<
+   253→  DepartureModificationType,
+   254→  { label: string; className: string }
+   255→> = {
+   256→  retard: { label: "Retard", className: "bg-amber-50 text-amber-600" },
+   257→  annulation: { label: "Annulation", className: "bg-rose-50 text-rose-600" },
+   258→  changement_bus: { label: "Changement de bus", className: "bg-violet-100 text-violet-600" },
+   259→  plateforme: { label: "Plateforme", className: "bg-sky-50 text-sky-600" },
+   260→  info: { label: "Information", className: "bg-neutral-100 text-neutral-500" },
+   261→};
+   262→
+   263→export const departureModifications: DepartureModification[] = [
+   264→  {
+   265→    id: "MOD-14",
+   266→    departId: "DEP-04",
+   267→    date: "Aujourd'hui 14:40",
+   268→    type: "retard",
+   269→    detail: "Départ décalé de 45 min — attente de correspondance depuis Fana.",
+   270→    auteur: "Bamako Express — dispatch",
+   271→  },
+   272→  {
+   273→    id: "MOD-13",
+   274→    departId: "DEP-04",
+   275→    date: "Aujourd'hui 12:10",
+   276→    type: "plateforme",
+   277→    detail: "Départ déplacé de la plateforme B à la plateforme C (gare de Sogoniko).",
+   278→    auteur: "Bamako Express — gare",
+   279→  },
+   280→  {
+   281→    id: "MOD-12",
+   282→    departId: "DEP-09",
+   283→    date: "Aujourd'hui 11:20",
+   284→    type: "annulation",
+   285→    detail: "Annulé — pluies torrentielles sur la RN6, tickets reportés sans frais.",
+   286→    auteur: "Sahel Bus — dispatch",
+   287→  },
+   288→  {
+   289→    id: "MOD-11",
+   290→    departId: "DEP-10",
+   291→    date: "Aujourd'hui 10:05",
+   292→    type: "changement_bus",
+   293→    detail: "Bus remplacé — SGO 2233 G (41 places) affecté au départ de demain 07:00.",
+   294→    auteur: "Sahel Bus — dépôt",
+   295→  },
+   296→  {
+   297→    id: "MOD-10",
+   298→    departId: "DEP-03",
+   299→    date: "Hier 16:45",
+   300→    type: "info",
+   301→    detail: "Bus Yutong remis en service après contrôle technique — départ confirmé.",
+   302→    auteur: "Bamako Express — atelier",
+   303→  },
+   304→  {
+   305→    id: "MOD-09",
+   306→    departId: "DEP-08",
+   307→    date: "Hier 09:30",
+   308→    type: "annulation",
+   309→    detail: "Compagnie suspendue — tous les départs sont annulés jusqu'à régularisation.",
+   310→    auteur: "TBM — administration",
+   311→  },
+   312→];
+   313→
+   314→export type CompanyEventType = "activite" | "incident";
+   315→
+   316→export interface CompanyEvent {
+   317→  id: string;
+   318→  compagnie: string;
+   319→  date: string;
+   320→  type: CompanyEventType;
+   321→  titre: string;
+   322→  detail: string;
+   323→}
+   324→
+   325→export const companyBuses: Bus[] = [
+   326→  { id: "BUS-01", compagnie: "CPG-001", immatriculation: "BKO 1204 A", modele: "Mercedes Sprinter", places: 20, chauffeur: "Moussa Keïta", statut: "en_service" },
+   327→  { id: "BUS-02", compagnie: "CPG-001", immatriculation: "BKO 2210 B", modele: "Toyota Coaster", places: 26, chauffeur: "Salif Diarra", statut: "en_service" },
+   328→  { id: "BUS-03", compagnie: "CPG-001", immatriculation: "BKO 3317 C", modele: "Yutong ZK6119", places: 41, chauffeur: "—", statut: "maintenance" },
+   329→  { id: "BUS-04", compagnie: "CPG-002", immatriculation: "BKO 4421 D", modele: "Toyota Hiace", places: 18, chauffeur: "Adama Touré", statut: "en_service" },
+   330→  { id: "BUS-05", compagnie: "CPG-002", immatriculation: "BKO 5512 E", modele: "Mercedes Sprinter", places: 20, chauffeur: "—", statut: "au_depot" },
+   331→  { id: "BUS-06", compagnie: "CPG-003", immatriculation: "SGO 1102 F", modele: "Toyota Coaster", places: 26, chauffeur: "Bakary Koné", statut: "en_service" },
+   332→  { id: "BUS-07", compagnie: "CPG-003", immatriculation: "SGO 2233 G", modele: "Yutong ZK6119", places: 41, chauffeur: "—", statut: "au_depot" },
+   333→  { id: "BUS-08", compagnie: "CPG-004", immatriculation: "SKO 1010 H", modele: "Toyota Hiace", places: 18, chauffeur: "Jean Diarra", statut: "en_service" },
+   334→  { id: "BUS-09", compagnie: "CPG-005", immatriculation: "KYS 2040 J", modele: "Mercedes Sprinter", places: 20, chauffeur: "—", statut: "maintenance" },
+   335→];
+   336→
+   337→export const companyLines: Line[] = [
+   338→  { id: "LIG-01", compagnie: "CPG-001", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+   339→  { id: "LIG-02", compagnie: "CPG-001", depart: "Bamako", arrivee: "Sikasso", duree: "5 h 30", distanceKm: 475, arrets: ["Bougouni", "Kolondiéba"], prix: 9000, frequence: "Quotidien" },
+   340→  { id: "LIG-03", compagnie: "CPG-001", depart: "Bamako", arrivee: "Kayes", duree: "9 h", distanceKm: 580, arrets: ["Kita", "Bafoulabé"], prix: 15000, frequence: "Quotidien" },
+   341→  { id: "LIG-04", compagnie: "CPG-002", depart: "Bamako", arrivee: "Mopti", duree: "7 h", distanceKm: 640, arrets: ["Ségou", "Bla", "San"], prix: 11000, frequence: "Lun · Mer · Ven" },
+   342→  { id: "LIG-05", compagnie: "CPG-002", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+   343→  { id: "LIG-06", compagnie: "CPG-003", depart: "Ségou", arrivee: "Bamako", duree: "3 h", distanceKm: 235, arrets: ["Ouélessébougou", "Kati"], prix: 5000, frequence: "Quotidien" },
+   344→  { id: "LIG-07", compagnie: "CPG-003", depart: "Ségou", arrivee: "Mopti", duree: "4 h 30", distanceKm: 405, arrets: ["Bla", "San"], prix: 8500, frequence: "Mar · Jeu · Sam" },
+   345→  { id: "LIG-08", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Bamako", duree: "5 h 30", distanceKm: 475, arrets: ["Kolondiéba", "Bougouni"], prix: 9000, frequence: "Quotidien" },
+   346→  { id: "LIG-09", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Koutiala", duree: "2 h 30", distanceKm: 135, arrets: ["Zangasso"], prix: 4500, frequence: "Quotidien" },
+   347→  { id: "LIG-10", compagnie: "CPG-005", depart: "Kayes", arrivee: "Bamako", duree: "10 h", distanceKm: 580, arrets: ["Bafoulabé", "Kita"], prix: 16000, frequence: "Quotidien" },
+   348→];
+   349→
+   350→export const companyDepartures: Departure[] = [
+   351→  { id: "DEP-01", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "07:30", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 5, plateforme: "A", statut: "embarquement" },
+   352→  { id: "DEP-02", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "13:00", trajet: "Bamako → Sikasso", bus: "BKO 2210 B", prix: 9000, placesTotal: 26, placesDispo: 12, plateforme: "C", statut: "programme" },
+   353→  { id: "DEP-03", compagnie: "CPG-001", jour: "Demain", heure: "06:30", trajet: "Bamako → Kayes", bus: "BKO 3317 C", prix: 15000, placesTotal: 41, placesDispo: 41, plateforme: "D", statut: "programme" },
+   354→  { id: "DEP-04", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "16:00", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 8, plateforme: "A", retardMinutes: 45, statut: "retarde" },
+   355→  { id: "DEP-05", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "06:00", trajet: "Bamako → Mopti", bus: "BKO 4421 D", prix: 11000, placesTotal: 18, placesDispo: 3, plateforme: "B", statut: "programme" },
+   356→  { id: "DEP-06", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "08:30", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 4, plateforme: "B", statut: "termine" },
+   357→  { id: "DEP-07", compagnie: "CPG-002", jour: "Demain", heure: "07:00", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 20, plateforme: "B", statut: "programme" },
+   358→  { id: "DEP-08", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 1102 F", prix: 5000, placesTotal: 26, placesDispo: 8, statut: "embarquement" },
+   359→  { id: "DEP-09", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "14:00", trajet: "Ségou → Mopti", bus: "SGO 2233 G", prix: 8500, placesTotal: 41, placesDispo: 41, statut: "annule" },
+   360→  { id: "DEP-10", compagnie: "CPG-003", jour: "Demain", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 2233 G", prix: 5000, placesTotal: 41, placesDispo: 10, statut: "programme" },
+   361→  { id: "DEP-11", compagnie: "CPG-004", jour: "Demain", heure: "05:30", trajet: "Sikasso → Bamako", bus: "SKO 1010 H", prix: 9000, placesTotal: 18, placesDispo: 11, statut: "programme" },
+   362→  { id: "DEP-12", compagnie: "CPG-004", jour: "Demain", heure: "08:00", trajet: "Sikasso → Koutiala", bus: "SKO 1010 H", prix: 4500, placesTotal: 18, placesDispo: 14, statut: "programme" },
+   363→  { id: "DEP-13", compagnie: "CPG-005", jour: "Aujourd'hui", heure: "06:00", trajet: "Kayes → Bamako", bus: "KYS 2040 J", prix: 16000, placesTotal: 20, placesDispo: 20, statut: "annule" },
+   364→];
+   365→
+   366→export const companyEvents: CompanyEvent[] = [
+   367→  { id: "EVT-31", compagnie: "CPG-001", date: "06/10 07:45", type: "activite", titre: "Vente en ligne rétablie", detail: "Réception des paiements Orange Money confirmée après l'incident de la veille." },
+   368→  { id: "EVT-30", compagnie: "CPG-001", date: "05/10 15:20", type: "activite", titre: "Nouveau bus livré — BKO 3317 C", detail: "Yutong 41 places ajouté à la flotte ; mise en service après contrôle technique." },
+   369→  { id: "EVT-29", compagnie: "CPG-001", date: "02/10 09:10", type: "incident", titre: "Retard de 45 min — Bamako → Ségou", detail: "Panne de climatisation sur BKO 1204 A, voyageurs transférés sur le départ suivant." },
+   370→  { id: "EVT-28", compagnie: "CPG-001", date: "28/09 11:00", type: "activite", titre: "Commission ajustée à 10 %", detail: "Passage de 9 % à 10 % suite à l'accord commercial du 28/09." },
+   371→  { id: "EVT-27", compagnie: "CPG-002", date: "05/10 08:30", type: "activite", titre: "Paiement Orange Money activé", detail: "Second opérateur mobile ajouté aux paramètres de vente." },
+   372→  { id: "EVT-26", compagnie: "CPG-002", date: "01/10 17:40", type: "incident", titre: "Retard de 1 h — Bamako → Mopti", detail: "Embouteillage exceptionnel au pont Fahd, départ décalé de 60 minutes." },
+   373→  { id: "EVT-25", compagnie: "CPG-003", date: "03/10 10:15", type: "activite", titre: "Guichet de Sébougou rouvert", detail: "Point de vente physique de nouveau opérationnel après travaux." },
+   374→  { id: "EVT-24", compagnie: "CPG-003", date: "30/09 16:50", type: "incident", titre: "Départ 16:30 annulé — Ségou → Mopti", detail: "Pluies torrentielles sur la RN6, 12 tickets reportés sans frais." },
+   375→  { id: "EVT-23", compagnie: "CPG-004", date: "02/10 14:00", type: "activite", titre: "Dossier de validation complété", detail: "RCCM, agrément de transport et coordonnées bancaires transmis." },
+   376→  { id: "EVT-22", compagnie: "CPG-005", date: "04/10 09:15", type: "incident", titre: "Suspension de la compagnie", detail: "Documents de reversal manquants — ventes en ligne et guichet bloquées." },
+   377→  { id: "EVT-21", compagnie: "CPG-005", date: "25/09 11:30", type: "activite", titre: "Audit administratif planifié", detail: "Contrôle sur site programmé au dépôt de Kayes N'Di." },
+   378→];
+   379→
+   380→export const COMPANY_STATUS_META: Record<
+   381→  CompanyStatus,
+   382→  { label: string; className: string }
+   383→> = {
+   384→  active: { label: "Active", className: "bg-emerald-50 text-emerald-600" },
+   385→  suspendue: { label: "Suspendue", className: "bg-rose-50 text-rose-600" },
+   386→  attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   387→};
+   388→
+   389→
+   390→
+   391→/* ----------------------- Transactions (A02) ----------------- */
+   392→
+   393→export type PaymentStatus =
+   394→  | "reussi"
+   395→  | "en_attente"
+   396→  | "echoue"
+   397→  | "expire"
+   398→  | "rembourse";
+   399→
+   400→export type Operator = "Orange Money" | "Moov Money";
+   401→
+   402→/** Étapes de la chaîne critique : un billet n'est émis qu'après confirmation serveur. */
+   403→export type PaymentEventKind =
+   404→  | "initiation"
+   405→  | "requete_operateur"
+   406→  | "debit"
+   407→  | "confirmation"
+   408→  | "emission"
+   409→  | "echec"
+   410→  | "expiration"
+   411→  | "remboursement"
+   412→  | "anomalie";
+   413→
+   414→export interface PaymentEvent {
+   415→  id: string;
+   416→  date: string;
+   417→  type: PaymentEventKind;
+   418→  detail: string;
+   419→  source: string; // « Opérateur », « Serveur TBM », « Compagnie », « Back-office »…
+   420→}
+   421→
+   422→export type AnomalieStatus = "detectee" | "resolue";
+   423→
+   424→export interface Transaction {
+   425→  id: string; // référence plateforme TXN-xxxxx
+   426→  refOperateur: string; // retour fiable de l'opérateur (reçu client)
+   427→  refReservation: string | null; // RES-xxxx — null si jamais finalisée (anomalie)
+   428→  date: string; // « Aujourd'hui 06:15 »
+   429→  jour: string; // « Aujourd'hui » · « Hier » · « 04/10 » (clé de rapprochement)
+   430→  compagnie: string;
+   431→  telephone: string; // numéro débité
+   432→  operateur: Operator; // moyen de paiement : Orange Money / Moov Money
+   433→  montant: number; // FCFA (TTC, frais de service inclus)
+   434→  statut: PaymentStatus;
+   435→  billetsEmis: number; // billets émis APRÈS confirmation serveur
+   436→  releve: boolean; // figure au relevé de l'opérateur du jour
+   437→  timeline: PaymentEvent[];
+   438→  anomalie?: {
+   439→    statut: AnomalieStatus;
+   440→    detail: string;
+   441→    resolution?: string;
+   442→    resoluPar?: string;
+   443→  };
+   444→}
+   445→
+   446→export const PAYMENT_STATUS_META: Record<
+   447→  PaymentStatus,
+   448→  { label: string; className: string }
+   449→> = {
+   450→  reussi: { label: "Réussi", className: "bg-emerald-50 text-emerald-600" },
+   451→  en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   452→  echoue: { label: "Échoué", className: "bg-rose-50 text-rose-600" },
+   453→  expire: { label: "Expiré", className: "bg-neutral-100 text-neutral-500" },
+   454→  rembourse: { label: "Remboursé", className: "bg-violet-100 text-violet-600" },
+   455→};
+   456→
+   457→export const PAYMENT_EVENT_META: Record<
+   458→  PaymentEventKind,
+   459→  { label: string; className: string }
+   460→> = {
+   461→  initiation: { label: "Demande initiée", className: "bg-neutral-100 text-neutral-500" },
+   462→  requete_operateur: { label: "Requête opérateur", className: "bg-amber-50 text-amber-600" },
+   463→  debit: { label: "Débit client", className: "bg-sky-50 text-sky-600" },
+   464→  confirmation: { label: "Confirmation serveur", className: "bg-emerald-50 text-emerald-600" },
+   465→  emission: { label: "Émission des billets", className: "bg-coral-50 text-coral-600" },
+   466→  echec: { label: "Échec", className: "bg-rose-50 text-rose-600" },
+   467→  expiration: { label: "Expiration", className: "bg-neutral-100 text-neutral-500" },
+   468→  remboursement: { label: "Remboursement", className: "bg-violet-100 text-violet-600" },
+   469→  anomalie: { label: "Anomalie", className: "bg-rose-100 text-rose-700" },
+   470→};
+   471→
+   472→export const OPERATORS: Operator[] = ["Orange Money", "Moov Money"];
+   473→
+   474→/** Écarts détectés entre la plateforme et le relevé d'un opérateur. */
+   475→export type ReconciliationEcartType =
+   476→  | "sans_billet" // débité sans ticket reçu
+   477→  | "absent_plateforme" // dans le relevé, absent de la plateforme
+   478→  | "absent_releve" // sur la plateforme, absent du relevé
+   479→  | "montant"; // montants différents
+   480→
+   481→export interface ReconciliationEcart {
+   482→  ref: string;
+   483→  type: ReconciliationEcartType;
+   484→  detail: string;
+   485→}
+   486→
+   487→export const RECONCILIATION_ECART_META: Record<
+   488→  ReconciliationEcartType,
+   489→  { label: string; className: string }
+   490→> = {
+   491→  sans_billet: { label: "Débité sans billet", className: "bg-rose-50 text-rose-600" },
+   492→  absent_plateforme: { label: "Absent plateforme", className: "bg-amber-50 text-amber-600" },
+   493→  absent_releve: { label: "Absent du relevé", className: "bg-amber-50 text-amber-600" },
+   494→  montant: { label: "Montant divergent", className: "bg-amber-50 text-amber-600" },
+   495→};
+   496→
+   497→/** Relevé quotidien fourni par l'opérateur (côté opérateur du rapprochement). */
+   498→export interface OperatorStatement {
+   499→  jour: string; // « Hier » · « 04/10 »…
+   500→  operateur: Operator;
+   501→  nbReleve: number;
+   502→  montantReleve: number;
+   503→  ecarts: ReconciliationEcart[];
+   504→  recu: string; // heure de réception du relevé
+   505→}
+   506→
+   507→/**
+   508→ * Relevés opérateurs (démo) — le côté plateforme est recalculé en direct
+   509→ * depuis les transactions (statuts réussi / remboursé).
+   510→ */
+   511→export const operatorStatements: OperatorStatement[] = [
+   512→  {
+   513→    jour: "Aujourd'hui",
+   514→    operateur: "Orange Money",
+   515→    nbReleve: 2,
+   516→    montantReleve: 28000,
+   517→    ecarts: [],
+   518→    recu: "Aujourd'hui 06:00 (provisoire)",
+   519→  },
+   520→  {
+   521→    jour: "Hier",
+   522→    operateur: "Orange Money",
+   523→    nbReleve: 3,
+   524→    montantReleve: 41000,
+   525→    ecarts: [],
+   526→    recu: "Aujourd'hui 05:30",
+   527→  },
+   528→  {
+   529→    jour: "Hier",
+   530→    operateur: "Moov Money",
+   531→    nbReleve: 2,
+   532→    montantReleve: 21750,
+   533→    ecarts: [
+   534→      {
+   535→        ref: "MM-2505-117988",
+   536→        type: "sans_billet",
+   537→        detail:
+   538→          "Débit de 12 500 FCFA confirmé par l'opérateur mais aucun billet émis (TXN-10244) — demande de remboursement RMB-030 ouverte.",
+   539→      },
+   540→    ],
+   541→    recu: "Aujourd'hui 05:30",
+   542→  },
+   543→  {
+   544→    jour: "04/10",
+   545→    operateur: "Orange Money",
+   546→    nbReleve: 1,
+   547→    montantReleve: 17500,
+   548→    ecarts: [],
+   549→    recu: "05/10 05:30",
+   550→  },
+   551→  {
+   552→    jour: "04/10",
+   553→    operateur: "Moov Money",
+   554→    nbReleve: 0,
+   555→    montantReleve: 0,
+   556→    ecarts: [],
+   557→    recu: "05/10 05:30",
+   558→  },
+   559→  {
+   560→    jour: "03/10",
+   561→    operateur: "Orange Money",
+   562→    nbReleve: 0,
+   563→    montantReleve: 0,
+   564→    ecarts: [],
+   565→    recu: "04/10 05:30",
+   566→  },
+   567→  {
+   568→    jour: "02/10",
+   569→    operateur: "Orange Money",
+   570→    nbReleve: 1,
+   571→    montantReleve: 7500,
+   572→    ecarts: [],
+   573→    recu: "03/10 05:30",
+   574→  },
+   575→];
+   576→
+   577→export const transactions: Transaction[] = [
+   578→  {
+   579→    id: "TXN-10252",
+   580→    refOperateur: "OM-2506-448120",
+   581→    refReservation: "RES-2041",
+   582→    date: "Aujourd'hui 06:15",
+   583→    jour: "Aujourd'hui",
+   584→    compagnie: "Bamako Express",
+   585→    telephone: "+223 76 42 18 05",
+   586→    operateur: "Orange Money",
+   587→    montant: 10500,
+   588→    statut: "reussi",
+   589→    billetsEmis: 2,
+   590→    releve: true,
+   591→    timeline: [
+   592→      { id: "PEV-901", date: "Aujourd'hui 06:15", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+   593→      { id: "PEV-900", date: "Aujourd'hui 06:15", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 10 500 FCFA confirmé (OM-2506-448120).", source: "Opérateur" },
+   594→      { id: "PEV-899", date: "Aujourd'hui 06:14", type: "debit", detail: "Le client valide le paiement sur son téléphone (USSD Orange Money).", source: "Opérateur" },
+   595→      { id: "PEV-898", date: "Aujourd'hui 06:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — 10 500 FCFA.", source: "Serveur TBM" },
+   596→      { id: "PEV-897", date: "Aujourd'hui 06:15", type: "initiation", detail: "Réservation RES-2041 créée — 2 places bloquées pendant 10 min (RG1).", source: "Serveur TBM" },
+   597→    ],
+   598→  },
+   599→  {
+   600→    id: "TXN-10251",
+   601→    refOperateur: "MM-2506-118047",
+   602→    refReservation: "RES-2043",
+   603→    date: "Aujourd'hui 09:58",
+   604→    jour: "Aujourd'hui",
+   605→    compagnie: "Bamako Express",
+   606→    telephone: "+223 91 26 03 47",
+   607→    operateur: "Moov Money",
+   608→    montant: 9000,
+   609→    statut: "en_attente",
+   610→    billetsEmis: 0,
+   611→    releve: false,
+   612→    timeline: [
+   613→      { id: "PEV-905", date: "Aujourd'hui 09:59", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money — en attente de confirmation USSD du client.", source: "Serveur TBM" },
+   614→      { id: "PEV-904", date: "Aujourd'hui 09:58", type: "initiation", detail: "Réservation RES-2043 créée — 1 place bloquée pendant 10 min (RG1). Aucun billet émis.", source: "Serveur TBM" },
+   615→    ],
+   616→  },
+   617→  {
+   618→    id: "TXN-10250",
+   619→    refOperateur: "MM-2506-118061",
+   620→    refReservation: "RES-2051",
+   621→    date: "Aujourd'hui 10:22",
+   622→    jour: "Aujourd'hui",
+   623→    compagnie: "Sikasso Voyage",
+   624→    telephone: "+223 89 04 47 31",
+   625→    operateur: "Moov Money",
+   626→    montant: 9000,
+   627→    statut: "en_attente",
+   628→    billetsEmis: 0,
+   629→    releve: false,
+   630→    timeline: [
+   631→      { id: "PEV-907", date: "Aujourd'hui 10:23", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money — en attente de confirmation USSD du client.", source: "Serveur TBM" },
+   632→      { id: "PEV-906", date: "Aujourd'hui 10:22", type: "initiation", detail: "Réservation RES-2051 créée — 2 places bloquées pendant 10 min (RG1). Aucun billet émis.", source: "Serveur TBM" },
+   633→    ],
+   634→  },
+   635→  {
+   636→    id: "TXN-10249",
+   637→    refOperateur: "OM-2506-448077",
+   638→    refReservation: "RES-2055",
+   639→    date: "Aujourd'hui 10:31",
+   640→    jour: "Aujourd'hui",
+   641→    compagnie: "Bamako Express",
+   642→    telephone: "+223 95 40 28 17",
+   643→    operateur: "Orange Money",
+   644→    montant: 15000,
+   645→    statut: "expire",
+   646→    billetsEmis: 0,
+   647→    releve: false,
+   648→    timeline: [
+   649→      { id: "PEV-911", date: "Aujourd'hui 10:41", type: "expiration", detail: "Délai de 10 min dépassé (RG1) — 3 places libérées, aucun débit constaté.", source: "Serveur TBM" },
+   650→      { id: "PEV-910", date: "Aujourd'hui 10:31", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — jamais finalisée par le client.", source: "Serveur TBM" },
+   651→      { id: "PEV-909", date: "Aujourd'hui 10:31", type: "initiation", detail: "Réservation RES-2055 créée — 3 places bloquées pendant 10 min (RG1).", source: "Serveur TBM" },
+   652→    ],
+   653→  },
+   654→  {
+   655→    id: "TXN-10248",
+   656→    refOperateur: "OM-2506-448045",
+   657→    refReservation: "RES-2044",
+   658→    date: "Aujourd'hui 11:20",
+   659→    jour: "Aujourd'hui",
+   660→    compagnie: "Sahel Bus",
+   661→    telephone: "+223 78 30 44 92",
+   662→    operateur: "Orange Money",
+   663→    montant: 17500,
+   664→    statut: "rembourse",
+   665→    billetsEmis: 2,
+   666→    releve: true,
+   667→    timeline: [
+   668→      { id: "PEV-915", date: "Aujourd'hui 11:20", type: "remboursement", detail: "Remboursement automatique de 17 500 FCFA ordonné vers OM-2506-448045 (départ annulé).", source: "Serveur TBM" },
+   669→      { id: "PEV-914", date: "Aujourd'hui 11:20", type: "anomalie", detail: "Départ Bamako → Mopti annulé par la compagnie — 2 billets annulés.", source: "Compagnie" },
+   670→      { id: "PEV-913", date: "04/10 19:22", type: "emission", detail: "2 billets émis après confirmation serveur (voir TXN-10242, débit initial).", source: "Serveur TBM" },
+   671→    ],
+   672→  },
+   673→  {
+   674→    id: "TXN-10247",
+   675→    refOperateur: "MM-2505-117951",
+   676→    refReservation: "RES-2049",
+   677→    date: "Hier 08:12",
+   678→    jour: "Hier",
+   679→    compagnie: "Kayes Lines",
+   680→    telephone: "+223 92 55 10 76",
+   681→    operateur: "Moov Money",
+   682→    montant: 9250,
+   683→    statut: "reussi",
+   684→    billetsEmis: 1,
+   685→    releve: true,
+   686→    timeline: [
+   687→      { id: "PEV-921", date: "Hier 08:12", type: "emission", detail: "1 billet émis et envoyé par SMS après confirmation serveur.", source: "Serveur TBM" },
+   688→      { id: "PEV-920", date: "Hier 08:12", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 9 250 FCFA confirmé (MM-2505-117951).", source: "Opérateur" },
+   689→      { id: "PEV-919", date: "Hier 08:11", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+   690→      { id: "PEV-918", date: "Hier 08:12", type: "initiation", detail: "Réservation RES-2049 créée — 1 place bloquée (RG1).", source: "Serveur TBM" },
+   691→    ],
+   692→  },
+   693→  {
+   694→    id: "TXN-10246",
+   695→    refOperateur: "OM-2505-447602",
+   696→    refReservation: "RES-2045",
+   697→    date: "Hier 15:41",
+   698→    jour: "Hier",
+   699→    compagnie: "Bamako Express",
+   700→    telephone: "+223 76 88 51 14",
+   701→    operateur: "Orange Money",
+   702→    montant: 22500,
+   703→    statut: "reussi",
+   704→    billetsEmis: 2,
+   705→    releve: true,
+   706→    timeline: [
+   707→      { id: "PEV-925", date: "Hier 15:41", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+   708→      { id: "PEV-924", date: "Hier 15:41", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 22 500 FCFA confirmé (OM-2505-447602).", source: "Opérateur" },
+   709→      { id: "PEV-923", date: "Hier 15:40", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+   710→      { id: "PEV-922", date: "Hier 15:41", type: "initiation", detail: "Réservation RES-2045 créée — 2 places bloquées (RG1).", source: "Serveur TBM" },
+   711→    ],
+   712→  },
+   713→  {
+   714→    id: "TXN-10245",
+   715→    refOperateur: "OM-2505-447633",
+   716→    refReservation: "RES-2042",
+   717→    date: "Hier 18:02",
+   718→    jour: "Hier",
+   719→    compagnie: "Bamako Express",
+   720→    telephone: "+223 66 05 77 21",
+   721→    operateur: "Orange Money",
+   722→    montant: 13250,
+   723→    statut: "reussi",
+   724→    billetsEmis: 3,
+   725→    releve: true,
+   726→    timeline: [
+   727→      { id: "PEV-929", date: "Hier 18:02", type: "emission", detail: "3 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+   728→      { id: "PEV-928", date: "Hier 18:02", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 13 250 FCFA confirmé (OM-2505-447633).", source: "Opérateur" },
+   729→      { id: "PEV-927", date: "Hier 18:01", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+   730→      { id: "PEV-926", date: "Hier 18:02", type: "initiation", detail: "Réservation RES-2042 créée — 3 places bloquées (RG1).", source: "Serveur TBM" },
+   731→    ],
+   732→  },
+   733→  {
+   734→    id: "TXN-10244",
+   735→    refOperateur: "MM-2505-117988",
+   736→    refReservation: null,
+   737→    date: "Hier 18:22",
+   738→    jour: "Hier",
+   739→    compagnie: "Sikasso Voyage",
+   740→    telephone: "+223 76 22 41 09",
+   741→    operateur: "Moov Money",
+   742→    montant: 12500,
+   743→    statut: "reussi",
+   744→    billetsEmis: 0,
+   745→    releve: true,
+   746→    anomalie: {
+   747→      statut: "detectee",
+   748→      detail:
+   749→        "Débit confirmé par Moov Money après expiration des places (RG1) — aucun billet émis. Détecté par le rapprochement du relevé du 05/10.",
+   750→    },
+   751→    timeline: [
+   752→      { id: "PEV-935", date: "Aujourd'hui 05:30", type: "anomalie", detail: "Anomalie détectée au rapprochement : débit présent au relevé Moov Money, aucune émission côté TBM.", source: "Serveur TBM" },
+   753→      { id: "PEV-934", date: "Hier 18:24", type: "confirmation", detail: "Retour opérateur reçu APRÈS libération des places — le débit de 12 500 FCFA est pourtant confirmé (MM-2505-117988).", source: "Opérateur" },
+   754→      { id: "PEV-933", date: "Hier 18:23", type: "expiration", detail: "Places libérées après 10 min (RG1) — le retour de l'opérateur n'était pas encore arrivé.", source: "Serveur TBM" },
+   755→      { id: "PEV-932", date: "Hier 18:22", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+   756→      { id: "PEV-931", date: "Hier 18:22", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM (2 places, Bamako → Sikasso).", source: "Serveur TBM" },
+   757→    ],
+   758→  },
+   759→  {
+   760→    id: "TXN-10243",
+   761→    refOperateur: "OM-2505-447318",
+   762→    refReservation: "RES-2052",
+   763→    date: "Hier 20:15",
+   764→    jour: "Hier",
+   765→    compagnie: "Sahel Bus",
+   766→    telephone: "+223 77 23 84 66",
+   767→    operateur: "Orange Money",
+   768→    montant: 5250,
+   769→    statut: "reussi",
+   770→    billetsEmis: 1,
+   771→    releve: true,
+   772→    timeline: [
+   773→      { id: "PEV-939", date: "Hier 20:15", type: "emission", detail: "1 billet émis et envoyé par SMS après confirmation serveur.", source: "Serveur TBM" },
+   774→      { id: "PEV-938", date: "Hier 20:15", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 5 250 FCFA confirmé (OM-2505-447318).", source: "Opérateur" },
+   775→      { id: "PEV-937", date: "Hier 20:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+   776→      { id: "PEV-936", date: "Hier 20:15", type: "initiation", detail: "Réservation RES-2052 créée — 1 place bloquée (RG1).", source: "Serveur TBM" },
+   777→    ],
+   778→  },
+   779→  {
+   780→    id: "TXN-10242",
+   781→    refOperateur: "MM-2504-117604",
+   782→    refReservation: null,
+   783→    date: "04/10 12:47",
+   784→    jour: "04/10",
+   785→    compagnie: "Sahel Bus",
+   786→    telephone: "+223 70 55 12 30",
+   787→    operateur: "Moov Money",
+   788→    montant: 9000,
+   789→    statut: "echoue",
+   790→    billetsEmis: 0,
+   791→    releve: false,
+   792→    timeline: [
+   793→      { id: "PEV-943", date: "04/10 12:47", type: "echec", detail: "Débit refusé par l'opérateur — solde insuffisant. Aucun montant prélevé, aucun billet émis.", source: "Opérateur" },
+   794→      { id: "PEV-942", date: "04/10 12:46", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+   795→      { id: "PEV-941", date: "04/10 12:46", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM.", source: "Serveur TBM" },
+   796→    ],
+   797→  },
+   798→  {
+   799→    id: "TXN-10241",
+   800→    refOperateur: "OM-2504-447214",
+   801→    refReservation: "RES-2044",
+   802→    date: "04/10 19:22",
+   803→    jour: "04/10",
+   804→    compagnie: "Sahel Bus",
+   805→    telephone: "+223 78 30 44 92",
+   806→    operateur: "Orange Money",
+   807→    montant: 17500,
+   808→    statut: "reussi",
+   809→    billetsEmis: 2,
+   810→    releve: true,
+   811→    timeline: [
+   812→      { id: "PEV-947", date: "Aujourd'hui 11:20", type: "remboursement", detail: "Paiement remboursé intégralement suite à l'annulation du départ (voir TXN-10248).", source: "Serveur TBM" },
+   813→      { id: "PEV-946", date: "04/10 19:22", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+   814→      { id: "PEV-945", date: "04/10 19:22", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 17 500 FCFA confirmé (OM-2504-447214).", source: "Opérateur" },
+   815→      { id: "PEV-944", date: "04/10 19:21", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+   816→    ],
+   817→  },
+   818→  {
+   819→    id: "TXN-10240",
+   820→    refOperateur: "OM-2503-446908",
+   821→    refReservation: null,
+   822→    date: "03/10 09:14",
+   823→    jour: "03/10",
+   824→    compagnie: "Bamako Express",
+   825→    telephone: "+223 65 08 77 12",
+   826→    operateur: "Orange Money",
+   827→    montant: 22500,
+   828→    statut: "expire",
+   829→    billetsEmis: 0,
+   830→    releve: false,
+   831→    timeline: [
+   832→      { id: "PEV-951", date: "03/10 09:24", type: "expiration", detail: "Délai de 10 min dépassé (RG1) — places libérées, aucun débit constaté au relevé.", source: "Serveur TBM" },
+   833→      { id: "PEV-950", date: "03/10 09:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — jamais finalisée.", source: "Serveur TBM" },
+   834→      { id: "PEV-949", date: "03/10 09:14", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM (2 places, Bamako → Ségou).", source: "Serveur TBM" },
+   835→    ],
+   836→  },
+   837→  {
+   838→    id: "TXN-10239",
+   839→    refOperateur: "MM-2502-117355",
+   840→    refReservation: null,
+   841→    date: "02/10 14:03",
+   842→    jour: "02/10",
+   843→    compagnie: "Djoliba Transport",
+   844→    telephone: "+223 91 44 20 85",
+   845→    operateur: "Moov Money",
+   846→    montant: 5250,
+   847→    statut: "echoue",
+   848→    billetsEmis: 0,
+   849→    releve: false,
+   850→    timeline: [
+   851→      { id: "PEV-955", date: "02/10 14:03", type: "echec", detail: "Débit refusé par l'opérateur — authentification USSD abandonnée par le client.", source: "Opérateur" },
+   852→      { id: "PEV-954", date: "02/10 14:02", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+   853→      { id: "PEV-953", date: "02/10 14:02", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM.", source: "Serveur TBM" },
+   854→    ],
+   855→  },
+   856→  {
+   857→    id: "TXN-10238",
+   858→    refOperateur: "OM-2502-446231",
+   859→    refReservation: null,
+   860→    date: "02/10 09:12",
+   861→    jour: "02/10",
+   862→    compagnie: "Djoliba Transport",
+   863→    telephone: "+223 66 12 90 04",
+   864→    operateur: "Orange Money",
+   865→    montant: 7500,
+   866→    statut: "rembourse",
+   867→    billetsEmis: 1,
+   868→    releve: true,
+   869→    timeline: [
+   870→      { id: "PEV-959", date: "04/10 11:20", type: "remboursement", detail: "Remboursement de 7 500 FCFA validé (RMB-029) — annulation voyageur plus de 24 h avant le départ (RG5).", source: "Back-office" },
+   871→      { id: "PEV-958", date: "02/10 09:12", type: "emission", detail: "1 billet émis après confirmation serveur, puis annulé à la demande du voyageur.", source: "Serveur TBM" },
+   872→      { id: "PEV-957", date: "02/10 09:12", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 7 500 FCFA confirmé (OM-2502-446231).", source: "Opérateur" },
+   873→      { id: "PEV-956", date: "02/10 09:11", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+   874→    ],
+   875→  },
+   876→];
+   877→
+   878→/* --------------- Remboursements & litiges (A03) ------------- */
+   879→
+   880→/** Motif de la demande (spéc MVP : annulation, double paiement, départ annulé, incident). */
+   881→export type RefundReason =
+   882→  | "annulation"
+   883→  | "double_paiement"
+   884→  | "depart_annule"
+   885→  | "incident";
+   886→
+   887→export const REFUND_REASON_META: Record<
+   888→  RefundReason,
+   889→  { label: string; className: string; description: string }
+   890→> = {
+   891→  annulation: {
+   892→    label: "Annulation voyageur",
+   893→    className: "bg-sky-50 text-sky-600",
+   894→    description:
+   895→      "Annulation à l'initiative du voyageur — paliers de remboursement RG5 appliqués.",
+   896→  },
+   897→  double_paiement: {
+   898→    label: "Double paiement",
+   899→    className: "bg-violet-100 text-violet-600",
+   900→    description:
+   901→      "Le compte a été débité plusieurs fois pour une même réservation.",
+   902→  },
+   903→  depart_annule: {
+   904→    label: "Départ annulé",
+   905→    className: "bg-amber-50 text-amber-600",
+   906→    description:
+   907→      "Départ annulé par la compagnie — remboursement intégral du voyageur.",
+   908→  },
+   909→  incident: {
+   910→    label: "Incident",
+   911→    className: "bg-rose-50 text-rose-600",
+   912→    description:
+   913→      "Incident signalé : débit sans billet reçu, panne, problème opérationnel…",
+   914→  },
+   915→};
+   916→
+   917→/** Cycle de vie d'un dossier : en attente → validé → remboursé (ou refusé). */
+   918→export type RefundStatus = "en_attente" | "approuve" | "rembourse" | "refuse";
+   919→
+   920→export const REFUND_STATUS_META: Record<
+   921→  RefundStatus,
+   922→  { label: string; className: string }
+   923→> = {
+   924→  en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   925→  approuve: { label: "Validé", className: "bg-sky-50 text-sky-600" },
+   926→  rembourse: { label: "Remboursé", className: "bg-emerald-50 text-emerald-600" },
+   927→  refuse: { label: "Refusé", className: "bg-rose-50 text-rose-600" },
+   928→};
+   929→
+   930→/**
+   931→ * Droits spécifiques : un agent Support peut décider et exécuter un
+   932→ * remboursement jusqu'à ce seuil ; au-delà, la validation administrateur
+   933→ * est obligatoire. La levée des litiges est réservée à l'administration.
+   934→ */
+   935→export const REFUND_SUPPORT_LIMIT = 15000; // FCFA
+   936→
+   937→/** Tranche de remboursement effectivement exécutée vers l'opérateur. */
+   938→export interface RefundVersement {
+   939→  id: string;
+   940→  date: string;
+   941→  montant: number;
+   942→  refOperateur: string; // référence du versement chez l'opérateur
+   943→  par: string; // agent back-office qui a enregistré le versement
+   944→}
+   945→
+   946→/** Événement de traçabilité d'un dossier (chaque action est signée). */
+   947→export type RefundEventKind =
+   948→  | "demande"
+   949→  | "prise_en_charge"
+   950→  | "decision"
+   951→  | "versement"
+   952→  | "litige_ouvert"
+   953→  | "litige_resolu";
+   954→
+   955→export const REFUND_EVENT_META: Record<
+   956→  RefundEventKind,
+   957→  { label: string; className: string }
+   958→> = {
+   959→  demande: { label: "Demande reçue", className: "bg-neutral-100 text-neutral-500" },
+   960→  prise_en_charge: { label: "Prise en charge", className: "bg-sky-50 text-sky-600" },
+   961→  decision: { label: "Décision", className: "bg-coral-50 text-coral-600" },
+   962→  versement: { label: "Versement opérateur", className: "bg-emerald-50 text-emerald-600" },
+   963→  litige_ouvert: { label: "Litige ouvert", className: "bg-rose-50 text-rose-600" },
+   964→  litige_resolu: { label: "Litige résolu", className: "bg-emerald-50 text-emerald-600" },
+   965→};
+   966→
+   967→export interface RefundEvent {
+   968→  id: string;
+   969→  date: string;
+   970→  type: RefundEventKind;
+   971→  detail: string;
+   972→  par: string; // agent ou « Système — plateforme TBM »
+   973→  role: string; // rôle au moment de l'action
+   974→}
+   975→
+   976→export interface Refund {
+   977→  id: string;
+   978→  transaction: string; // débit d'origine (TXN-xxxxx)
+   979→  refReservation: string | null;
+   980→  passager: string;
+   981→  telephone: string;
+   982→  compagnie: string;
+   983→  operateur: Operator;
+   984→  motif: RefundReason;
+   985→  motifDetail: string; // détail libre de la demande
+   986→  montantRemboursable: number; // montant total éligible (RG11, sans décimales)
+   987→  statut: RefundStatus;
+   988→  demande: string; // réception de la demande
+   989→  traitePar?: string; // agent en charge du dossier
+   990→  justification?: string; // obligatoire pour toute décision
+   991→  litige?: {
+   992→    ouvert: boolean;
+   993→    detail: string;
+   994→    ouvertLe: string;
+   995→    ouvertPar?: string;
+   996→    resolution?: string;
+   997→    resoluPar?: string;
+   998→  };
+   999→  versements: RefundVersement[]; // tranches déjà exécutées vers l'opérateur
+  1000→  historique: RefundEvent[];
+  1001→}
+  1002→
+  1003→/** Montant déjà remboursé (somme des versements opérateur). */
+  1004→export function refundMontantRembourse(r: Refund): number {
+  1005→  return r.versements.reduce((s, v) => s + v.montant, 0);
+  1006→}
+  1007→
+  1008→/** Reste à rembourser sur le dossier. */
+  1009→export function refundResteDu(r: Refund): number {
+  1010→  return Math.max(0, r.montantRemboursable - refundMontantRembourse(r));
+  1011→}
+  1012→
+  1013→export const initialRefunds: Refund[] = [
+  1014→  {
+  1015→    id: "RMB-031",
+  1016→    transaction: "TXN-10245",
+  1017→    refReservation: "RES-2042",
+  1018→    passager: "Ibrahim Maïga",
+  1019→    telephone: "+223 66 05 77 21",
+  1020→    compagnie: "Bamako Express",
+  1021→    operateur: "Orange Money",
+  1022→    motif: "annulation",
+  1023→    motifDetail:
+  1024→      "Empêchement familial — annulation de la réservation RES-2042 (3 billets) plus de 24 h avant le départ.",
+  1025→    montantRemboursable: 13250,
+  1026→    statut: "en_attente",
+  1027→    demande: "Aujourd'hui 07:45",
+  1028→    versements: [],
+  1029→    historique: [
+  1030→      {
+  1031→        id: "RVE-401",
+  1032→        date: "Aujourd'hui 07:45",
+  1033→        type: "demande",
+  1034→        detail: "Demande reçue depuis le formulaire en ligne — pièces jointes : copie de la réservation.",
+  1035→        par: "Système — plateforme TBM",
+  1036→        role: "Automatisation",
+  1037→      },
+  1038→    ],
+  1039→  },
+  1040→  {
+  1041→    id: "RMB-030",
+  1042→    transaction: "TXN-10244",
+  1043→    refReservation: null,
+  1044→    passager: "Moussa Traoré",
+  1045→    telephone: "+223 76 22 41 09",
+  1046→    compagnie: "Sikasso Voyage",
+  1047→    operateur: "Moov Money",
+  1048→    motif: "incident",
+  1049→    motifDetail:
+  1050→      "Argent débité (MM-2505-117988) mais aucun ticket reçu — anomalie confirmée par le rapprochement du relevé Moov Money.",
+  1051→    montantRemboursable: 12500,
+  1052→    statut: "en_attente",
+  1053→    demande: "Aujourd'hui 06:05",
+  1054→    versements: [],
+  1055→    historique: [
+  1056→      {
+  1057→        id: "RVE-402",
+  1058→        date: "Aujourd'hui 06:05",
+  1059→        type: "demande",
+  1060→        detail: "Demande ouverte automatiquement après détection de l'anomalie « débité sans billet » (TXN-10244).",
+  1061→        par: "Système — plateforme TBM",
+  1062→        role: "Automatisation",
+  1063→      },
+  1064→    ],
+  1065→  },
+  1066→  {
+  1067→    id: "RMB-032",
+  1068→    transaction: "TXN-10246",
+  1069→    refReservation: "RES-2045",
+  1070→    passager: "Oumar Cissé",
+  1071→    telephone: "+223 76 88 51 14",
+  1072→    compagnie: "Bamako Express",
+  1073→    operateur: "Orange Money",
+  1074→    motif: "double_paiement",
+  1075→    motifDetail:
+  1076→      "Le client signale deux débits de 22 500 FCFA le même jour pour une seule réservation (2 billets, Bamako → Ségou).",
+  1077→    montantRemboursable: 22500,
+  1078→    statut: "en_attente",
+  1079→    demande: "05/10 19:32",
+  1080→    litige: {
+  1081→      ouvert: true,
+  1082→      detail:
+  1083→        "Bamako Express conteste : un seul débit figurerait au relevé du 05/10. Capture Orange Money du client contre déclaration de la compagnie — escalade administrative.",
+  1084→      ouvertLe: "Hier 20:10",
+  1085→      ouvertPar: "Mody BARRY",
+  1086→    },
+  1087→    versements: [],
+  1088→    historique: [
+  1089→      {
+  1090→        id: "RVE-410",
+  1091→        date: "05/10 19:32",
+  1092→        type: "demande",
+  1093→        detail: "Demande reçue par téléphone au support TBM — capture d'écran du double débit transmise par SMS.",
+  1094→        par: "Système — plateforme TBM",
+  1095→        role: "Automatisation",
+  1096→      },
+  1097→      {
+  1098→        id: "RVE-411",
+  1099→        date: "Hier 20:10",
+  1100→        type: "litige_ouvert",
+  1101→        detail:
+  1102→          "Litige ouvert : la compagnie conteste le double débit — escalade à l'administration, dossier gelé jusqu'à résolution.",
+  1103→        par: "Mody BARRY",
+  1104→        role: "Support TBM",
+  1105→      },
+  1106→    ],
+  1107→  },
+  1108→  {
+  1109→    id: "RMB-035",
+  1110→    transaction: "TXN-10247",
+  1111→    refReservation: "RES-2049",
+  1112→    passager: "Yacouba Ouattara",
+  1113→    telephone: "+223 92 55 10 76",
+  1114→    compagnie: "Kayes Lines",
+  1115→    operateur: "Moov Money",
+  1116→    motif: "incident",
+  1117→    motifDetail:
+  1118→      "Hospitalisation le jour du départ (justificatif fourni) — le billet n'a pas été scanné, demande de remboursement exceptionnelle.",
+  1119→    montantRemboursable: 9250,
+  1120→    statut: "en_attente",
+  1121→    demande: "Aujourd'hui 08:40",
+  1122→    versements: [],
+  1123→    historique: [
+  1124→      {
+  1125→        id: "RVE-403",
+  1126→        date: "Aujourd'hui 08:40",
+  1127→        type: "demande",
+  1128→        detail: "Demande reçue au guichet de Kayes N'Di — certificat médical joint au dossier.",
+  1129→        par: "Système — plateforme TBM",
+  1130→        role: "Automatisation",
+  1131→      },
+  1132→    ],
+  1133→  },
+  1134→  {
+  1135→    id: "RMB-034",
+  1136→    transaction: "TXN-10241",
+  1137→    refReservation: "RES-2044",
+  1138→    passager: "Sékou Konaté",
+  1139→    telephone: "+223 78 30 44 92",
+  1140→    compagnie: "Sahel Bus",
+  1141→    operateur: "Orange Money",
+  1142→    motif: "depart_annule",
+  1143→    motifDetail:
+  1144→      "Départ Bamako → Mopti annulé par la compagnie (pluies torrentielles RN6) — remboursement validé, versement opérateur à confirmer.",
+  1145→    montantRemboursable: 17500,
+  1146→    statut: "approuve",
+  1147→    demande: "Aujourd'hui 09:05",
+  1148→    traitePar: "Daouda FOMBA",
+  1149→    justification:
+  1150→      "Départ annulé par la compagnie — remboursement intégral (montant > 15 000 FCFA, validation administrateur requise).",
+  1151→    versements: [],
+  1152→    historique: [
+  1153→      {
+  1154→        id: "RVE-404",
+  1155→        date: "Aujourd'hui 09:05",
+  1156→        type: "demande",
+  1157→        detail: "Demande reçue depuis le formulaire en ligne — annulation du départ confirmée par le dispatch Sahel Bus.",
+  1158→        par: "Système — plateforme TBM",
+  1159→        role: "Automatisation",
+  1160→      },
+  1161→      {
+  1162→        id: "RVE-405",
+  1163→        date: "Aujourd'hui 09:22",
+  1164→        type: "prise_en_charge",
+  1165→        detail: "Dossier pris en charge après vérification de l'annulation du départ et du débit d'origine.",
+  1166→        par: "Daouda FOMBA",
+  1167→        role: "Administrateur TBM",
+  1168→      },
+  1169→      {
+  1170→        id: "RVE-406",
+  1171→        date: "Aujourd'hui 09:25",
+  1172→        type: "decision",
+  1173→        detail:
+  1174→          "Remboursement validé — « Départ annulé par la compagnie — remboursement intégral (montant > 15 000 FCFA, validation administrateur requise). »",
+  1175→        par: "Daouda FOMBA",
+  1176→        role: "Administrateur TBM",
+  1177→      },
+  1178→    ],
+  1179→  },
+  1180→  {
+  1181→    id: "RMB-028",
+  1182→    transaction: "TXN-10235",
+  1183→    refReservation: null,
+  1184→    passager: "Ibrahim Keïta",
+  1185→    telephone: "+223 70 45 91 22",
+  1186→    compagnie: "Djoliba Transport",
+  1187→    operateur: "Orange Money",
+  1188→    motif: "double_paiement",
+  1189→    motifDetail:
+  1190→      "Deux débits de 15 000 FCFA constatés le 03/10 pour une même commande — le second débit est indû.",
+  1191→    montantRemboursable: 15000,
+  1192→    statut: "approuve",
+  1193→    demande: "03/10 16:27",
+  1194→    traitePar: "Mody BARRY",
+  1195→    justification:
+  1196→      "Double débit confirmé par le relevé Orange Money du 03/10 — remboursement du second versement (relevé OM-2503-446611).",
+  1197→    versements: [
+  1198→      {
+  1199→        id: "RVS-118",
+  1200→        date: "04/10 10:40",
+  1201→        montant: 10000,
+  1202→        refOperateur: "OM-RMB-87934",
+  1203→        par: "Mody BARRY",
+  1204→      },
+  1205→    ],
+  1206→    historique: [
+  1207→      {
+  1208→        id: "RVE-407",
+  1209→        date: "03/10 16:27",
+  1210→        type: "demande",
+  1211→        detail: "Demande reçue depuis le formulaire en ligne — relevé Orange Money joint.",
+  1212→        par: "Système — plateforme TBM",
+  1213→        role: "Automatisation",
+  1214→      },
+  1215→      {
+  1216→        id: "RVE-408",
+  1217→        date: "03/10 17:02",
+  1218→        type: "prise_en_charge",
+  1219→        detail: "Dossier pris en charge — vérification des deux débits auprès de l'opérateur.",
+  1220→        par: "Mody BARRY",
+  1221→        role: "Support TBM",
+  1222→      },
+  1223→      {
+  1224→        id: "RVE-409",
+  1225→        date: "03/10 17:15",
+  1226→        type: "decision",
+  1227→        detail:
+  1228→          "Remboursement validé — « Double débit confirmé par le relevé Orange Money du 03/10 — remboursement du second versement (relevé OM-2503-446611). »",
+  1229→        par: "Mody BARRY",
+  1230→        role: "Support TBM",
+  1231→      },
+  1232→      {
+  1233→        id: "RVE-412",
+  1234→        date: "04/10 10:40",
+  1235→        type: "versement",
+  1236→        detail:
+  1237→          "1er versement de 10 000 FCFA exécuté vers le compte d'origine (réf. OM-RMB-87934) — reste 5 000 FCFA à verser.",
+  1238→        par: "Mody BARRY",
+  1239→        role: "Support TBM",
+  1240→      },
+  1241→    ],
+  1242→  },
+  1243→  {
+  1244→    id: "RMB-029",
+  1245→    transaction: "TXN-10238",
+  1246→    refReservation: null,
+  1247→    passager: "Fatoumata Diallo",
+  1248→    telephone: "+223 66 12 90 04",
+  1249→    compagnie: "Djoliba Transport",
+  1250→    operateur: "Orange Money",
+  1251→    motif: "annulation",
+  1252→    motifDetail:
+  1253→      "Annulation par le voyageur plus de 24 h avant le départ — palier 100 % (RG5).",
+  1254→    montantRemboursable: 7500,
+  1255→    statut: "rembourse",
+  1256→    demande: "04/10 10:12",
+  1257→    traitePar: "Mody BARRY",
+  1258→    justification:
+  1259→      "Délai > 24 h — remboursement intégral conforme à la politique (RG5).",
+  1260→    versements: [
+  1261→      {
+  1262→        id: "RVS-121",
+  1263→        date: "04/10 11:20",
+  1264→        montant: 7500,
+  1265→        refOperateur: "OM-RMB-88012",
+  1266→        par: "Mody BARRY",
+  1267→      },
+  1268→    ],
+  1269→    historique: [
+  1270→      {
+  1271→        id: "RVE-413",
+  1272→        date: "04/10 10:12",
+  1273→        type: "demande",
+  1274→        detail: "Demande reçue depuis le formulaire en ligne.",
+  1275→        par: "Système — plateforme TBM",
+  1276→        role: "Automatisation",
+  1277→      },
+  1278→      {
+  1279→        id: "RVE-414",
+  1280→        date: "04/10 10:40",
+  1281→        type: "prise_en_charge",
+  1282→        detail: "Dossier pris en charge — délai d'annulation vérifié (34 h avant le départ).",
+  1283→        par: "Mody BARRY",
+  1284→        role: "Support TBM",
+  1285→      },
+  1286→      {
+  1287→        id: "RVE-415",
+  1288→        date: "04/10 11:15",
+  1289→        type: "decision",
+  1290→        detail:
+  1291→          "Remboursement validé — « Délai > 24 h — remboursement intégral conforme à la politique (RG5). »",
+  1292→        par: "Mody BARRY",
+  1293→        role: "Support TBM",
+  1294→      },
+  1295→      {
+  1296→        id: "RVE-416",
+  1297→        date: "04/10 11:20",
+  1298→        type: "versement",
+  1299→        detail:
+  1300→          "Versement intégral de 7 500 FCFA exécuté (réf. OM-RMB-88012) — dossier soldé.",
+  1301→        par: "Mody BARRY",
+  1302→        role: "Support TBM",
+  1303→      },
+  1304→    ],
+  1305→  },
+  1306→  {
+  1307→    id: "RMB-026",
+  1308→    transaction: "TXN-10236",
+  1309→    refReservation: null,
+  1310→    passager: "Aïcha Sissoko",
+  1311→    telephone: "+223 74 20 61 38",
+  1312→    compagnie: "Bamako Express",
+  1313→    operateur: "Orange Money",
+  1314→    motif: "depart_annule",
+  1315→    motifDetail:
+  1316→      "Départ Ségou → Mopti annulé la veille par la compagnie — ticket jamais utilisé.",
+  1317→    montantRemboursable: 10500,
+  1318→    statut: "rembourse",
+  1319→    demande: "02/10 15:20",
+  1320→    traitePar: "Daouda FOMBA",
+  1321→    justification:
+  1322→      "Annulation compagnie confirmée au dispatch — remboursement intégral au titre des départs annulés.",
+  1323→    versements: [
+  1324→      {
+  1325→        id: "RVS-114",
+  1326→        date: "03/10 09:05",
+  1327→        montant: 10500,
+  1328→        refOperateur: "OM-RMB-87870",
+  1329→        par: "Daouda FOMBA",
+  1330→      },
+  1331→    ],
+  1332→    historique: [
+  1333→      {
+  1334→        id: "RVE-417",
+  1335→        date: "02/10 15:20",
+  1336→        type: "demande",
+  1337→        detail: "Demande reçue par téléphone au support TBM.",
+  1338→        par: "Système — plateforme TBM",
+  1339→        role: "Automatisation",
+  1340→      },
+  1341→      {
+  1342→        id: "RVE-418",
+  1343→        date: "02/10 16:05",
+  1344→        type: "prise_en_charge",
+  1345→        detail: "Dossier pris en charge — confirmation de l'annulation auprès du dispatch.",
+  1346→        par: "Daouda FOMBA",
+  1347→        role: "Administrateur TBM",
+  1348→      },
+  1349→      {
+  1350→        id: "RVE-419",
+  1351→        date: "02/10 16:12",
+  1352→        type: "decision",
+  1353→        detail:
+  1354→          "Remboursement validé — « Annulation compagnie confirmée au dispatch — remboursement intégral au titre des départs annulés. »",
+  1355→        par: "Daouda FOMBA",
+  1356→        role: "Administrateur TBM",
+  1357→      },
+  1358→      {
+  1359→        id: "RVE-420",
+  1360→        date: "03/10 09:05",
+  1361→        type: "versement",
+  1362→        detail:
+  1363→          "Versement intégral de 10 500 FCFA exécuté (réf. OM-RMB-87870) — dossier soldé.",
+  1364→        par: "Daouda FOMBA",
+  1365→        role: "Administrateur TBM",
+  1366→      },
+  1367→    ],
+  1368→  },
+  1369→  {
+  1370→    id: "RMB-027",
+  1371→    transaction: "TXN-10233",
+  1372→    refReservation: null,
+  1373→    passager: "Salif Diarra",
+  1374→    telephone: "+223 76 33 08 79",
+  1375→    compagnie: "Sahel Bus",
+  1376→    operateur: "Moov Money",
+  1377→    motif: "annulation",
+  1378→    motifDetail:
+  1379→      "Annulation demandée 3 h avant le départ — le client sollicite un geste commercial.",
+  1380→    montantRemboursable: 5000,
+  1381→    statut: "refuse",
+  1382→    demande: "02/10 09:44",
+  1383→    traitePar: "Mody BARRY",
+  1384→    justification:
+  1385→      "Moins de 6 h avant le départ : aucun remboursement (RG5). Un avoir de 50 % a été proposé au client.",
+  1386→    versements: [],
+  1387→    historique: [
+  1388→      {
+  1389→        id: "RVE-421",
+  1390→        date: "02/10 09:44",
+  1391→        type: "demande",
+  1392→        detail: "Demande reçue depuis le formulaire en ligne.",
+  1393→        par: "Système — plateforme TBM",
+  1394→        role: "Automatisation",
+  1395→      },
+  1396→      {
+  1397→        id: "RVE-422",
+  1398→        date: "02/10 10:30",
+  1399→        type: "prise_en_charge",
+  1400→        detail: "Dossier pris en charge — délai d'annulation vérifié (3 h avant le départ).",
+  1401→        par: "Mody BARRY",
+  1402→        role: "Support TBM",
+  1403→      },
+  1404→      {
+  1405→        id: "RVE-423",
+  1406→        date: "02/10 10:41",
+  1407→        type: "decision",
+  1408→        detail:
+  1409→          "Remboursement refusé — « Moins de 6 h avant le départ : aucun remboursement (RG5). Un avoir de 50 % a été proposé au client. »",
+  1410→        par: "Mody BARRY",
+  1411→        role: "Support TBM",
+  1412→      },
+  1413→    ],
+  1414→  },
+  1415→];
+  1416→
+  1417→/* ------------ Commissions & reversements (A11) -------------- */
+  1418→
+  1419→/**
+  1420→ * Modèle d'encaissement retenu par TBM — il détermine qui collecte
+  1421→ * l'argent des voyageurs et donc le sens du reversement :
+  1422→ *  - « plateforme » : TBM encaisse (Orange/Moov), prélève sa commission
+  1423→ *    et reverse le net aux compagnies ;
+  1424→ *  - « compagnie » : la compagnie encaisse et règle la commission TBM.
+  1425→ * Le module est conçu pour les deux modèles ; certaines opérations
+  1426→ * restent finalisées manuellement au lancement (validation, exécution).
+  1427→ */
+  1428→export type EncaissementMode = "plateforme" | "compagnie";
+  1429→
+  1430→export const ENCAISSEMENT_MODE_META: Record<
+  1431→  EncaissementMode,
+  1432→  { label: string; description: string }
+  1433→> = {
+  1434→  plateforme: {
+  1435→    label: "TBM encaisse, puis reverse",
+  1436→    description:
+  1437→      "Les paiements voyageurs arrivent sur les comptes TBM (Orange Money / Moov Money). TBM prélève sa commission puis reverse le net à chaque compagnie.",
+  1438→  },
+  1439→  compagnie: {
+  1440→    label: "La compagnie encaisse",
+  1441→    description:
+  1442→      "Les paiements arrivent directement chez la compagnie. La commission TBM est décomptée puis réglée périodiquement par la compagnie.",
+  1443→  },
+  1444→};
+  1445→
+  1446→export const TBM_ENCAISSEMENT_MODE: EncaissementMode = "plateforme";
+  1447→
+  1448→/** Cycle de vie d'un reversement : à calculer → à valider → en cours → payé. */
+  1449→export type SettlementStatus = "a_calculer" | "a_valider" | "en_cours" | "paye";
+  1450→
+  1451→export const SETTLEMENT_STATUS_META: Record<
+  1452→  SettlementStatus,
+  1453→  { label: string; className: string }
+  1454→> = {
+  1455→  a_calculer: { label: "À calculer", className: "bg-amber-50 text-amber-600" },
+  1456→  a_valider: { label: "À valider", className: "bg-sky-50 text-sky-600" },
+  1457→  en_cours: { label: "En cours", className: "bg-coral-50 text-coral-600" },
+  1458→  paye: { label: "Payé", className: "bg-emerald-50 text-emerald-600" },
+  1459→};
+  1460→
+  1461→/** Moyen utilisé pour exécuter le reversement vers la compagnie. */
+  1462→export type ReversementMoyen =
+  1463→  | "virement_bancaire"
+  1464→  | "orange_money"
+  1465→  | "moov_money";
+  1466→
+  1467→export const REVERSEMENT_MOYEN_META: Record<
+  1468→  ReversementMoyen,
+  1469→  { label: string; className: string }
+  1470→> = {
+  1471→  virement_bancaire: {
+  1472→    label: "Virement bancaire",
+  1473→    className: "bg-neutral-100 text-neutral-600",
+  1474→  },
+  1475→  orange_money: { label: "Orange Money", className: "bg-orange-50 text-orange-600" },
+  1476→  moov_money: { label: "Moov Money", className: "bg-violet-100 text-violet-600" },
+  1477→};
+  1478→
+  1479→/** Justificatifs et relevés rattachés à chaque reversement. */
+  1480→export type SettlementDocKind =
+  1481→  | "releve_collecte"
+  1482→  | "avis_commission"
+  1483→  | "preuve_paiement";
+  1484→
+  1485→export const SETTLEMENT_DOC_META: Record<
+  1486→  SettlementDocKind,
+  1487→  { label: string; description: string }
+  1488→> = {
+  1489→  releve_collecte: {
+  1490→    label: "Relevé de collecte",
+  1491→    description:
+  1492→      "Détail des transactions confirmées de la période (rapprochement A02).",
+  1493→  },
+  1494→  avis_commission: {
+  1495→    label: "Avis de commission",
+  1496→    description:
+  1497→      "Décompte détaillé : collecté brut − remboursements − commission = net à reverser.",
+  1498→  },
+  1499→  preuve_paiement: {
+  1500→    label: "Preuve de reversement",
+  1501→    description:
+  1502→      "Avis de virement ou reçu opérateur avec la référence du paiement exécuté.",
+  1503→  },
+  1504→};
+  1505→
+  1506→export interface SettlementDoc {
+  1507→  id: string;
+  1508→  kind: SettlementDocKind;
+  1509→  nom: string; // nom de fichier téléchargeable
+  1510→  taille: string;
+  1511→  genereLe: string;
+  1512→}
+  1513→
+  1514→export type SettlementEventKind = "creation" | "calcul" | "validation" | "paiement";
+  1515→
+  1516→export const SETTLEMENT_EVENT_META: Record<
+  1517→  SettlementEventKind,
+  1518→  { label: string; className: string }
+  1519→> = {
+  1520→  creation: { label: "Période clôturée", className: "bg-neutral-100 text-neutral-500" },
+  1521→  calcul: { label: "Calcul", className: "bg-sky-50 text-sky-600" },
+  1522→  validation: { label: "Validation", className: "bg-coral-50 text-coral-600" },
+  1523→  paiement: { label: "Reversement exécuté", className: "bg-emerald-50 text-emerald-600" },
+  1524→};
+  1525→
+  1526→export interface SettlementEvent {
+  1527→  id: string;
+  1528→  date: string;
+  1529→  type: SettlementEventKind;
+  1530→  detail: string;
+  1531→  par: string; // agent ou « Système — plateforme TBM »
+  1532→  role: string;
+  1533→}
+  1534→
+  1535→export interface Settlement {
+  1536→  id: string; // REV-2026-0xx
+  1537→  compagnie: string; // nom (cohérent avec transactions / remboursements)
+  1538→  periode: string; // libellé affiché
+  1539→  periodeDebut: string;
+  1540→  periodeFin: string;
+  1541→  statut: SettlementStatus;
+  1542→  brutCollecte: number; // transactions confirmées de la période (A02)
+  1543→  remboursements: number; // remboursements exécutés sur la période (A03)
+  1544→  commissionTaux: number; // % contractuel de la compagnie (A01)
+  1545→  commissionMontant: number; // arrondi sur le collecté net (RG11)
+  1546→  netAReverser: number;
+  1547→  nbTransactions: number;
+  1548→  nbBillets: number;
+  1549→  nbRemboursements: number;
+  1550→  estimation?: { brut: number; transactions: number; billets: number }; // provisoire, avant calcul
+  1551→  moyen?: ReversementMoyen;
+  1552→  refPaiement?: string;
+  1553→  calculeLe?: string;
+  1554→  calculePar?: string;
+  1555→  valideLe?: string;
+  1556→  validePar?: string;
+  1557→  payeLe?: string;
+  1558→  payePar?: string;
+  1559→  docs: SettlementDoc[];
+  1560→  historique: SettlementEvent[];
+  1561→}
+  1562→
+  1563→/** Collecté net de la période (après remboursements). */
+  1564→export function settlementNetCollecte(s: Settlement): number {
+  1565→  return Math.max(0, s.brutCollecte - s.remboursements);
+  1566→}
+  1567→
+  1568→/**
+  1569→ * Montants consolidés au calcul (démo) — la consolidation réelle part
+  1570→ * des transactions confirmées et des remboursements exécutés de la période.
+  1571→ */
+  1572→export const SETTLEMENT_PRECOMPUTED: Record<
+  1573→  string,
+  1574→  {
+  1575→    brutCollecte: number;
+  1576→    remboursements: number;
+  1577→    nbTransactions: number;
+  1578→    nbBillets: number;
+  1579→    nbRemboursements: number;
+  1580→  }
+  1581→> = {
+  1582→  "REV-2026-042": {
+  1583→    brutCollecte: 305000,
+  1584→    remboursements: 7500,
+  1585→    nbTransactions: 41,
+  1586→    nbBillets: 63,
+  1587→    nbRemboursements: 1,
+  1588→  },
+  1589→  "REV-2026-043": {
+  1590→    brutCollecte: 224500,
+  1591→    remboursements: 0,
+  1592→    nbTransactions: 26,
+  1593→    nbBillets: 39,
+  1594→    nbRemboursements: 0,
+  1595→  },
+  1596→};
+  1597→
+  1598→export const initialSettlements: Settlement[] = [
+  1599→  {
+  1600→    id: "REV-2026-035",
+  1601→    compagnie: "Sikasso Voyage",
+  1602→    periode: "Semaine 39 · 15/09 → 21/09",
+  1603→    periodeDebut: "15/09",
+  1604→    periodeFin: "21/09",
+  1605→    statut: "paye",
+  1606→    brutCollecte: 132000,
+  1607→    remboursements: 0,
+  1608→    commissionTaux: 10,
+  1609→    commissionMontant: 13200,
+  1610→    netAReverser: 118800,
+  1611→    nbTransactions: 18,
+  1612→    nbBillets: 27,
+  1613→    nbRemboursements: 0,
+  1614→    moyen: "orange_money",
+  1615→    refPaiement: "OM-REV-87504",
+  1616→    calculeLe: "22/09 05:40",
+  1617→    calculePar: "Système — plateforme TBM",
+  1618→    valideLe: "22/09 09:15",
+  1619→    validePar: "Daouda FOMBA",
+  1620→    payeLe: "22/09 14:20",
+  1621→    payePar: "Daouda FOMBA",
+  1622→    docs: [
+  1623→      { id: "SDC-104", kind: "releve_collecte", nom: "releve-collecte-REV-2026-035.pdf", taille: "31 Ko", genereLe: "22/09 05:40" },
+  1624→      { id: "SDC-105", kind: "avis_commission", nom: "avis-commission-REV-2026-035.pdf", taille: "14 Ko", genereLe: "22/09 05:40" },
+  1625→      { id: "SDC-106", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-035.pdf", taille: "9 Ko", genereLe: "22/09 14:20" },
+  1626→    ],
+  1627→    historique: [
+  1628→      { id: "SVE-311", date: "22/09 14:20", type: "paiement", detail: "Reversement de 118 800 FCFA exécuté via Orange Money (réf. OM-REV-87504) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1629→      { id: "SVE-310", date: "22/09 09:15", type: "validation", detail: "Reversement validé — net de 118 800 FCFA à reverser à Sikasso Voyage.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1630→      { id: "SVE-309", date: "22/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 132 000 − remboursements 0 − commission 10 % (13 200) = net à reverser 118 800 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1631→      { id: "SVE-308", date: "21/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1632→    ],
+  1633→  },
+  1634→  {
+  1635→    id: "REV-2026-036",
+  1636→    compagnie: "Bamako Express",
+  1637→    periode: "Semaine 40 · 22/09 → 28/09",
+  1638→    periodeDebut: "22/09",
+  1639→    periodeFin: "28/09",
+  1640→    statut: "paye",
+  1641→    brutCollecte: 648000,
+  1642→    remboursements: 21000,
+  1643→    commissionTaux: 10,
+  1644→    commissionMontant: 62700,
+  1645→    netAReverser: 564300,
+  1646→    nbTransactions: 92,
+  1647→    nbBillets: 141,
+  1648→    nbRemboursements: 3,
+  1649→    moyen: "virement_bancaire",
+  1650→    refPaiement: "BCEAO-87102-TBM",
+  1651→    calculeLe: "29/09 05:40",
+  1652→    calculePar: "Système — plateforme TBM",
+  1653→    valideLe: "29/09 09:05",
+  1654→    validePar: "Daouda FOMBA",
+  1655→    payeLe: "29/09 15:10",
+  1656→    payePar: "Daouda FOMBA",
+  1657→    docs: [
+  1658→      { id: "SDC-107", kind: "releve_collecte", nom: "releve-collecte-REV-2026-036.pdf", taille: "46 Ko", genereLe: "29/09 05:40" },
+  1659→      { id: "SDC-108", kind: "avis_commission", nom: "avis-commission-REV-2026-036.pdf", taille: "17 Ko", genereLe: "29/09 05:40" },
+  1660→      { id: "SDC-109", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-036.pdf", taille: "11 Ko", genereLe: "29/09 15:10" },
+  1661→    ],
+  1662→    historique: [
+  1663→      { id: "SVE-315", date: "29/09 15:10", type: "paiement", detail: "Reversement de 564 300 FCFA exécuté par virement bancaire (réf. BCEAO-87102-TBM) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1664→      { id: "SVE-314", date: "29/09 09:05", type: "validation", detail: "Reversement validé — net de 564 300 FCFA à reverser à Bamako Express.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1665→      { id: "SVE-313", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 648 000 − remboursements 21 000 − commission 10 % (62 700) = net à reverser 564 300 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1666→      { id: "SVE-312", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1667→    ],
+  1668→  },
+  1669→  {
+  1670→    id: "REV-2026-037",
+  1671→    compagnie: "Djoliba Transport",
+  1672→    periode: "Semaine 40 · 22/09 → 28/09",
+  1673→    periodeDebut: "22/09",
+  1674→    periodeFin: "28/09",
+  1675→    statut: "paye",
+  1676→    brutCollecte: 297500,
+  1677→    remboursements: 7500,
+  1678→    commissionTaux: 8,
+  1679→    commissionMontant: 23200,
+  1680→    netAReverser: 266800,
+  1681→    nbTransactions: 45,
+  1682→    nbBillets: 67,
+  1683→    nbRemboursements: 1,
+  1684→    moyen: "virement_bancaire",
+  1685→    refPaiement: "BCEAO-87214-TBM",
+  1686→    calculeLe: "29/09 05:40",
+  1687→    calculePar: "Système — plateforme TBM",
+  1688→    valideLe: "29/09 09:30",
+  1689→    validePar: "Daouda FOMBA",
+  1690→    payeLe: "30/09 10:40",
+  1691→    payePar: "Daouda FOMBA",
+  1692→    docs: [
+  1693→      { id: "SDC-110", kind: "releve_collecte", nom: "releve-collecte-REV-2026-037.pdf", taille: "33 Ko", genereLe: "29/09 05:40" },
+  1694→      { id: "SDC-111", kind: "avis_commission", nom: "avis-commission-REV-2026-037.pdf", taille: "15 Ko", genereLe: "29/09 05:40" },
+  1695→      { id: "SDC-112", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-037.pdf", taille: "10 Ko", genereLe: "30/09 10:40" },
+  1696→    ],
+  1697→    historique: [
+  1698→      { id: "SVE-319", date: "30/09 10:40", type: "paiement", detail: "Reversement de 266 800 FCFA exécuté par virement bancaire (réf. BCEAO-87214-TBM) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1699→      { id: "SVE-318", date: "29/09 09:30", type: "validation", detail: "Reversement validé — net de 266 800 FCFA à reverser à Djoliba Transport.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1700→      { id: "SVE-317", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 297 500 − remboursements 7 500 − commission 8 % (23 200) = net à reverser 266 800 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1701→      { id: "SVE-316", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1702→    ],
+  1703→  },
+  1704→  {
+  1705→    id: "REV-2026-038",
+  1706→    compagnie: "Kayes Lines",
+  1707→    periode: "Semaine 40 · 22/09 → 28/09",
+  1708→    periodeDebut: "22/09",
+  1709→    periodeFin: "28/09",
+  1710→    statut: "paye",
+  1711→    brutCollecte: 92000,
+  1712→    remboursements: 0,
+  1713→    commissionTaux: 11,
+  1714→    commissionMontant: 10120,
+  1715→    netAReverser: 81880,
+  1716→    nbTransactions: 9,
+  1717→    nbBillets: 14,
+  1718→    nbRemboursements: 0,
+  1719→    moyen: "orange_money",
+  1720→    refPaiement: "OM-REV-87688",
+  1721→    calculeLe: "29/09 05:40",
+  1722→    calculePar: "Système — plateforme TBM",
+  1723→    valideLe: "29/09 09:40",
+  1724→    validePar: "Daouda FOMBA",
+  1725→    payeLe: "30/09 11:25",
+  1726→    payePar: "Daouda FOMBA",
+  1727→    docs: [
+  1728→      { id: "SDC-113", kind: "releve_collecte", nom: "releve-collecte-REV-2026-038.pdf", taille: "24 Ko", genereLe: "29/09 05:40" },
+  1729→      { id: "SDC-114", kind: "avis_commission", nom: "avis-commission-REV-2026-038.pdf", taille: "13 Ko", genereLe: "29/09 05:40" },
+  1730→      { id: "SDC-115", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-038.pdf", taille: "8 Ko", genereLe: "30/09 11:25" },
+  1731→    ],
+  1732→    historique: [
+  1733→      { id: "SVE-323", date: "30/09 11:25", type: "paiement", detail: "Reversement de 81 880 FCFA exécuté via Orange Money (réf. OM-REV-87688) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1734→      { id: "SVE-322", date: "29/09 09:40", type: "validation", detail: "Reversement validé — net de 81 880 FCFA à reverser à Kayes Lines.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1735→      { id: "SVE-321", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 92 000 − remboursements 0 − commission 11 % (10 120) = net à reverser 81 880 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1736→      { id: "SVE-320", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1737→    ],
+  1738→  },
+  1739→  {
+  1740→    id: "REV-2026-039",
+  1741→    compagnie: "Sahel Bus",
+  1742→    periode: "Semaine 40 · 22/09 → 28/09",
+  1743→    periodeDebut: "22/09",
+  1744→    periodeFin: "28/09",
+  1745→    statut: "en_cours",
+  1746→    brutCollecte: 386000,
+  1747→    remboursements: 18000,
+  1748→    commissionTaux: 12,
+  1749→    commissionMontant: 44160,
+  1750→    netAReverser: 323840,
+  1751→    nbTransactions: 55,
+  1752→    nbBillets: 83,
+  1753→    nbRemboursements: 2,
+  1754→    calculeLe: "Hier 05:40",
+  1755→    calculePar: "Système — plateforme TBM",
+  1756→    valideLe: "Hier 16:20",
+  1757→    validePar: "Daouda FOMBA",
+  1758→    docs: [
+  1759→      { id: "SDC-116", kind: "releve_collecte", nom: "releve-collecte-REV-2026-039.pdf", taille: "39 Ko", genereLe: "Hier 05:40" },
+  1760→      { id: "SDC-117", kind: "avis_commission", nom: "avis-commission-REV-2026-039.pdf", taille: "16 Ko", genereLe: "Hier 05:40" },
+  1761→    ],
+  1762→    historique: [
+  1763→      { id: "SVE-327", date: "Hier 16:20", type: "validation", detail: "Reversement validé — net de 323 840 FCFA à reverser à Sahel Bus. Exécution du paiement à finaliser manuellement (lancement).", par: "Daouda FOMBA", role: "Administrateur TBM" },
+  1764→      { id: "SVE-326", date: "Hier 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 386 000 − remboursements 18 000 − commission 12 % (44 160) = net à reverser 323 840 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1765→      { id: "SVE-325", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1766→    ],
+  1767→  },
+  1768→  {
+  1769→    id: "REV-2026-040",
+  1770→    compagnie: "Bamako Express",
+  1771→    periode: "Semaine 41 · 29/09 → 05/10",
+  1772→    periodeDebut: "29/09",
+  1773→    periodeFin: "05/10",
+  1774→    statut: "a_valider",
+  1775→    brutCollecte: 612000,
+  1776→    remboursements: 32500,
+  1777→    commissionTaux: 10,
+  1778→    commissionMontant: 57950,
+  1779→    netAReverser: 521550,
+  1780→    nbTransactions: 87,
+  1781→    nbBillets: 133,
+  1782→    nbRemboursements: 4,
+  1783→    calculeLe: "Aujourd'hui 05:40",
+  1784→    calculePar: "Système — plateforme TBM",
+  1785→    docs: [
+  1786→      { id: "SDC-118", kind: "releve_collecte", nom: "releve-collecte-REV-2026-040.pdf", taille: "44 Ko", genereLe: "Aujourd'hui 05:40" },
+  1787→      { id: "SDC-119", kind: "avis_commission", nom: "avis-commission-REV-2026-040.pdf", taille: "17 Ko", genereLe: "Aujourd'hui 05:40" },
+  1788→    ],
+  1789→    historique: [
+  1790→      { id: "SVE-330", date: "Aujourd'hui 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 612 000 − remboursements 32 500 − commission 10 % (57 950) = net à reverser 521 550 FCFA. En attente de validation.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1791→      { id: "SVE-329", date: "05/10 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1792→    ],
+  1793→  },
+  1794→  {
+  1795→    id: "REV-2026-041",
+  1796→    compagnie: "Sikasso Voyage",
+  1797→    periode: "Semaine 41 · 29/09 → 05/10",
+  1798→    periodeDebut: "29/09",
+  1799→    periodeFin: "05/10",
+  1800→    statut: "a_valider",
+  1801→    brutCollecte: 148500,
+  1802→    remboursements: 12500,
+  1803→    commissionTaux: 10,
+  1804→    commissionMontant: 13600,
+  1805→    netAReverser: 122400,
+  1806→    nbTransactions: 21,
+  1807→    nbBillets: 31,
+  1808→    nbRemboursements: 1,
+  1809→    calculeLe: "Aujourd'hui 05:40",
+  1810→    calculePar: "Système — plateforme TBM",
+  1811→    docs: [
+  1812→      { id: "SDC-120", kind: "releve_collecte", nom: "releve-collecte-REV-2026-041.pdf", taille: "28 Ko", genereLe: "Aujourd'hui 05:40" },
+  1813→      { id: "SDC-121", kind: "avis_commission", nom: "avis-commission-REV-2026-041.pdf", taille: "14 Ko", genereLe: "Aujourd'hui 05:40" },
+  1814→    ],
+  1815→    historique: [
+  1816→      { id: "SVE-332", date: "Aujourd'hui 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 148 500 − remboursements 12 500 (dont l'anomalie « débité sans billet » RMB-030) − commission 10 % (13 600) = net à reverser 122 400 FCFA. En attente de validation.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1817→      { id: "SVE-331", date: "05/10 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+  1818→    ],
+  1819→  },
+  1820→  {
+  1821→    id: "REV-2026-042",
+  1822→    compagnie: "Djoliba Transport",
+  1823→    periode: "Semaine 41 · 29/09 → 05/10",
+  1824→    periodeDebut: "29/09",
+  1825→    periodeFin: "05/10",
+  1826→    statut: "a_calculer",
+  1827→    brutCollecte: 0,
+  1828→    remboursements: 0,
+  1829→    commissionTaux: 8,
+  1830→    commissionMontant: 0,
+  1831→    netAReverser: 0,
+  1832→    nbTransactions: 0,
+  1833→    nbBillets: 0,
+  1834→    nbRemboursements: 0,
+  1835→    estimation: { brut: 305000, transactions: 41, billets: 63 },
+  1836→    docs: [],
+  1837→    historique: [
+  1838→      { id: "SVE-334", date: "05/10 23:55", type: "creation", detail: "Période clôturée — rapprochement quotidien en cours de finalisation (A02). Le calcul consolidera les transactions confirmées et les remboursements exécutés.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1839→    ],
+  1840→  },
+  1841→  {
+  1842→    id: "REV-2026-043",
+  1843→    compagnie: "Sahel Bus",
+  1844→    periode: "Semaine 41 · 29/09 → 05/10",
+  1845→    periodeDebut: "29/09",
+  1846→    periodeFin: "05/10",
+  1847→    statut: "a_calculer",
+  1848→    brutCollecte: 0,
+  1849→    remboursements: 0,
+  1850→    commissionTaux: 12,
+  1851→    commissionMontant: 0,
+  1852→    netAReverser: 0,
+  1853→    nbTransactions: 0,
+  1854→    nbBillets: 0,
+  1855→    nbRemboursements: 0,
+  1856→    estimation: { brut: 224500, transactions: 26, billets: 39 },
+  1857→    docs: [],
+  1858→    historique: [
+  1859→      { id: "SVE-336", date: "05/10 23:55", type: "creation", detail: "Période clôturée — rapprochement quotidien en cours de finalisation (A02). Le calcul consolidera les transactions confirmées et les remboursements exécutés.", par: "Système — plateforme TBM", role: "Automatisation" },
+  1860→    ],
+  1861→  },
+  1862→];
+  1863→
+  1864→/* ----------------- Utilisateurs & accès (A05) --------------- */
+  1865→
+  1866→export type UserRole =
+  1867→  | "Voyageur"
+  1868→  | "Agent de guichet"
+  1869→  | "Gestionnaire de compagnie"
+  1870→  | "Contrôleur"
+  1871→  | "Support TBM"
+  1872→  | "Administrateur TBM";
+  1873→
+  1874→export type UserKind = "voyageur" | "professionnel";
+  1875→
+  1876→export type UserStatus = "actif" | "attente" | "bloque";
+  1877→
+  1878→/** Périmètre d'isolation des données : global (plateforme), compagnie (cloisonné), soi (données personnelles). */
+  1879→export type AccessScope = "global" | "compagnie" | "soi";
+  1880→
+  1881→export const USER_ROLE_META: Record<
+  1882→  UserRole,
+  1883→  {
+  1884→    label: string;
+  1885→    className: string;
+  1886→    kind: UserKind;
+  1887→    scope: AccessScope;
+  1888→    scopeLabel: string;
+  1889→  }
+  1890→> = {
+  1891→  Voyageur: {
+  1892→    label: "Voyageur",
+  1893→    className: "bg-neutral-100 text-neutral-600",
+  1894→    kind: "voyageur",
+  1895→    scope: "soi",
+  1896→    scopeLabel: "Ses propres billets et réservations",
+  1897→  },
+  1898→  "Agent de guichet": {
+  1899→    label: "Agent de guichet",
+  1900→    className: "bg-amber-50 text-amber-600",
+  1901→    kind: "professionnel",
+  1902→    scope: "compagnie",
+  1903→    scopeLabel: "Sa compagnie uniquement — vente et embarquement",
+  1904→  },
+  1905→  "Gestionnaire de compagnie": {
+  1906→    label: "Gestionnaire",
+  1907→    className: "bg-violet-100 text-violet-600",
+  1908→    kind: "professionnel",
+  1909→    scope: "compagnie",
+  1910→    scopeLabel: "Sa compagnie uniquement — départs, tarifs, ventes",
+  1911→  },
+  1912→  Contrôleur: {
+  1913→    label: "Contrôleur",
+  1914→    className: "bg-emerald-50 text-emerald-600",
+  1915→    kind: "professionnel",
+  1916→    scope: "compagnie",
+  1917→    scopeLabel: "Sa compagnie uniquement — contrôle à bord",
+  1918→  },
+  1919→  "Support TBM": {
+  1920→    label: "Support TBM",
+  1921→    className: "bg-sky-50 text-sky-600",
+  1922→    kind: "professionnel",
+  1923→    scope: "global",
+  1924→    scopeLabel: "Plateforme entière — droits d'assistance limités",
+  1925→  },
+  1926→  "Administrateur TBM": {
+  1927→    label: "Administrateur",
+  1928→    className: "bg-coral-50 text-coral-600",
+  1929→    kind: "professionnel",
+  1930→    scope: "global",
+  1931→    scopeLabel: "Plateforme entière — tous droits",
+  1932→  },
+  1933→};
+  1934→
+  1935→export const USER_STATUS_META: Record<
+  1936→  UserStatus,
+  1937→  { label: string; className: string }
+  1938→> = {
+  1939→  actif: { label: "Actif", className: "bg-emerald-50 text-emerald-600" },
+  1940→  attente: { label: "À activer", className: "bg-amber-50 text-amber-600" },
+  1941→  bloque: { label: "Bloqué", className: "bg-rose-50 text-rose-600" },
+  1942→};
+  1943→
+  1944→/** Matrice des permissions affichée par rôle (A05 — gestion des rôles et permissions). */
+  1945→export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  1946→  Voyageur: [
+  1947→    "Consulter les départs, tarifs et disponibilités",
+  1948→    "Réserver et payer en ligne (Orange Money / Moov Money)",
+  1949→    "Recevoir son billet électronique par SMS",
+  1950→    "Demander une annulation ou un remboursement",
+  1951→  ],
+  1952→  "Agent de guichet": [
+  1953→    "Vendre des billets au guichet de sa compagnie",
+  1954→    "Consulter les réservations de sa compagnie",
+  1955→    "Enregistrer les embarquements (scan des billets)",
+  1956→    "Signaler les incidents de voyage",
+  1957→  ],
+  1958→  "Gestionnaire de compagnie": [
+  1959→    "Gérer les départs, lignes et tarifs de sa compagnie",
+  1960→    "Suivre les ventes, la commission et les rapprochements",
+  1961→    "Consulter les réservations et billets de sa compagnie",
+  1962→    "Créer les comptes agents de sa compagnie (activation TBM)",
+  1963→  ],
+  1964→  Contrôleur: [
+  1965→    "Scanner et contrôler les billets à l'embarquement",
+  1966→    "Suivre l'historique des scans de sa compagnie",
+  1967→    "Signaler les fraudeurs et les incidents de voyage",
+  1968→  ],
+  1969→  "Support TBM": [
+  1970→    "Assister les voyageurs (réservations, billets)",
+  1971→    "Traiter les remboursements jusqu'à 15 000 FCFA",
+  1972→    "Superviser les transactions et escalader en litige",
+  1973→    "Aucun accès au paramétrage ni aux comptes",
+  1974→  ],
+  1975→  "Administrateur TBM": [
+  1976→    "Gérer les compagnies, les utilisateurs et les rôles",
+  1977→    "Valider tous les remboursements et lever les litiges",
+  1978→    "Paramétrer la plateforme (frais, commissions, blocage)",
+  1979→    "Accéder au journal d'audit complet",
+  1980→  ],
+  1981→};
+  1982→
+  1983→export interface LoginEvent {
+  1984→  id: string;
+  1985→  date: string;
+  1986→  resultat: "succes" | "echec";
+  1987→  ip: string;
+  1988→  lieu: string;
+  1989→  appareil: string;
+  1990→  detail?: string; // ex. « Mot de passe incorrect — 3ᵉ tentative »
+  1991→}
+  1992→
+  1993→export const LOGIN_RESULT_META: Record<
+  1994→  LoginEvent["resultat"],
+  1995→  { label: string; className: string }
+  1996→> = {
+  1997→  succes: { label: "Succès", className: "bg-emerald-50 text-emerald-600" },
+  1998→  echec: { label: "Échec", className: "bg-rose-50 text-rose-600" },
+  1999→};
+  2000→
+
+[showing lines 1-2000 of 2790; use offset=2001 with limit to continue reading]

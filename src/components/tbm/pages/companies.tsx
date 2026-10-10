@@ -8,14 +8,15 @@ import {
   Building2,
   Bus,
   CheckCircle2,
-  EllipsisVertical,
   Eye,
   Hourglass,
+  LayoutDashboard,
   Mail,
   MapPin,
   Pencil,
   Phone,
   Plus,
+  Power,
   Route,
   Search,
   Ticket,
@@ -30,13 +31,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,7 +69,6 @@ import {
   companyInitials,
   companyLines,
   companyLogoColor,
-  DEFAULT_SALES_PARAMS,
   DEPARTURE_STATUS_META,
   formatFcfa,
   formatNumber,
@@ -83,6 +76,8 @@ import {
   type CompanyStatus,
 } from "@/components/tbm/data";
 import { cn } from "@/lib/utils";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 
 /* ======================= Formulaire (créer / modifier) ====================== */
 
@@ -112,6 +107,14 @@ const emptyForm: CompanyForm = {
   annulationGratuite: "24",
 };
 
+/** Onglets de la page — synchronisés au paramètre d'URL ?tab=… */
+const COMPANY_TABS = ["liste", "apercu"] as const;
+
+/** Formulaire vierge, commission pré-remplie avec le paramètre TBM (A04). */
+function blankForm(commissionDefaut: number): CompanyForm {
+  return { ...emptyForm, commission: String(commissionDefaut) };
+}
+
 function formFromCompany(c: Company): CompanyForm {
   return {
     nom: c.nom,
@@ -131,10 +134,12 @@ function CompanyFormFields({
   form,
   set,
   prefix,
+  commissionDefaut,
 }: {
   form: CompanyForm;
   set: (patch: Partial<CompanyForm>) => void;
   prefix: string;
+  commissionDefaut: number;
 }) {
   const inputCls =
     "h-9.5 rounded-xl border-neutral-200 focus-visible:ring-coral-200";
@@ -175,6 +180,9 @@ function CompanyFormFields({
         <div className="space-y-1.5">
           <Label htmlFor={`${prefix}-com`} className="text-[13px]">
             Commission (%)
+            <span className="block text-[11px] font-normal text-neutral-400">
+              Taux par défaut TBM : {commissionDefaut} % (A04)
+            </span>
           </Label>
           <Input
             id={`${prefix}-com`}
@@ -481,24 +489,34 @@ function SheetSectionTitle({ children }: { children: React.ReactNode }) {
 export function CompaniesPage() {
   const user = useAuthStore((s) => s.user);
   const companies = useTbmStore((s) => s.companies);
+  const settings = useTbmStore((s) => s.settings);
   const setCompanyStatus = useTbmStore((s) => s.setCompanyStatus);
   const addCompany = useTbmStore((s) => s.addCompany);
   const updateCompany = useTbmStore((s) => s.updateCompany);
   const { toast } = useToast();
 
+  const commissionDefaut = settings.commissionDefaut;
+
+  /* Onglet + sélection synchronisés aux paramètres d'URL (?tab=…, ?sel=…) */
+  const [tabParam, setTabParam] = useParamState("tab", "liste");
+  const tab = validParam(tabParam, COMPANY_TABS, "liste");
+  const [selParam, setSel] = useParamState("sel", "");
+
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<CompanyForm>(emptyForm);
+  const [createForm, setCreateForm] = useState<CompanyForm>(() =>
+    blankForm(commissionDefaut)
+  );
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CompanyForm>(emptyForm);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const selected = companies.find((c) => c.id === selectedId) ?? null;
+  /* La fiche dérive l'item du store par id (live), jamais un snapshot. */
+  const selected = companies.find((c) => c.id === selParam) ?? null;
   const editing = companies.find((c) => c.id === editingId) ?? null;
 
   const filtered = useMemo(() => {
@@ -526,6 +544,48 @@ export function CompaniesPage() {
       : 0;
     const tickets = companies.reduce((a, c) => a + c.ticketsMois, 0);
     return { actives, attente, suspendues, total, commissionMoy, tickets };
+  }, [companies]);
+
+  /* Vue d'ensemble — agrégats recalculés du store live */
+  const overview = useMemo(() => {
+    const total = companies.length;
+    const byStatut = (["active", "attente", "suspendue"] as CompanyStatus[]).map(
+      (st) => ({
+        statut: st,
+        nb: companies.filter((c) => c.statut === st).length,
+      })
+    );
+    const commissions = companies.map((c) => c.commission);
+    const commMin = total ? Math.min(...commissions) : 0;
+    const commMax = total ? Math.max(...commissions) : 0;
+    const ticketsTotal = companies.reduce((a, c) => a + c.ticketsMois, 0);
+    const top = [...companies]
+      .sort((a, b) => b.ticketsMois - a.ticketsMois)
+      .slice(0, 5);
+    const resaMoy = total
+      ? Math.round(
+          companies.reduce((a, c) => a + c.params.reservationJours, 0) / total
+        )
+      : 0;
+    const annulMoy = total
+      ? Math.round(
+          companies.reduce((a, c) => a + c.params.annulationGratuite, 0) / total
+        )
+      : 0;
+    const enLigne = companies.filter((c) => c.params.venteEnLigne).length;
+    const guichet = companies.filter((c) => c.params.venteGuichet).length;
+    return {
+      total,
+      byStatut,
+      commMin,
+      commMax,
+      ticketsTotal,
+      top,
+      resaMoy,
+      annulMoy,
+      enLigne,
+      guichet,
+    };
   }, [companies]);
 
   const detail = useMemo(() => {
@@ -605,7 +665,7 @@ export function CompaniesPage() {
       user?.name ?? "Admin"
     );
     setCreateOpen(false);
-    setCreateForm(emptyForm);
+    setCreateForm(blankForm(commissionDefaut));
     toast({
       title: "Compagnie créée",
       description:
@@ -695,6 +755,7 @@ export function CompaniesPage() {
                 form={createForm}
                 set={(patch) => setCreateForm((f) => ({ ...f, ...patch }))}
                 prefix="c-new"
+                commissionDefaut={commissionDefaut}
               />
               {createError && (
                 <p
@@ -765,210 +826,409 @@ export function CompaniesPage() {
         />
       </div>
 
-      {/* ---- Filtres ---- */}
-      <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher (nom, contact, ville)…"
-            aria-label="Rechercher une compagnie"
-            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par statut"
-            className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+      {/* ---- Onglets page (liste / vue d'ensemble) — synchronisés à ?tab=… ---- */}
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-4">
+        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+          <TabsTrigger
+            value="liste"
+            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">
-              Tous les statuts
-            </SelectItem>
-            {Object.entries(COMPANY_STATUS_META).map(([key, meta]) => (
-              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="ml-auto text-[12px] text-neutral-400">
-          {filtered.length} compagnie{filtered.length > 1 ? "s" : ""}
-        </span>
-      </div>
+            <Building2 className="h-3.5 w-3.5" />
+            Compagnies
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200 px-1 text-[9.5px] font-bold text-neutral-600">
+              {kpis.total}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="apercu"
+            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Vue d’ensemble
+          </TabsTrigger>
+        </TabsList>
 
-      {/* ---- Liste des compagnies partenaires ---- */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
-      >
-        <div className="ff-scrollbar overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
-                  Compagnie
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Coordonnées
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Ville
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
-                  Commission
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
-                  Tickets / mois
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Statut
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((c) => (
-                <TableRow
-                  key={c.id}
-                  onClick={() => setSelectedId(c.id)}
-                  className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
-                >
-                  <TableCell className="py-3.5 pl-5">
-                    <div className="flex items-center gap-3">
-                      <CompanyAvatar company={c} />
-                      <span>
-                        <span className="block text-[13px] font-semibold text-neutral-800">
+        {/* --------- Liste des compagnies --------- */}
+        <TabsContent value="liste" className="mt-4">
+          {/* ---- Filtres ---- */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher (nom, contact, ville)…"
+                aria-label="Rechercher une compagnie"
+                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par statut"
+                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">
+                  Tous les statuts
+                </SelectItem>
+                {Object.entries(COMPANY_STATUS_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="ml-auto text-[12px] text-neutral-400">
+              {filtered.length} compagnie{filtered.length > 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* ---- Liste des compagnies partenaires ---- */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <div className="ff-scrollbar overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                      Compagnie
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Coordonnées
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Ville
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                      Commission
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                      Tickets / mois
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Statut
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((c) => (
+                    <TableRow
+                      key={c.id}
+                      onClick={() => setSel(c.id)}
+                      className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                    >
+                      <TableCell className="py-3.5 pl-5">
+                        <div className="flex items-center gap-3">
+                          <CompanyAvatar company={c} />
+                          <span>
+                            <span className="block text-[13px] font-semibold text-neutral-800">
+                              {c.nom}
+                            </span>
+                            <span className="block text-[11px] text-neutral-400">
+                              {c.id}
+                            </span>
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="block truncate text-[12.5px] text-neutral-600">
+                          {c.contact}
+                        </span>
+                        <span className="block text-[11px] tabular-nums text-neutral-400">
+                          {c.telephone}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[12.5px] text-neutral-500">
+                        {c.ville}
+                      </TableCell>
+                      <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                        {c.commission} %
+                      </TableCell>
+                      <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                        {formatNumber(c.ticketsMois)}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
+                            COMPANY_STATUS_META[c.statut].className
+                          )}
+                        >
+                          {COMPANY_STATUS_META[c.statut].label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="pr-5 pt-3.5 text-right">
+                        <span className="inline-flex items-center justify-end gap-1">
+                          <ActionIconButton
+                            icon={Power}
+                            label={
+                              c.statut === "active"
+                                ? "Suspendre la compagnie"
+                                : "Activer la compagnie"
+                            }
+                            tone={c.statut === "active" ? "amber" : "emerald"}
+                            onClick={() =>
+                              changeStatus(
+                                c,
+                                c.statut === "active" ? "suspendue" : "active"
+                              )
+                            }
+                          />
+                          {c.statut !== "attente" && (
+                            <ActionIconButton
+                              icon={Hourglass}
+                              label="Remettre en attente"
+                              tone="violet"
+                              onClick={() => changeStatus(c, "attente")}
+                            />
+                          )}
+                          <ActionIconButton
+                            icon={Pencil}
+                            label="Modifier la fiche"
+                            onClick={() => openEdit(c)}
+                          />
+                          <ActionIconButton
+                            icon={Eye}
+                            label="Voir la fiche"
+                            onClick={() => setSel(c.id)}
+                          />
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="py-10 text-center text-[13px] text-neutral-400"
+                      >
+                        Aucune compagnie ne correspond à votre recherche.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </motion.section>
+        </TabsContent>
+
+        {/* --------- Vue d’ensemble : agrégats du portefeuille --------- */}
+        <TabsContent value="apercu" className="mt-4">
+          {overview.total === 0 ? (
+            <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white py-10 text-center text-[13px] text-neutral-400">
+              Aucune compagnie enregistrée pour l’instant.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+                className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+              >
+                {/* Répartition par statut */}
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-5">
+                  <h3 className="text-[13px] font-bold tracking-tight text-neutral-900">
+                    Répartition par statut
+                  </h3>
+                  <p className="mt-0.5 text-[11.5px] text-neutral-400">
+                    {overview.total} compagnie{overview.total > 1 ? "s" : ""}{" "}
+                    partenaire{overview.total > 1 ? "s" : ""}
+                  </p>
+                  <div className="mt-4 space-y-3.5">
+                    {overview.byStatut.map(({ statut, nb }) => {
+                      const pct = Math.round((nb / overview.total) * 100);
+                      const bar =
+                        statut === "active"
+                          ? "bg-emerald-500"
+                          : statut === "attente"
+                            ? "bg-amber-400"
+                            : "bg-rose-400";
+                      return (
+                        <div key={statut}>
+                          <div className="flex items-center justify-between gap-2 text-[12px]">
+                            <span className="font-medium text-neutral-600">
+                              {COMPANY_STATUS_META[statut].label}
+                            </span>
+                            <span className="font-semibold tabular-nums text-neutral-700">
+                              {nb} · {pct} %
+                            </span>
+                          </div>
+                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                            <div
+                              className={cn("h-full rounded-full transition-all", bar)}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Volume de tickets — top compagnies */}
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-5">
+                  <h3 className="text-[13px] font-bold tracking-tight text-neutral-900">
+                    Volume de tickets
+                  </h3>
+                  <p className="mt-0.5 text-[11.5px] text-neutral-400">
+                    {formatNumber(overview.ticketsTotal)} ce mois, toutes compagnies
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {overview.top.map((c) => {
+                      const pct = overview.ticketsTotal
+                        ? Math.round((c.ticketsMois / overview.ticketsTotal) * 100)
+                        : 0;
+                      return (
+                        <div key={c.id} className="flex items-center gap-3">
+                          <CompanyAvatar company={c} className="h-8 w-8 text-[11px]" />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-2 text-[12px]">
+                              <span className="truncate font-medium text-neutral-700">
+                                {c.nom}
+                              </span>
+                              <span className="shrink-0 font-semibold tabular-nums text-neutral-700">
+                                {formatNumber(c.ticketsMois)}
+                              </span>
+                            </span>
+                            <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                              <span
+                                className="block h-full rounded-full bg-coral-400 transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Commissions contractuelles */}
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-5">
+                  <h3 className="text-[13px] font-bold tracking-tight text-neutral-900">
+                    Commissions TBM
+                  </h3>
+                  <p className="mt-0.5 text-[11.5px] text-neutral-400">
+                    taux contractuels par compagnie
+                  </p>
+                  <div className="mt-3 flex items-end gap-2">
+                    <p className="text-[26px] font-bold leading-none tracking-tight text-neutral-900">
+                      {kpis.commissionMoy}
+                      <span className="ml-0.5 text-[14px] font-semibold text-neutral-400">
+                        %
+                      </span>
+                    </p>
+                    <p className="pb-0.5 text-[11.5px] text-neutral-400">
+                      moyenne · de {overview.commMin} à {overview.commMax} %
+                    </p>
+                  </div>
+                  <div className="mt-4 space-y-1.5">
+                    {companies.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between gap-2 rounded-xl bg-neutral-50/70 px-3 py-1.5"
+                      >
+                        <span className="truncate text-[12px] font-medium text-neutral-600">
                           {c.nom}
                         </span>
-                        <span className="block text-[11px] text-neutral-400">
-                          {c.id}
+                        <span className="shrink-0 text-[12px] font-semibold tabular-nums text-violet-600">
+                          {c.commission} %
                         </span>
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="block truncate text-[12.5px] text-neutral-600">
-                      {c.contact}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 rounded-xl bg-violet-50/70 px-3 py-2 text-[11.5px] leading-relaxed text-violet-700">
+                    Taux par défaut appliqué aux compagnies sans accord :{" "}
+                    <span className="font-semibold">{commissionDefaut} %</span>{" "}
+                    (paramètre A04 — RG9).
+                  </p>
+                </div>
+              </motion.section>
+
+              {/* Paramètres de vente — tendances du portefeuille */}
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+                className="grid grid-cols-2 gap-4 xl:grid-cols-4"
+              >
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-4">
+                  <p className="text-[12px] font-medium text-neutral-400">
+                    Vente en ligne
+                  </p>
+                  <p className="mt-1.5 text-[18px] font-bold tracking-tight text-neutral-900">
+                    {overview.enLigne}
+                    <span className="ml-1 text-[12px] font-semibold text-neutral-400">
+                      / {overview.total}
                     </span>
-                    <span className="block text-[11px] tabular-nums text-neutral-400">
-                      {c.telephone}
+                  </p>
+                  <p className="mt-1 text-[11.5px] text-neutral-400">
+                    compagnies activées (Orange Money · Moov Money)
+                  </p>
+                </div>
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-4">
+                  <p className="text-[12px] font-medium text-neutral-400">
+                    Vente au guichet
+                  </p>
+                  <p className="mt-1.5 text-[18px] font-bold tracking-tight text-neutral-900">
+                    {overview.guichet}
+                    <span className="ml-1 text-[12px] font-semibold text-neutral-400">
+                      / {overview.total}
                     </span>
-                  </TableCell>
-                  <TableCell className="text-[12.5px] text-neutral-500">
-                    {c.ville}
-                  </TableCell>
-                  <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
-                    {c.commission} %
-                  </TableCell>
-                  <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
-                    {formatNumber(c.ticketsMois)}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
-                        COMPANY_STATUS_META[c.statut].className
-                      )}
-                    >
-                      {COMPANY_STATUS_META[c.statut].label}
+                  </p>
+                  <p className="mt-1 text-[11.5px] text-neutral-400">
+                    points de vente physiques actifs
+                  </p>
+                </div>
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-4">
+                  <p className="text-[12px] font-medium text-neutral-400">
+                    Réservation à l’avance
+                  </p>
+                  <p className="mt-1.5 text-[18px] font-bold tracking-tight text-neutral-900">
+                    {overview.resaMoy}
+                    <span className="ml-1 text-[12px] font-semibold text-neutral-400">
+                      jours en moyenne
                     </span>
-                  </TableCell>
-                  <TableCell className="pr-5 text-right">
-                    <span
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex"
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Actions pour ${c.nom}`}
-                            className="h-8 w-8 rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
-                          >
-                            <EllipsisVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-52 rounded-xl border-neutral-100"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => setSelectedId(c.id)}
-                            className="gap-2 rounded-lg text-neutral-700 focus:bg-neutral-100 focus:text-neutral-900"
-                          >
-                            <Eye className="h-4 w-4" />
-                            Voir la fiche
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => openEdit(c)}
-                            className="gap-2 rounded-lg text-neutral-700 focus:bg-neutral-100 focus:text-neutral-900"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Modifier
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-neutral-100" />
-                          {c.statut !== "active" && (
-                            <DropdownMenuItem
-                              onClick={() => changeStatus(c, "active")}
-                              className="gap-2 rounded-lg text-emerald-600 focus:bg-emerald-50 focus:text-emerald-600"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              Activer
-                            </DropdownMenuItem>
-                          )}
-                          {c.statut !== "suspendue" && (
-                            <DropdownMenuItem
-                              onClick={() => changeStatus(c, "suspendue")}
-                              className="gap-2 rounded-lg text-rose-600 focus:bg-rose-50 focus:text-rose-600"
-                            >
-                              <Ban className="h-4 w-4" />
-                              Suspendre
-                            </DropdownMenuItem>
-                          )}
-                          {c.statut !== "attente" && (
-                            <DropdownMenuItem
-                              onClick={() => changeStatus(c, "attente")}
-                              className="gap-2 rounded-lg text-amber-600 focus:bg-amber-50 focus:text-amber-600"
-                            >
-                              <Hourglass className="h-4 w-4" />
-                              Remettre en attente
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  </p>
+                  <p className="mt-1 text-[11.5px] text-neutral-400">
+                    fenêtre moyenne de réservation du réseau
+                  </p>
+                </div>
+                <div className="ff-card rounded-2xl border border-neutral-200/70 bg-white p-4">
+                  <p className="text-[12px] font-medium text-neutral-400">
+                    Annulation sans frais
+                  </p>
+                  <p className="mt-1.5 text-[18px] font-bold tracking-tight text-neutral-900">
+                    {overview.annulMoy}
+                    <span className="ml-1 text-[12px] font-semibold text-neutral-400">
+                      h en moyenne
                     </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="py-10 text-center text-[13px] text-neutral-400"
-                  >
-                    Aucune compagnie ne correspond à votre recherche.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </motion.section>
+                  </p>
+                  <p className="mt-1 text-[11.5px] text-neutral-400">
+                    délai moyen avant départ (RG5)
+                  </p>
+                </div>
+              </motion.section>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* ---- Fiche détail ---- */}
       <Sheet
         open={!!selected}
         onOpenChange={(o) => {
-          if (!o) setSelectedId(null);
+          if (!o) setSel("");
         }}
       >
         <SheetContent
@@ -1341,6 +1601,7 @@ export function CompaniesPage() {
               form={editForm}
               set={(patch) => setEditForm((f) => ({ ...f, ...patch }))}
               prefix="c-edit"
+              commissionDefaut={commissionDefaut}
             />
             {editError && (
               <p

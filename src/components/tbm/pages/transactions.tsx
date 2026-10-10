@@ -12,15 +12,18 @@ import {
   Clock,
   Copy,
   Download,
+  Eye,
   Hourglass,
   Phone,
   Printer,
   ReceiptText,
+  RefreshCw,
   Scale,
   Search,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
+  Wrench,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +61,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 import {
   formatFcfa,
   operatorStatements,
@@ -89,7 +94,10 @@ function operatorBadgeClass(op: Operator): string {
     : "bg-violet-100 text-violet-600";
 }
 
-/** Étapes de la chaîne critique du point de vue d'une transaction. */
+/**
+ * Étapes de la chaîne critique du point de vue d'une transaction.
+ * `blocageMinutes` provient du paramétrage (RG1 — settings.blocageMinutes).
+ */
 type ChainState = "done" | "pending" | "failed" | "warn";
 interface ChainStep {
   label: string;
@@ -97,7 +105,7 @@ interface ChainStep {
   state: ChainState;
 }
 
-function chainFor(t: Transaction): ChainStep[] {
+function chainFor(t: Transaction, blocageMinutes: number): ChainStep[] {
   const anomaly = t.anomalie;
   const resolved = anomaly?.statut === "resolue";
   const emissionFailed = anomaly && !resolved;
@@ -142,7 +150,11 @@ function chainFor(t: Transaction): ChainStep[] {
       { label: "Demande initiée", note: t.date, state: "done" },
       { label: "Requête envoyée à l'opérateur", state: "done" },
       { label: "Débit client", note: "Non finalisé par le client", state: "warn" },
-      { label: "Confirmation serveur TBM", note: "Places libérées après 10 min (RG1)", state: "warn" },
+      {
+        label: "Confirmation serveur TBM",
+        note: `Places libérées après ${blocageMinutes} min (RG1)`,
+        state: "warn",
+      },
       last,
     ];
   }
@@ -229,8 +241,14 @@ function MiniKpi({
 
 /* ======================= Chaîne critique ========================= */
 
-function CriticalChain({ txn }: { txn: Transaction }) {
-  const steps = chainFor(txn);
+function CriticalChain({
+  txn,
+  blocageMinutes,
+}: {
+  txn: Transaction;
+  blocageMinutes: number;
+}) {
+  const steps = chainFor(txn, blocageMinutes);
   return (
     <ol className="space-y-0">
       {steps.map((s, i) => (
@@ -530,10 +548,12 @@ function TransactionSheet({
   txn,
   open,
   onOpenChange,
+  blocageMinutes,
 }: {
   txn: Transaction | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  blocageMinutes: number;
 }) {
   const { toast } = useToast();
   const auteur = useAuthStore((s) => s.user?.name) ?? "Opérateur";
@@ -688,10 +708,11 @@ function TransactionSheet({
               </h4>
               <p className="mt-1 text-[11.5px] text-neutral-400">
                 Un billet n&apos;est émis qu&apos;après la confirmation serveur, sur le
-                retour fiable de l&apos;opérateur.
+                retour fiable de l&apos;opérateur. Places bloquées {blocageMinutes} min
+                avant annulation (RG1).
               </p>
               <div className="mt-3 rounded-2xl border border-neutral-200/70 p-4">
-                <CriticalChain txn={txn} />
+                <CriticalChain txn={txn} blocageMinutes={blocageMinutes} />
               </div>
             </section>
 
@@ -768,18 +789,26 @@ export function TransactionsPage() {
   const transactions = useTbmStore((s) => s.transactions);
   const closedReconciliations = useTbmStore((s) => s.closedReconciliations);
   const closeReconciliation = useTbmStore((s) => s.closeReconciliation);
+  const confirmPending = useTbmStore((s) => s.confirmPendingPayment);
+  const settings = useTbmStore((s) => s.settings);
+  const blocageMinutes = settings.blocageMinutes; // RG1 — paramétrage A04
 
   const [query, setQuery] = useState("");
   const [operator, setOperator] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [jour, setJour] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  // La fiche reflète le store en temps réel (statuts mis à jour par les actions)
-  const selected = useMemo(
-    () => transactions.find((t) => t.id === selectedId) ?? null,
-    [transactions, selectedId]
+  // Onglet + fiche détail synchronisés à l'URL (?tab=, ?sel=) — deep-linking
+  const [tabParam, setTab] = useParamState("tab", "transactions");
+  const tab = validParam(
+    tabParam,
+    ["transactions", "rapprochement", "anomalies"],
+    "transactions"
   );
+  const [selParam, setSel] = useParamState("sel", "");
+  // La fiche dérive l'item du store par id (find) : statuts/badges toujours à jour
+  const selected = selParam
+    ? transactions.find((t) => t.id === selParam) ?? null
+    : null;
 
   const jours = useMemo(
     () => Array.from(new Set(initialTransactions.map((t) => t.jour))),
@@ -853,9 +882,22 @@ export function TransactionsPage() {
   const ecartsRestants = reconciliationRows.filter((r) => r.statut === "ecart").length;
   const nbClotures = closedReconciliations.length;
 
-  const openTxn = (t: Transaction) => {
-    setSelectedId(t.id);
-    setSheetOpen(true);
+  const openTxn = (t: Transaction) => setSel(t.id);
+
+  /** Action immédiate de liste : confirme le retour opérateur (RG1 → émission). */
+  const confirmRetour = (t: Transaction) => {
+    confirmPending(t.id, auteur);
+    toast({
+      title: "Retour opérateur confirmé",
+      description: `${t.id} — billets émis après confirmation serveur.`,
+    });
+  };
+
+  /** Depuis le rapprochement : ouvre la liste des transactions du jour/opérateur. */
+  const voirTransactionsDu = (j: string, op: Operator) => {
+    setJour(j);
+    setOperator(op);
+    setTab("transactions");
   };
 
   const exportCsv = () => {
@@ -932,7 +974,7 @@ export function TransactionsPage() {
           icon={Hourglass}
           label="En attente de retour"
           value={`${enAttente}`}
-          hint="places bloquées 10 min (RG1)"
+          hint={`places bloquées ${blocageMinutes} min (RG1)`}
           tone="bg-amber-50 text-amber-600"
         />
         <MiniKpi
@@ -951,8 +993,8 @@ export function TransactionsPage() {
         />
       </div>
 
-      {/* Onglets */}
-      <Tabs defaultValue="transactions" className="mt-5">
+      {/* Onglets — synchronisés au paramètre URL ?tab= */}
+      <Tabs value={tab} onValueChange={setTab} className="mt-5">
         <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
           <TabsTrigger
             value="transactions"
@@ -1086,8 +1128,11 @@ export function TransactionsPage() {
                     <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Billets
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Statut
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1140,7 +1185,7 @@ export function TransactionsPage() {
                           <span className="text-[11.5px] text-neutral-300">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="pr-5">
+                      <TableCell>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusBadge statut={t.statut} />
                           {t.anomalie?.statut === "detectee" && (
@@ -1151,11 +1196,36 @@ export function TransactionsPage() {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell className="pr-5">
+                        <div className="flex items-center justify-end gap-1">
+                          {t.statut === "en_attente" && (
+                            <ActionIconButton
+                              icon={RefreshCw}
+                              tone="sky"
+                              label="Vérifier le retour opérateur — confirme le débit et émet les billets"
+                              onClick={() => confirmRetour(t)}
+                            />
+                          )}
+                          {t.anomalie?.statut === "detectee" && (
+                            <ActionIconButton
+                              icon={Wrench}
+                              tone="coral"
+                              label="Résoudre l'anomalie (débité sans billet)"
+                              onClick={() => openTxn(t)}
+                            />
+                          )}
+                          <ActionIconButton
+                            icon={Eye}
+                            label="Voir la fiche de la transaction"
+                            onClick={() => openTxn(t)}
+                          />
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+                      <TableCell colSpan={7} className="py-10 text-center text-[13px] text-neutral-400">
                         Aucune transaction ne correspond à ces critères.
                       </TableCell>
                     </TableRow>
@@ -1199,8 +1269,11 @@ export function TransactionsPage() {
                     <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Écarts
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Statut
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1261,43 +1334,49 @@ export function TransactionsPage() {
                           </div>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {r.statut === "cloture" && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Clôturé
+                          </span>
+                        )}
+                        {r.statut === "ecart" && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                            <ShieldAlert className="h-3 w-3" />
+                            Écart détecté
+                          </span>
+                        )}
+                        {r.statut === "provisoire" && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
+                            <Clock className="h-3 w-3" />
+                            Provisoire
+                          </span>
+                        )}
+                        {r.statut === "conforme" && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Conforme
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="pr-5">
-                        <div className="flex flex-col items-start gap-2">
-                          {r.statut === "cloture" && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Clôturé
-                            </span>
-                          )}
-                          {r.statut === "ecart" && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
-                              <ShieldAlert className="h-3 w-3" />
-                              Écart détecté
-                            </span>
-                          )}
-                          {r.statut === "provisoire" && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
-                              <Clock className="h-3 w-3" />
-                              Provisoire
-                            </span>
-                          )}
-                          {r.statut === "conforme" && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Conforme
-                            </span>
-                          )}
+                        <div className="flex items-center justify-end gap-1">
+                          <ActionIconButton
+                            icon={Eye}
+                            label={`Voir les transactions ${r.st.operateur} · ${r.st.jour}`}
+                            onClick={() => voirTransactionsDu(r.st.jour, r.st.operateur)}
+                          />
                           {!r.closed && (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <ActionIconButton
+                              icon={ClipboardCheck}
+                              tone="emerald"
                               disabled={r.ecart}
-                              title={
+                              label={
                                 r.ecart
-                                  ? "Résolvez d'abord les anomalies « débité sans billet » de ce jour"
-                                  : "Enregistrer la clôture du rapprochement (tracée à l'audit)"
+                                  ? "Clôture bloquée — résolvez d'abord les anomalies « débité sans billet » de ce jour"
+                                  : "Clôturer le rapprochement (tracé au journal d'audit)"
                               }
-                              className="h-7 gap-1 rounded-lg border-neutral-200 px-2.5 text-[11.5px]"
                               onClick={() => {
                                 closeReconciliation(r.st.jour, r.st.operateur, auteur);
                                 toast({
@@ -1305,10 +1384,7 @@ export function TransactionsPage() {
                                   description: `${r.st.operateur} · ${r.st.jour} — clôture tracée au journal d'audit.`,
                                 });
                               }}
-                            >
-                              <ClipboardCheck className="h-3 w-3" />
-                              Clôturer
-                            </Button>
+                            />
                           )}
                         </div>
                       </TableCell>
@@ -1405,25 +1481,20 @@ export function TransactionsPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5 rounded-xl border-neutral-200 text-[12.5px]"
-                        onClick={() => openTxn(t)}
-                      >
-                        <ReceiptText className="h-3.5 w-3.5" />
-                        Détail
-                      </Button>
+                    <div className="flex shrink-0 gap-1">
                       {t.anomalie?.statut === "detectee" && (
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1.5 rounded-xl bg-rose-500 text-[12.5px] font-semibold text-white hover:bg-rose-600"
+                        <ActionIconButton
+                          icon={Wrench}
+                          tone="coral"
+                          label="Résoudre l'anomalie — justification tracée au journal d'audit"
                           onClick={() => openTxn(t)}
-                        >
-                          Résoudre
-                        </Button>
+                        />
                       )}
+                      <ActionIconButton
+                        icon={Eye}
+                        label="Voir la fiche du paiement"
+                        onClick={() => openTxn(t)}
+                      />
                     </div>
                   </div>
                 </motion.div>
@@ -1432,8 +1503,15 @@ export function TransactionsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Fiche détail + reçus + résolution */}
-      <TransactionSheet txn={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
+      {/* Fiche détail + reçus + résolution — synchronisée à ?sel= */}
+      <TransactionSheet
+        txn={selected}
+        open={selected != null}
+        onOpenChange={(v) => {
+          if (!v) setSel("");
+        }}
+        blocageMinutes={blocageMinutes}
+      />
     </div>
   );
 }

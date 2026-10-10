@@ -1,0 +1,984 @@
+     1→"use client";
+     2→
+     3→import { create } from "zustand";
+     4→import {
+     5→  defaultSettings,
+     6→  initialAudit,
+     7→  initialCompanies,
+     8→  initialNotifications,
+     9→  initialRefunds,
+    10→  initialSettlements,
+    11→  initialUserAccounts,
+    12→  refundMontantRembourse,
+    13→  transactions as initialTransactions,
+    14→  REVERSEMENT_MOYEN_META,
+    15→  SETTLEMENT_PRECOMPUTED,
+    16→  type AuditAction,
+    17→  type AuditEntry,
+    18→  type CityNotification,
+    19→  type Company,
+    20→  type CompanyStatus,
+    21→  type Operator,
+    22→  type Refund,
+    23→  type RefundEvent,
+    24→  type RefundVersement,
+    25→  type ReversementMoyen,
+    26→  type Settings,
+    27→  type Settlement,
+    28→  type SettlementDoc,
+    29→  type SettlementEvent,
+    30→  type UserAccount,
+    31→  type UserRole,
+    32→  type Transaction,
+    33→} from "@/components/tbm/data";
+    34→
+    35→let auditSeq = 215;
+    36→let refundEventSeq = 430;
+    37→let refundVersementSeq = 131;
+    38→let userSeq = 13;
+    39→let settlementEventSeq = 340;
+    40→let settlementDocSeq = 122;
+    41→let notifSeq = 32;
+    42→
+    43→const fcfa = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
+    44→
+    45→function makeAudit(
+    46→  entry: Omit<AuditEntry, "id"> & { id?: string }
+    47→): AuditEntry {
+    48→  return { id: entry.id ?? `AUD-${auditSeq++}`, ...entry };
+    49→}
+    50→
+    51→interface TbmState {
+    52→  companies: Company[];
+    53→  users: UserAccount[];
+    54→  refunds: Refund[];
+    55→  audit: AuditEntry[];
+    56→  settings: Settings;
+    57→  transactions: Transaction[];
+    58→  closedReconciliations: string[]; // clés « jour|opérateur » clôturées
+    59→  notifications: CityNotification[]; // A07 — notifications ciblées envoyées
+    60→
+    61→  setCompanyStatus: (id: string, statut: CompanyStatus, auteur: string) => void;
+    62→  addCompany: (company: Company, auteur: string) => void;
+    63→  updateCompany: (
+    64→    id: string,
+    65→    patch: Partial<Omit<Company, "id" | "statut" | "ticketsMois">>,
+    66→    auteur: string
+    67→  ) => void;
+    68→  createProAccount: (
+    69→    input: {
+    70→      nom: string;
+    71→      email: string;
+    72→      telephone: string;
+    73→      role: UserRole;
+    74→      compagnie: string;
+    75→    },
+    76→    auteur: string,
+    77→    role: string
+    78→  ) => void;
+    79→  activateUser: (id: string, auteur: string, role: string) => void;
+    80→  blockUser: (id: string, motif: string, auteur: string, role: string) => void;
+    81→  unblockUser: (id: string, auteur: string, role: string) => void;
+    82→  changeUserRole: (
+    83→    id: string,
+    84→    nouveauRole: UserRole,
+    85→    justification: string,
+    86→    auteur: string,
+    87→    role: string
+    88→  ) => void;
+    89→  claimRefund: (id: string, auteur: string, role: string) => void;
+    90→  decideRefund: (
+    91→    id: string,
+    92→    approuve: boolean,
+    93→    justification: string,
+    94→    auteur: string,
+    95→    role: string
+    96→  ) => void;
+    97→  addRefundVersement: (
+    98→    id: string,
+    99→    montant: number,
+   100→    refOperateur: string,
+   101→    auteur: string,
+   102→    role: string
+   103→  ) => void;
+   104→  openRefundDispute: (
+   105→    id: string,
+   106→    detail: string,
+   107→    auteur: string,
+   108→    role: string
+   109→  ) => void;
+   110→  resolveRefundDispute: (
+   111→    id: string,
+   112→    resolution: string,
+   113→    auteur: string,
+   114→    role: string
+   115→  ) => void;
+   116→  saveSettings: (settings: Settings, auteur: string) => void;
+   117→  sendNotification: (
+   118→    input: { cible: "all" | string; message: string },
+   119→    auteur: string,
+   120→    role: string
+   121→  ) => void;
+   122→  confirmPendingPayment: (id: string, auteur: string) => void;
+   123→  resolveTransactionAnomaly: (
+   124→    id: string,
+   125→    resolution: string,
+   126→    auteur: string
+   127→  ) => void;
+   128→  closeReconciliation: (
+   129→    jour: string,
+   130→    operateur: Operator,
+   131→    auteur: string
+   132→  ) => void;
+   133→  calculateSettlement: (id: string, auteur: string, role: string) => void;
+   134→  validateSettlement: (id: string, auteur: string, role: string) => void;
+   135→  paySettlement: (
+   136→    id: string,
+   137→    moyen: ReversementMoyen,
+   138→    refPaiement: string,
+   139→    auteur: string,
+   140→    role: string
+   141→  ) => void;
+   142→  pushAudit: (entry: Omit<AuditEntry, "id">) => void;
+   143→}
+   144→
+   145→/**
+   146→ * État opérationnel du back-office (frontend only).
+   147→ * Chaque action sensible alimente automatiquement le journal d'audit (A06).
+   148→ */
+   149→export const useTbmStore = create<TbmState>()((set) => ({
+   150→  companies: initialCompanies,
+   151→  users: initialUserAccounts,
+   152→  refunds: initialRefunds,
+   153→  audit: initialAudit,
+   154→  settings: defaultSettings,
+   155→  transactions: initialTransactions,
+   156→  closedReconciliations: [],
+   157→  notifications: initialNotifications,
+   158→  settlements: initialSettlements,
+   159→
+   160→  setCompanyStatus: (id, statut, auteur) =>
+   161→    set((state) => {
+   162→      const company = state.companies.find((c) => c.id === id);
+   163→      if (!company) return state;
+   164→      const entry = makeAudit({
+   165→        date: "À l'instant",
+   166→        auteur,
+   167→        role: "Session en cours",
+   168→        action: "Compagnie" as AuditAction,
+   169→        objet: company.nom,
+   170→        detail:
+   171→          statut === "active"
+   172→            ? "Compagnie activée — vente en ligne autorisée."
+   173→            : statut === "suspendue"
+   174→              ? "Compagnie suspendue — ventes bloquées."
+   175→              : "Compagnie remise en attente de validation.",
+   176→      });
+   177→      return {
+   178→        companies: state.companies.map((c) =>
+   179→          c.id === id ? { ...c, statut } : c
+   180→        ),
+   181→        audit: [entry, ...state.audit],
+   182→      };
+   183→    }),
+   184→
+   185→  addCompany: (company, auteur) =>
+   186→    set((state) => ({
+   187→      companies: [company, ...state.companies],
+   188→      audit: [
+   189→        makeAudit({
+   190→          date: "À l'instant",
+   191→          auteur,
+   192→          role: "Session en cours",
+   193→          action: "Compagnie",
+   194→          objet: company.nom,
+   195→          detail: `Nouvelle compagnie créée (commission ${company.commission} %, ${company.ville}).`,
+   196→        }),
+   197→        ...state.audit,
+   198→      ],
+   199→    })),
+   200→
+   201→  updateCompany: (id, patch, auteur) =>
+   202→    set((state) => {
+   203→      const company = state.companies.find((c) => c.id === id);
+   204→      if (!company) return state;
+   205→      const changes: string[] = [];
+   206→      if (patch.nom && patch.nom !== company.nom)
+   207→        changes.push(`nom → « ${patch.nom} »`);
+   208→      if (patch.contact && patch.contact !== company.contact)
+   209→        changes.push(`e-mail → ${patch.contact}`);
+   210→      if (patch.telephone && patch.telephone !== company.telephone)
+   211→        changes.push(`téléphone → ${patch.telephone}`);
+   212→      if (patch.adresse && patch.adresse !== company.adresse)
+   213→        changes.push(`adresse → ${patch.adresse}`);
+   214→      if (patch.ville && patch.ville !== company.ville)
+   215→        changes.push(`ville → ${patch.ville}`);
+   216→      if (patch.commission !== undefined && patch.commission !== company.commission)
+   217→        changes.push(`commission ${company.commission} % → ${patch.commission} %`);
+   218→      if (patch.params) {
+   219→        const p = patch.params;
+   220→        const o = company.params;
+   221→        if (p.venteEnLigne !== o.venteEnLigne)
+   222→          changes.push(`vente en ligne ${p.venteEnLigne ? "activée" : "désactivée"}`);
+   223→        if (p.venteGuichet !== o.venteGuichet)
+   224→          changes.push(`vente au guichet ${p.venteGuichet ? "activée" : "désactivée"}`);
+   225→        if (p.reservationJours !== o.reservationJours)
+   226→          changes.push(`réservation ${o.reservationJours} → ${p.reservationJours} j`);
+   227→        if (p.annulationGratuite !== o.annulationGratuite)
+   228→          changes.push(`annulation gratuite ${o.annulationGratuite} → ${p.annulationGratuite} h`);
+   229→      }
+   230→      return {
+   231→        companies: state.companies.map((c) =>
+   232→          c.id === id ? { ...c, ...patch } : c
+   233→        ),
+   234→        audit: [
+   235→          makeAudit({
+   236→            date: "À l'instant",
+   237→            auteur,
+   238→            role: "Session en cours",
+   239→            action: "Compagnie" as AuditAction,
+   240→            objet: company.nom,
+   241→            detail:
+   242→              changes.length > 0
+   243→                ? `Fiche modifiée : ${changes.join(" · ")}.`
+   244→                : "Fiche enregistrée sans modification.",
+   245→          }),
+   246→          ...state.audit,
+   247→        ],
+   248→      };
+   249→    }),
+   250→
+   251→  /**
+   252→   * Création d'un compte professionnel — le compte reste « À activer »
+   253→   * jusqu'à validation TBM (aucun accès tant que le compte n'est pas activé).
+   254→   */
+   255→  createProAccount: (input, auteur, role) =>
+   256→    set((state) => {
+   257→      const account: UserAccount = {
+   258→        id: `USR-${userSeq++}`,
+   259→        nom: input.nom.trim(),
+   260→        email: input.email.trim().toLowerCase(),
+   261→        telephone: input.telephone.trim() || undefined,
+   262→        role: input.role,
+   263→        compagnie: input.compagnie,
+   264→        statut: "attente",
+   265→        creeLe: "À l'instant",
+   266→        creePar: auteur,
+   267→        connexions: [],
+   268→        actionsSensibles: [],
+   269→      };
+   270→      return {
+   271→        users: [account, ...state.users],
+   272→        audit: [
+   273→          makeAudit({
+   274→            date: "À l'instant",
+   275→            auteur,
+   276→            role,
+   277→            action: "Utilisateur" as AuditAction,
+   278→            objet: account.nom,
+   279→            detail: `Compte professionnel créé (${account.role} · ${account.compagnie}) — en attente d'activation, aucun accès tant que le compte n'est pas activé.`,
+   280→          }),
+   281→          ...state.audit,
+   282→        ],
+   283→      };
+   284→    }),
+   285→
+   286→  /** Activation d'un compte professionnel — mot de passe provisoire remis par SMS. */
+   287→  activateUser: (id, auteur, role) =>
+   288→    set((state) => {
+   289→      const user = state.users.find((u) => u.id === id);
+   290→      if (!user || user.statut !== "attente") return state;
+   291→      return {
+   292→        users: state.users.map((u) =>
+   293→          u.id === id
+   294→            ? {
+   295→                ...u,
+   296→                statut: "actif" as const,
+   297→                activeLe: "À l'instant",
+   298→                activePar: auteur,
+   299→              }
+   300→            : u
+   301→        ),
+   302→        audit: [
+   303→          makeAudit({
+   304→            date: "À l'instant",
+   305→            auteur,
+   306→            role,
+   307→            action: "Utilisateur" as AuditAction,
+   308→            objet: user.nom,
+   309→            detail: `Compte professionnel activé (${user.role}${user.compagnie ? ` · ${user.compagnie}` : ""}) — mot de passe provisoire envoyé par SMS.`,
+   310→          }),
+   311→          ...state.audit,
+   312→        ],
+   313→      };
+   314→    }),
+   315→
+   316→  /**
+   317→   * Blocage d'un compte — motif obligatoire et tracé.
+   318→   * Un administrateur TBM ne peut jamais être bloqué (protection RBAC).
+   319→   */
+   320→  blockUser: (id, motif, auteur, role) =>
+   321→    set((state) => {
+   322→      const user = state.users.find((u) => u.id === id);
+   323→      if (
+   324→        !user ||
+   325→        user.statut === "bloque" ||
+   326→        user.role === "Administrateur TBM" ||
+   327→        !motif.trim()
+   328→      )
+   329→        return state;
+   330→      return {
+   331→        users: state.users.map((u) =>
+   332→          u.id === id
+   333→            ? {
+   334→                ...u,
+   335→                statut: "bloque" as const,
+   336→                bloqueMotif: motif.trim(),
+   337→                bloquePar: auteur,
+   338→                bloqueLe: "À l'instant",
+   339→              }
+   340→            : u
+   341→        ),
+   342→        audit: [
+   343→          makeAudit({
+   344→            date: "À l'instant",
+   345→            auteur,
+   346→            role,
+   347→            action: "Utilisateur" as AuditAction,
+   348→            objet: user.nom,
+   349→            detail: `Compte bloqué — « ${motif.trim()} » — accès back-office et application retirés.`,
+   350→          }),
+   351→          ...state.audit,
+   352→        ],
+   353→      };
+   354→    }),
+   355→
+   356→  /** Déblocage d'un compte — après vérification de l'identité du titulaire. */
+   357→  unblockUser: (id, auteur, role) =>
+   358→    set((state) => {
+   359→      const user = state.users.find((u) => u.id === id);
+   360→      if (!user || user.statut !== "bloque") return state;
+   361→      return {
+   362→        users: state.users.map((u) =>
+   363→          u.id === id
+   364→            ? {
+   365→                ...u,
+   366→                statut: "actif" as const,
+   367→                bloqueMotif: undefined,
+   368→                bloquePar: undefined,
+   369→                bloqueLe: undefined,
+   370→              }
+   371→            : u
+   372→        ),
+   373→        audit: [
+   374→          makeAudit({
+   375→            date: "À l'instant",
+   376→            auteur,
+   377→            role,
+   378→            action: "Utilisateur" as AuditAction,
+   379→            objet: user.nom,
+   380→            detail: "Compte débloqué — accès rétabli après vérification de l'identité.",
+   381→          }),
+   382→          ...state.audit,
+   383→        ],
+   384→      };
+   385→    }),
+   386→
+   387→  /**
+   388→   * Changement de rôle — justification obligatoire, tracée au journal d'audit.
+   389→   * Le périmètre d'isolation est recalculé automatiquement à partir du rôle.
+   390→   */
+   391→  changeUserRole: (id, nouveauRole, justification, auteur, role) =>
+   392→    set((state) => {
+   393→      const user = state.users.find((u) => u.id === id);
+   394→      if (
+   395→        !user ||
+   396→        user.role === nouveauRole ||
+   397→        user.role === "Administrateur TBM" ||
+   398→        !justification.trim()
+   399→      )
+   400→        return state;
+   401→      return {
+   402→        users: state.users.map((u) =>
+   403→          u.id === id ? { ...u, role: nouveauRole } : u
+   404→        ),
+   405→        audit: [
+   406→          makeAudit({
+   407→            date: "À l'instant",
+   408→            auteur,
+   409→            role,
+   410→            action: "Utilisateur" as AuditAction,
+   411→            objet: user.nom,
+   412→            detail: `Rôle modifié : ${user.role} → ${nouveauRole} — « ${justification.trim()} ». Périmètre d'accès recalculé.`,
+   413→          }),
+   414→          ...state.audit,
+   415→        ],
+   416→      };
+   417→    }),
+   418→
+   419→  /** Prise en charge d'un dossier : l'agent devient responsable du traitement. */
+   420→  claimRefund: (id, auteur, role) =>
+   421→    set((state) => {
+   422→      const refund = state.refunds.find((r) => r.id === id);
+   423→      if (!refund || refund.traitePar) return state;
+   424→      const event: RefundEvent = {
+   425→        id: `RVE-${refundEventSeq++}`,
+   426→        date: "À l'instant",
+   427→        type: "prise_en_charge",
+   428→        detail:
+   429→          "Dossier pris en charge — vérification du motif, du débit d'origine et des pièces jointes.",
+   430→        par: auteur,
+   431→        role,
+   432→      };
+   433→      return {
+   434→        refunds: state.refunds.map((r) =>
+   435→          r.id === id
+   436→            ? { ...r, traitePar: auteur, historique: [...r.historique, event] }
+   437→            : r
+   438→        ),
+   439→        audit: [
+   440→          makeAudit({
+   441→            date: "À l'instant",
+   442→            auteur,
+   443→            role: "Session en cours",
+   444→            action: "Remboursement" as AuditAction,
+   445→            objet: `${refund.id} · ${refund.passager}`,
+   446→            detail: "Dossier de remboursement pris en charge.",
+   447→          }),
+   448→          ...state.audit,
+   449→        ],
+   450→      };
+   451→    }),
+   452→
+   453→  /**
+   454→   * Décision manuelle sur un dossier — justification obligatoire et tracée.
+   455→   * Un dossier en litige est gelé jusqu'à la levée du litige (droits admin).
+   456→   */
+   457→  decideRefund: (id, approuve, justification, auteur, role) =>
+   458→    set((state) => {
+   459→      const refund = state.refunds.find((r) => r.id === id);
+   460→      if (!refund || refund.statut !== "en_attente" || refund.litige?.ouvert)
+   461→        return state;
+   462→      const event: RefundEvent = {
+   463→        id: `RVE-${refundEventSeq++}`,
+   464→        date: "À l'instant",
+   465→        type: "decision",
+   466→        detail: approuve
+   467→          ? `Remboursement validé — « ${justification} »`
+   468→          : `Remboursement refusé — « ${justification} »`,
+   469→        par: auteur,
+   470→        role,
+   471→      };
+   472→      return {
+   473→        refunds: state.refunds.map((r) =>
+   474→          r.id === id
+   475→            ? {
+   476→                ...r,
+   477→                statut: approuve ? ("approuve" as const) : ("refuse" as const),
+   478→                traitePar: auteur,
+   479→                justification,
+   480→                historique: [...r.historique, event],
+   481→              }
+   482→            : r
+   483→        ),
+   484→        audit: [
+   485→          makeAudit({
+   486→            date: "À l'instant",
+   487→            auteur,
+   488→            role: "Session en cours",
+   489→            action: "Remboursement" as AuditAction,
+   490→            objet: `${refund.id} · ${refund.passager}`,
+   491→            detail: approuve
+   492→              ? `Remboursement de ${new Intl.NumberFormat("fr-FR").format(refund.montantRemboursable)} FCFA validé — « ${justification} »`
+   493→              : `Remboursement refusé — « ${justification} »`,
+   494→          }),
+   495→          ...state.audit,
+   496→        ],
+   497→      };
+   498→    }),
+   499→
+   500→  /**
+   501→   * Enregistrement d'un versement opérateur (tranche de remboursement).
+   502→   * Le dossier passe à « Remboursé » lorsque le montant éligible est couvert.
+   503→   */
+   504→  addRefundVersement: (id, montant, refOperateur, auteur, role) =>
+   505→    set((state) => {
+   506→      const refund = state.refunds.find((r) => r.id === id);
+   507→      if (
+   508→        !refund ||
+   509→        refund.statut !== "approuve" ||
+   510→        refund.litige?.ouvert ||
+   511→        montant <= 0 ||
+   512→        !refOperateur.trim()
+   513→      )
+   514→        return state;
+   515→      const dejaRembourse = refundMontantRembourse(refund);
+   516→      const resteAvant = Math.max(
+   517→        0,
+   518→        refund.montantRemboursable - dejaRembourse
+   519→      );
+   520→      const montantFinal = Math.min(montant, resteAvant);
+   521→      const solde = montantFinal >= resteAvant;
+   522→      const rang = refund.versements.length + 1;
+   523→      const versement: RefundVersement = {
+   524→        id: `RVS-${refundVersementSeq++}`,
+   525→        date: "À l'instant",
+   526→        montant: montantFinal,
+   527→        refOperateur: refOperateur.trim(),
+   528→        par: auteur,
+   529→      };
+   530→      const refClean = refOperateur.trim();
+   531→      const montantTxt = new Intl.NumberFormat("fr-FR").format(montantFinal);
+   532→      const resteTxt = new Intl.NumberFormat("fr-FR").format(
+   533→        resteAvant - montantFinal
+   534→      );
+   535→      const event: RefundEvent = {
+   536→        id: `RVE-${refundEventSeq++}`,
+   537→        date: "À l'instant",
+   538→        type: "versement",
+   539→        detail: solde
+   540→          ? `Versement de ${montantTxt} FCFA exécuté (réf. ${refClean}) — dossier intégralement remboursé.`
+   541→          : `${rang === 1 ? "1er versement" : `Versement n°${rang}`} de ${montantTxt} FCFA exécuté (réf. ${refClean}) — reste ${resteTxt} FCFA à verser.`,
+   542→        par: auteur,
+   543→        role,
+   544→      };
+   545→      return {
+   546→        refunds: state.refunds.map((r) =>
+   547→          r.id === id
+   548→            ? {
+   549→                ...r,
+   550→                statut: solde ? ("rembourse" as const) : r.statut,
+   551→                versements: [...r.versements, versement],
+   552→                historique: [...r.historique, event],
+   553→              }
+   554→            : r
+   555→        ),
+   556→        audit: [
+   557→          makeAudit({
+   558→            date: "À l'instant",
+   559→            auteur,
+   560→            role: "Session en cours",
+   561→            action: "Remboursement" as AuditAction,
+   562→            objet: `${refund.id} · ${refund.passager}`,
+   563→            detail: `Versement opérateur de ${montantTxt} FCFA enregistré (réf. ${refClean})${solde ? " — dossier soldé" : ""}.`,
+   564→          }),
+   565→          ...state.audit,
+   566→        ],
+   567→      };
+   568→    }),
+   569→
+   570→  /** Escalade d'un dossier en litige — gel des décisions jusqu'à résolution. */
+   571→  openRefundDispute: (id, detail, auteur, role) =>
+   572→    set((state) => {
+   573→      const refund = state.refunds.find((r) => r.id === id);
+   574→      if (!refund || refund.litige?.ouvert) return state;
+   575→      const event: RefundEvent = {
+   576→        id: `RVE-${refundEventSeq++}`,
+   577→        date: "À l'instant",
+   578→        type: "litige_ouvert",
+   579→        detail: `Litige ouvert : ${detail} — dossier gelé jusqu'à résolution administrative.`,
+   580→        par: auteur,
+   581→        role,
+   582→      };
+   583→      return {
+   584→        refunds: state.refunds.map((r) =>
+   585→          r.id === id
+   586→            ? {
+   587→                ...r,
+   588→                litige: {
+   589→                  ouvert: true,
+   590→                  detail,
+   591→                  ouvertLe: "À l'instant",
+   592→                  ouvertPar: auteur,
+   593→                },
+   594→                historique: [...r.historique, event],
+   595→              }
+   596→            : r
+   597→        ),
+   598→        audit: [
+   599→          makeAudit({
+   600→            date: "À l'instant",
+   601→            auteur,
+   602→            role: "Session en cours",
+   603→            action: "Litige" as AuditAction,
+   604→            objet: `${refund.id} · ${refund.passager}`,
+   605→            detail: `Litige ouvert — ${detail}`,
+   606→          }),
+   607→          ...state.audit,
+   608→        ],
+   609→      };
+   610→    }),
+   611→
+   612→  /** Levée d'un litige — réservée à l'administration, justification tracée. */
+   613→  resolveRefundDispute: (id, resolution, auteur, role) =>
+   614→    set((state) => {
+   615→      const refund = state.refunds.find((r) => r.id === id);
+   616→      if (!refund?.litige?.ouvert) return state;
+   617→      const event: RefundEvent = {
+   618→        id: `RVE-${refundEventSeq++}`,
+   619→        date: "À l'instant",
+   620→        type: "litige_resolu",
+   621→        detail: `Litige résolu — « ${resolution} »`,
+   622→        par: auteur,
+   623→        role,
+   624→      };
+   625→      return {
+   626→        refunds: state.refunds.map((r) =>
+   627→          r.id === id
+   628→            ? {
+   629→                ...r,
+   630→                litige: {
+   631→                  ...r.litige,
+   632→                  ouvert: false,
+   633→                  resolution,
+   634→                  resoluPar: auteur,
+   635→                },
+   636→                historique: [...r.historique, event],
+   637→              }
+   638→            : r
+   639→        ),
+   640→        audit: [
+   641→          makeAudit({
+   642→            date: "À l'instant",
+   643→            auteur,
+   644→            role: "Session en cours",
+   645→            action: "Litige" as AuditAction,
+   646→            objet: `${refund.id} · ${refund.passager}`,
+   647→            detail: `Litige résolu — « ${resolution} »`,
+   648→          }),
+   649→          ...state.audit,
+   650→        ],
+   651→      };
+   652→    }),
+   653→
+   654→  saveSettings: (settings, auteur) =>
+   655→    set((state) => ({
+   656→      settings,
+   657→      audit: [
+   658→        makeAudit({
+   659→          date: "À l'instant",
+   660→          auteur,
+   661→          role: "Session en cours",
+   662→          action: "Paramétrage",
+   663→          objet: "Paramètres commerciaux",
+   664→          detail: `Frais de service ${
+   665→            settings.fraisMode === "fixe"
+   666→              ? `${settings.fraisValeur} FCFA/ticket`
+   667→              : `${settings.fraisValeur} %`
+   668→          }, commission par défaut ${settings.commissionDefaut} %, blocage des places ${settings.blocageMinutes} min, plafond support ${fcfa(
+   669→            settings.plafondSupportFcfa
+   670→          )} FCFA, encaissement ${settings.encaissementMode === "plateforme" ? "par TBM" : "par les compagnies"}.`,
+   671→        }),
+   672→        ...state.audit,
+   673→      ],
+   674→    })),
+   675→
+   676→  sendNotification: (input, auteur, role) =>
+   677→    set((state) => ({
+   678→      notifications: [
+   679→        {
+   680→          id: `NOT-${notifSeq++}`,
+   681→          date: "À l'instant",
+   682→          cible: input.cible,
+   683→          message: input.message.trim(),
+   684→          envoyePar: auteur,
+   685→          canal: "SMS + push" as const,
+   686→          destinataires: input.cible === "all" ? 5250 : 1200,
+   687→        },
+   688→        ...state.notifications,
+   689→      ],
+   690→      audit: [
+   691→        makeAudit({
+   692→          date: "À l'instant",
+   693→          auteur,
+   694→          role,
+   695→          action: "Notification",
+   696→          objet: "Notification ciblée",
+   697→          detail: `Notification « ${
+   698→            input.message.trim().slice(0, 60) +
+   699→            (input.message.trim().length > 60 ? "…" : "")
+   700→          } » envoyée à : ${
+   701→            input.cible === "all" ? "tous les voyageurs" : `ville de ${input.cible}`
+   702→          } (SMS + push).`,
+   703→        }),
+   704→        ...state.audit,
+   705→      ],
+   706→    })),
+   707→
+   708→  /**
+   709→   * Retour fiable de l'opérateur simulé : la confirmation serveur arrive,
+   710→   * les billets sont émis APRÈS cette confirmation (point critique).
+   711→   */
+   712→  confirmPendingPayment: (id, auteur) =>
+   713→    set((state) => {
+   714→      const txn = state.transactions.find((t) => t.id === id);
+   715→      if (!txn || txn.statut !== "en_attente") return state;
+   716→      // Places bloquées déduites de l'historique d'initiation (RG1)
+   717→      const init = txn.timeline.find((e) => e.type === "initiation");
+   718→      const places = init ? (init.detail.match(/(\d+) place/) ?? ["", "1"])[1] : "1";
+   719→      const nb = Number(places) || 1;
+   720→      const now = "À l'instant";
+   721→      const updated: Transaction = {
+   722→        ...txn,
+   723→        statut: "reussi",
+   724→        billetsEmis: nb,
+   725→        releve: true,
+   726→        timeline: [
+   727→          {
+   728→            id: `PEV-${Date.now()}`,
+   729→            date: now,
+   730→            type: "emission",
+   731→            detail: `${nb} billet${nb > 1 ? "s" : ""} émis et envoyé${nb > 1 ? "s" : ""} par SMS après confirmation serveur.`,
+   732→            source: "Serveur TBM",
+   733→          },
+   734→          {
+   735→            id: `PEV-${Date.now() - 1}`,
+   736→            date: now,
+   737→            type: "confirmation",
+   738→            detail: `Retour fiable de l'opérateur reçu — débit de ${new Intl.NumberFormat("fr-FR").format(txn.montant)} FCFA confirmé (${txn.refOperateur}).`,
+   739→            source: "Opérateur",
+   740→          },
+   741→          ...txn.timeline,
+   742→        ],
+   743→      };
+   744→      return {
+   745→        transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
+   746→        audit: [
+   747→          makeAudit({
+   748→            date: now,
+   749→            auteur,
+   750→            role: "Session en cours",
+   751→            action: "Transaction" as AuditAction,
+   752→            objet: `${txn.id} · ${txn.refOperateur}`,
+   753→            detail: `Retour opérateur confirmé — ${nb} billet${nb > 1 ? "s" : ""} émis après confirmation serveur (point critique respecté).`,
+   754→          }),
+   755→          ...state.audit,
+   756→        ],
+   757→      };
+   758→    }),
+   759→
+   760→  /** Anomalie « débité sans billet » résolue avec justification obligatoire. */
+   761→  resolveTransactionAnomaly: (id, resolution, auteur) =>
+   762→    set((state) => {
+   763→      const txn = state.transactions.find((t) => t.id === id);
+   764→      if (!txn?.anomalie || txn.anomalie.statut === "resolue") return state;
+   765→      const now = "À l'instant";
+   766→      const updated: Transaction = {
+   767→        ...txn,
+   768→        anomalie: {
+   769→          ...txn.anomalie,
+   770→          statut: "resolue",
+   771→          resolution,
+   772→          resoluPar: auteur,
+   773→        },
+   774→        timeline: [
+   775→          {
+   776→            id: `PEV-${Date.now()}`,
+   777→            date: now,
+   778→            type: "remboursement",
+   779→            detail: `Anomalie résolue — « ${resolution} »`,
+   780→            source: "Back-office",
+   781→          },
+   782→          ...txn.timeline,
+   783→        ],
+   784→      };
+   785→      return {
+   786→        transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
+   787→        audit: [
+   788→          makeAudit({
+   789→            date: now,
+   790→            auteur,
+   791→            role: "Session en cours",
+   792→            action: "Transaction" as AuditAction,
+   793→            objet: `${txn.id} · ${txn.refOperateur}`,
+   794→            detail: `Anomalie « débité sans billet » résolue — « ${resolution} »`,
+   795→          }),
+   796→          ...state.audit,
+   797→        ],
+   798→      };
+   799→    }),
+   800→
+   801→  /** Clôture du rapprochement quotidien pour un jour + opérateur donné. */
+   802→  closeReconciliation: (jour, operateur, auteur) =>
+   803→    set((state) => {
+   804→      const key = `${jour}|${operateur}`;
+   805→      if (state.closedReconciliations.includes(key)) return state;
+   806→      return {
+   807→        closedReconciliations: [...state.closedReconciliations, key],
+   808→        audit: [
+   809→          makeAudit({
+   810→            date: "À l'instant",
+   811→            auteur,
+   812→            role: "Session en cours",
+   813→            action: "Rapprochement" as AuditAction,
+   814→            objet: `${operateur} · ${jour}`,
+   815→            detail: "Rapprochement quotidien clôturé — plateforme TBM conforme au relevé de l'opérateur.",
+   816→          }),
+   817→          ...state.audit,
+   818→        ],
+   819→      };
+   820→    }),
+   821→
+   822→  /**
+   823→   * Calcul d'un reversement : consolidation des transactions confirmées
+   824→   * et des remboursements exécutés de la période (A02/A03) — le résultat
+   825→   * passe « À valider » avec relevé de collecte et avis de commission.
+   826→   */
+   827→  calculateSettlement: (id, auteur, role) =>
+   828→    set((state) => {
+   829→      const s = state.settlements.find((x) => x.id === id);
+   830→      if (!s || s.statut !== "a_calculer") return state;
+   831→      const pre = SETTLEMENT_PRECOMPUTED[id];
+   832→      if (!pre) return state;
+   833→      const netCollecte = Math.max(0, pre.brutCollecte - pre.remboursements);
+   834→      const commission = Math.round((netCollecte * s.commissionTaux) / 100);
+   835→      const net = netCollecte - commission;
+   836→      const now = "À l'instant";
+   837→      const event: SettlementEvent = {
+   838→        id: `SVE-${settlementEventSeq++}`,
+   839→        date: now,
+   840→        type: "calcul",
+   841→        detail: `Calcul consolidé : collecté brut ${fcfa(pre.brutCollecte)} − remboursements ${fcfa(pre.remboursements)} − commission ${s.commissionTaux} % (${fcfa(commission)}) = net à reverser ${fcfa(net)} FCFA. En attente de validation.`,
+   842→        par: auteur,
+   843→        role,
+   844→      };
+   845→      const docs: SettlementDoc[] = [
+   846→        { id: `SDC-${settlementDocSeq++}`, kind: "releve_collecte", nom: `releve-collecte-${s.id}.pdf`, taille: "41 Ko", genereLe: now },
+   847→        { id: `SDC-${settlementDocSeq++}`, kind: "avis_commission", nom: `avis-commission-${s.id}.pdf`, taille: "16 Ko", genereLe: now },
+   848→      ];
+   849→      return {
+   850→        settlements: state.settlements.map((x) =>
+   851→          x.id === id
+   852→            ? {
+   853→                ...x,
+   854→                statut: "a_valider" as const,
+   855→                brutCollecte: pre.brutCollecte,
+   856→                remboursements: pre.remboursements,
+   857→                commissionMontant: commission,
+   858→                netAReverser: net,
+   859→                nbTransactions: pre.nbTransactions,
+   860→                nbBillets: pre.nbBillets,
+   861→                nbRemboursements: pre.nbRemboursements,
+   862→                calculeLe: now,
+   863→                calculePar: auteur,
+   864→                docs: [...x.docs, ...docs],
+   865→                historique: [...x.historique, event],
+   866→              }
+   867→            : x
+   868→        ),
+   869→        audit: [
+   870→          makeAudit({
+   871→            date: now,
+   872→            auteur,
+   873→            role,
+   874→            action: "Reversement" as AuditAction,
+   875→            objet: `${s.id} · ${s.compagnie}`,
+   876→            detail: `Reversement calculé — net à reverser ${fcfa(net)} FCFA (commission ${fcfa(commission)} FCFA à ${s.commissionTaux} %). En attente de validation.`,
+   877→          }),
+   878→          ...state.audit,
+   879→        ],
+   880→      };
+   881→    }),
+   882→
+   883→  /**
+   884→   * Validation d'un reversement (administration) — le net est engagé
+   885→   * et l'exécution du paiement passe « En cours » (manualisation au lancement).
+   886→   */
+   887→  validateSettlement: (id, auteur, role) =>
+   888→    set((state) => {
+   889→      const s = state.settlements.find((x) => x.id === id);
+   890→      if (!s || s.statut !== "a_valider") return state;
+   891→      const now = "À l'instant";
+   892→      const event: SettlementEvent = {
+   893→        id: `SVE-${settlementEventSeq++}`,
+   894→        date: now,
+   895→        type: "validation",
+   896→        detail: `Reversement validé — net de ${fcfa(s.netAReverser)} FCFA à reverser à ${s.compagnie}. Exécution du paiement à finaliser manuellement (lancement).`,
+   897→        par: auteur,
+   898→        role,
+   899→      };
+   900→      return {
+   901→        settlements: state.settlements.map((x) =>
+   902→          x.id === id
+   903→            ? {
+   904→                ...x,
+   905→                statut: "en_cours" as const,
+   906→                valideLe: now,
+   907→                validePar: auteur,
+   908→                historique: [...x.historique, event],
+   909→              }
+   910→            : x
+   911→        ),
+   912→        audit: [
+   913→          makeAudit({
+   914→            date: now,
+   915→            auteur,
+   916→            role,
+   917→            action: "Reversement" as AuditAction,
+   918→            objet: `${s.id} · ${s.compagnie}`,
+   919→            detail: `Reversement validé — net de ${fcfa(s.netAReverser)} FCFA engagé (commission ${fcfa(s.commissionMontant)} FCFA à ${s.commissionTaux} %).`,
+   920→          }),
+   921→          ...state.audit,
+   922→        ],
+   923→      };
+   924→    }),
+   925→
+   926→  /**
+   927→   * Enregistrement du reversement effectif — référence de paiement
+   928→   * obligatoire (virement ou opérateur), preuve rattachée au dossier.
+   929→   */
+   930→  paySettlement: (id, moyen, refPaiement, auteur, role) =>
+   931→    set((state) => {
+   932→      const s = state.settlements.find((x) => x.id === id);
+   933→      if (!s || s.statut !== "en_cours" || refPaiement.trim().length < 4)
+   934→        return state;
+   935→      const ref = refPaiement.trim();
+   936→      const now = "À l'instant";
+   937→      const event: SettlementEvent = {
+   938→        id: `SVE-${settlementEventSeq++}`,
+   939→        date: now,
+   940→        type: "paiement",
+   941→        detail: `Reversement de ${fcfa(s.netAReverser)} FCFA exécuté via ${REVERSEMENT_MOYEN_META[moyen].label} (réf. ${ref}) — preuve rattachée au dossier.`,
+   942→        par: auteur,
+   943→        role,
+   944→      };
+   945→      const doc: SettlementDoc = {
+   946→        id: `SDC-${settlementDocSeq++}`,
+   947→        kind: "preuve_paiement",
+   948→        nom: `preuve-reversement-${s.id}.pdf`,
+   949→        taille: "10 Ko",
+   950→        genereLe: now,
+   951→      };
+   952→      return {
+   953→        settlements: state.settlements.map((x) =>
+   954→          x.id === id
+   955→            ? {
+   956→                ...x,
+   957→                statut: "paye" as const,
+   958→                moyen,
+   959→                refPaiement: ref,
+   960→                payeLe: now,
+   961→                payePar: auteur,
+   962→                docs: [...x.docs, doc],
+   963→                historique: [...x.historique, event],
+   964→              }
+   965→            : x
+   966→        ),
+   967→        audit: [
+   968→          makeAudit({
+   969→            date: now,
+   970→            auteur,
+   971→            role,
+   972→            action: "Reversement" as AuditAction,
+   973→            objet: `${s.id} · ${s.compagnie}`,
+   974→            detail: `Reversement payé — ${fcfa(s.netAReverser)} FCFA via ${REVERSEMENT_MOYEN_META[moyen].label} (réf. ${ref}).`,
+   975→          }),
+   976→          ...state.audit,
+   977→        ],
+   978→      };
+   979→    }),
+   980→
+   981→  pushAudit: (entry) =>
+   982→    set((state) => ({ audit: [makeAudit(entry), ...state.audit] })),
+   983→}));
+   984→

@@ -1,0 +1,1695 @@
+     1→"use client";
+     2→
+     3→import { useMemo, useState, type ReactNode } from "react";
+     4→import { motion } from "framer-motion";
+     5→import {
+     6→  BadgeCheck,
+     7→  Banknote,
+     8→  Calculator,
+     9→  Check,
+    10→  CheckCircle2,
+    11→  Copy,
+    12→  Download,
+    13→  FileText,
+    14→  Hourglass,
+    15→  Info,
+    16→  Landmark,
+    17→  Lock,
+    18→  Percent,
+    19→  ScrollText,
+    20→  Search,
+    21→  ShieldCheck,
+    22→  Smartphone,
+    23→  Wallet,
+    24→} from "lucide-react";
+    25→import { Button } from "@/components/ui/button";
+    26→import {
+    27→  Dialog,
+    28→  DialogContent,
+    29→  DialogDescription,
+    30→  DialogFooter,
+    31→  DialogHeader,
+    32→  DialogTitle,
+    33→} from "@/components/ui/dialog";
+    34→import { Input } from "@/components/ui/input";
+    35→import { Label } from "@/components/ui/label";
+    36→import {
+    37→  Select,
+    38→  SelectContent,
+    39→  SelectItem,
+    40→  SelectTrigger,
+    41→  SelectValue,
+    42→} from "@/components/ui/select";
+    43→import {
+    44→  Sheet,
+    45→  SheetContent,
+    46→  SheetDescription,
+    47→  SheetTitle,
+    48→} from "@/components/ui/sheet";
+    49→import {
+    50→  Table,
+    51→  TableBody,
+    52→  TableCell,
+    53→  TableHead,
+    54→  TableHeader,
+    55→  TableRow,
+    56→} from "@/components/ui/table";
+    57→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    58→import { useToast } from "@/hooks/use-toast";
+    59→import { useAuthStore } from "@/lib/auth-store";
+    60→import { useTbmStore } from "@/lib/tbm-store";
+    61→import {
+    62→  companyInitials,
+    63→  companyLogoColor,
+    64→  ENCAISSEMENT_MODE_META,
+    65→  formatFcfa,
+    66→  formatNumber,
+    67→  REVERSEMENT_MOYEN_META,
+    68→  SETTLEMENT_DOC_META,
+    69→  SETTLEMENT_EVENT_META,
+    70→  SETTLEMENT_STATUS_META,
+    71→  settlementNetCollecte,
+    72→  TBM_ENCAISSEMENT_MODE,
+    73→  type ReversementMoyen,
+    74→  type Settlement,
+    75→  type SettlementDoc,
+    76→  type SettlementDocKind,
+    77→  type SettlementEventKind,
+    78→  type SettlementStatus,
+    79→} from "@/components/tbm/data";
+    80→import { cn } from "@/lib/utils";
+    81→
+    82→/* ============================ Helpers ============================ */
+    83→
+    84→/** Normalise une chaîne pour la recherche : minuscules, sans espaces/tirets/points. */
+    85→function normalizeKey(s: string): string {
+    86→  return s
+    87→    .toLowerCase()
+    88→    .replace(/[\s\-.]/g, "")
+    89→    .normalize("NFD")
+    90→    .replace(/[\u0300-\u036f]/g, "");
+    91→}
+    92→
+    93→type DialogState = { kind: "validate" } | { kind: "pay" } | null;
+    94→
+    95→/* ======================= Petits composants ======================= */
+    96→
+    97→function MiniKpi({
+    98→  icon: Icon,
+    99→  label,
+   100→  value,
+   101→  hint,
+   102→  tone,
+   103→}: {
+   104→  icon: React.ElementType;
+   105→  label: string;
+   106→  value: string;
+   107→  hint: string;
+   108→  tone: string;
+   109→}) {
+   110→  return (
+   111→    <motion.div
+   112→      initial={{ opacity: 0, y: 12 }}
+   113→      animate={{ opacity: 1, y: 0 }}
+   114→      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+   115→      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+   116→    >
+   117→      <span
+   118→        className={cn(
+   119→          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+   120→          tone
+   121→        )}
+   122→      >
+   123→        <Icon className="h-[18px] w-[18px]" />
+   124→      </span>
+   125→      <span className="min-w-0">
+   126→        <span className="block truncate text-[12px] font-medium text-neutral-400">
+   127→          {label}
+   128→        </span>
+   129→        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
+   130→          {value}
+   131→        </span>
+   132→        <span className="block truncate text-[11px] text-neutral-400">{hint}</span>
+   133→      </span>
+   134→    </motion.div>
+   135→  );
+   136→}
+   137→
+   138→function StatusBadge({ statut }: { statut: SettlementStatus }) {
+   139→  const meta = SETTLEMENT_STATUS_META[statut];
+   140→  return (
+   141→    <span
+   142→      className={cn(
+   143→        "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
+   144→        meta.className
+   145→      )}
+   146→    >
+   147→      {meta.label}
+   148→    </span>
+   149→  );
+   150→}
+   151→
+   152→function MoyenBadge({ moyen }: { moyen: ReversementMoyen }) {
+   153→  const meta = REVERSEMENT_MOYEN_META[moyen];
+   154→  return (
+   155→    <span
+   156→      className={cn(
+   157→        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold",
+   158→        meta.className
+   159→      )}
+   160→    >
+   161→      {moyen === "virement_bancaire" ? (
+   162→        <Landmark className="h-3 w-3" />
+   163→      ) : (
+   164→        <Smartphone className="h-3 w-3" />
+   165→      )}
+   166→      {meta.label}
+   167→    </span>
+   168→  );
+   169→}
+   170→
+   171→function TauxBadge({ taux }: { taux: number }) {
+   172→  return (
+   173→    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-600">
+   174→      <Percent className="h-3 w-3" />
+   175→      {taux} %
+   176→    </span>
+   177→  );
+   178→}
+   179→
+   180→function CompanyAvatar({ nom }: { nom: string }) {
+   181→  return (
+   182→    <span
+   183→      className={cn(
+   184→        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1",
+   185→        companyLogoColor(nom)
+   186→      )}
+   187→      aria-hidden
+   188→    >
+   189→      {companyInitials(nom)}
+   190→    </span>
+   191→  );
+   192→}
+   193→
+   194→const DOC_ICON: Record<SettlementDocKind, React.ElementType> = {
+   195→  releve_collecte: ScrollText,
+   196→  avis_commission: FileText,
+   197→  preuve_paiement: BadgeCheck,
+   198→};
+   199→
+   200→/** Bouton de téléchargement d'un justificatif (démo frontend). */
+   201→function DocButton({
+   202→  doc,
+   203→  revId,
+   204→  onDownload,
+   205→  compact,
+   206→}: {
+   207→  doc: SettlementDoc;
+   208→  revId: string;
+   209→  onDownload: (doc: SettlementDoc, revId: string) => void;
+   210→  compact?: boolean;
+   211→}) {
+   212→  const Icon = DOC_ICON[doc.kind];
+   213→  if (compact) {
+   214→    return (
+   215→      <button
+   216→        type="button"
+   217→        title={`${SETTLEMENT_DOC_META[doc.kind].label} — ${doc.nom}`}
+   218→        aria-label={`Télécharger ${SETTLEMENT_DOC_META[doc.kind].label} (${doc.nom})`}
+   219→        onClick={(e) => {
+   220→          e.stopPropagation();
+   221→          onDownload(doc, revId);
+   222→        }}
+   223→        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-400 transition-colors hover:border-coral-200 hover:bg-coral-50 hover:text-coral-600"
+   224→      >
+   225→        <Download className="h-3.5 w-3.5" />
+   226→      </button>
+   227→    );
+   228→  }
+   229→  return (
+   230→    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50/60 px-3 py-2.5">
+   231→      <div className="flex min-w-0 items-center gap-2.5">
+   232→        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-500 ring-1 ring-neutral-200/80">
+   233→          <Icon className="h-4 w-4" />
+   234→        </span>
+   235→        <div className="min-w-0">
+   236→          <p className="text-[12.5px] font-semibold text-neutral-700">
+   237→            {SETTLEMENT_DOC_META[doc.kind].label}
+   238→          </p>
+   239→          <p className="truncate font-mono text-[11px] text-neutral-400">{doc.nom}</p>
+   240→          <p className="text-[10.5px] text-neutral-400">
+   241→            {SETTLEMENT_DOC_META[doc.kind].description}
+   242→          </p>
+   243→        </div>
+   244→      </div>
+   245→      <div className="flex shrink-0 items-center gap-2">
+   246→        <span className="text-[10.5px] text-neutral-400">
+   247→          {doc.taille} · généré {doc.genereLe}
+   248→        </span>
+   249→        <Button
+   250→          size="sm"
+   251→          variant="outline"
+   252→          onClick={(e) => {
+   253→            e.stopPropagation();
+   254→            onDownload(doc, revId);
+   255→          }}
+   256→          className="h-8 gap-1.5 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium shadow-none hover:border-coral-200 hover:bg-coral-50 hover:text-coral-600"
+   257→        >
+   258→          <Download className="h-3.5 w-3.5" />
+   259→          Télécharger
+   260→        </Button>
+   261→      </div>
+   262→    </div>
+   263→  );
+   264→}
+   265→
+   266→function CopyRef({ value }: { value: string }) {
+   267→  const [copied, setCopied] = useState(false);
+   268→  const { toast } = useToast();
+   269→  return (
+   270→    <button
+   271→      type="button"
+   272→      aria-label={`Copier la référence ${value}`}
+   273→      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
+   274→      onClick={() => {
+   275→        navigator.clipboard?.writeText(value).catch(() => undefined);
+   276→        setCopied(true);
+   277→        toast({ title: "Référence copiée", description: value });
+   278→        window.setTimeout(() => setCopied(false), 1600);
+   279→      }}
+   280→    >
+   281→      {copied ? (
+   282→        <Check className="h-3.5 w-3.5 text-emerald-600" />
+   283→      ) : (
+   284→        <Copy className="h-3.5 w-3.5" />
+   285→      )}
+   286→    </button>
+   287→  );
+   288→}
+   289→
+   290→function InfoLine({
+   291→  label,
+   292→  value,
+   293→  action,
+   294→  badge,
+   295→  mono,
+   296→}: {
+   297→  label: string;
+   298→  value: string;
+   299→  action?: ReactNode;
+   300→  badge?: ReactNode;
+   301→  mono?: boolean;
+   302→}) {
+   303→  return (
+   304→    <div className="flex items-center justify-between gap-3 border-b border-dashed border-neutral-100 pb-2.5 last:border-0 last:pb-0">
+   305→      <span className="shrink-0 text-[12px] text-neutral-400">{label}</span>
+   306→      <span className="flex min-w-0 items-center gap-1.5">
+   307→        {badge}
+   308→        <span
+   309→          className={cn(
+   310→            "truncate text-[12.5px] font-semibold text-neutral-800",
+   311→            mono && "font-mono text-[12px]"
+   312→          )}
+   313→        >
+   314→          {value}
+   315→        </span>
+   316→        {action}
+   317→      </span>
+   318→    </div>
+   319→  );
+   320→}
+   321→
+   322→function EventBadge({ kind }: { kind: SettlementEventKind }) {
+   323→  const meta = SETTLEMENT_EVENT_META[kind];
+   324→  return (
+   325→    <span
+   326→      className={cn(
+   327→        "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10.5px] font-semibold",
+   328→        meta.className
+   329→      )}
+   330→    >
+   331→      {meta.label}
+   332→    </span>
+   333→  );
+   334→}
+   335→
+   336→/** Ligne du décompte en cascade. */
+   337→function DecompteLine({
+   338→  label,
+   339→  sub,
+   340→  amount,
+   341→  sign,
+   342→  tone,
+   343→}: {
+   344→  label: string;
+   345→  sub?: string;
+   346→  amount: string;
+   347→  sign?: "minus" | "equals";
+   348→  tone?: "neutral" | "coral";
+   349→}) {
+   350→  return (
+   351→    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+   352→      <span className="flex min-w-0 items-center gap-2">
+   353→        {sign === "minus" && (
+   354→          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[12px] font-bold text-neutral-500">
+   355→            −
+   356→          </span>
+   357→        )}
+   358→        {sign === "equals" && (
+   359→          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[12px] font-bold text-neutral-500">
+   360→            =
+   361→          </span>
+   362→        )}
+   363→        <span className="min-w-0">
+   364→          <span
+   365→            className={cn(
+   366→              "block truncate text-[12.5px] font-semibold",
+   367→              tone === "coral" ? "text-coral-700" : "text-neutral-700"
+   368→            )}
+   369→          >
+   370→            {label}
+   371→          </span>
+   372→          {sub && (
+   373→            <span className="block truncate text-[10.5px] text-neutral-400">{sub}</span>
+   374→          )}
+   375→        </span>
+   376→      </span>
+   377→      <span
+   378→        className={cn(
+   379→          "shrink-0 text-[13px] font-bold tabular-nums",
+   380→          tone === "coral" ? "text-coral-600" : "text-neutral-800"
+   381→        )}
+   382→      >
+   383→        {amount}
+   384→      </span>
+   385→    </div>
+   386→  );
+   387→}
+   388→
+   389→/* ========================= Fiche reversement ========================= */
+   390→
+   391→function SettlementSheet({
+   392→  settlement,
+   393→  open,
+   394→  onOpenChange,
+   395→  isAdmin,
+   396→  onCalculate,
+   397→  onValidate,
+   398→  onPay,
+   399→  onDownloadDoc,
+   400→}: {
+   401→  settlement: Settlement | null;
+   402→  open: boolean;
+   403→  onOpenChange: (v: boolean) => void;
+   404→  isAdmin: boolean;
+   405→  onCalculate: (s: Settlement) => void;
+   406→  onValidate: (s: Settlement) => void;
+   407→  onPay: (s: Settlement) => void;
+   408→  onDownloadDoc: (doc: SettlementDoc, revId: string) => void;
+   409→}) {
+   410→  if (!settlement) return null;
+   411→  const s = settlement;
+   412→  const netCollecte = settlementNetCollecte(s);
+   413→
+   414→  return (
+   415→    <Sheet open={open} onOpenChange={onOpenChange}>
+   416→      <SheetContent
+   417→        side="right"
+   418→        className="w-full gap-0 overflow-y-auto p-0 sm:max-w-[600px]"
+   419→      >
+   420→        <SheetTitle className="sr-only">Reversement {s.id}</SheetTitle>
+   421→        <SheetDescription className="sr-only">
+   422→          {s.compagnie} — {s.periode} — {formatFcfa(s.netAReverser)} à reverser.
+   423→        </SheetDescription>
+   424→
+   425→        {/* En-tête */}
+   426→        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white/95 px-6 pb-4 pt-5 backdrop-blur">
+   427→          <div className="flex items-start justify-between gap-3">
+   428→            <div className="min-w-0">
+   429→              <div className="flex flex-wrap items-center gap-2">
+   430→                <h3 className="font-mono text-[16px] font-bold tracking-tight text-neutral-900">
+   431→                  {s.id}
+   432→                </h3>
+   433→                <StatusBadge statut={s.statut} />
+   434→              </div>
+   435→              <p className="mt-0.5 text-[12.5px] text-neutral-400">
+   436→                {s.compagnie} · {s.periode}
+   437→              </p>
+   438→            </div>
+   439→            <div className="shrink-0 text-right">
+   440→              {s.statut === "a_calculer" ? (
+   441→                <>
+   442→                  <p className="text-[17px] font-black tracking-tight text-neutral-400">
+   443→                    ≈ {formatNumber(s.estimation?.brut ?? 0)}
+   444→                  </p>
+   445→                  <p className="text-[10.5px] text-neutral-400">
+   446→                    FCFA — estimation provisoire
+   447→                  </p>
+   448→                </>
+   449→              ) : (
+   450→                <>
+   451→                  <p className="text-[19px] font-black tracking-tight text-neutral-900">
+   452→                    {formatFcfa(s.netAReverser)}
+   453→                  </p>
+   454→                  <p className="text-[10.5px] text-neutral-400">net à reverser</p>
+   455→                </>
+   456→              )}
+   457→            </div>
+   458→          </div>
+   459→
+   460→          {/* Actions */}
+   461→          <div className="mt-3 flex flex-wrap gap-2">
+   462→            {s.statut === "a_calculer" && (
+   463→              <Button
+   464→                size="sm"
+   465→                onClick={() => onCalculate(s)}
+   466→                className="h-8 gap-1.5 rounded-xl bg-sky-500 text-[12.5px] font-semibold text-white hover:bg-sky-600"
+   467→              >
+   468→                <Calculator className="h-3.5 w-3.5" />
+   469→                Calculer le reversement
+   470→              </Button>
+   471→            )}
+   472→            {s.statut === "a_valider" &&
+   473→              (isAdmin ? (
+   474→                <Button
+   475→                  size="sm"
+   476→                  onClick={() => onValidate(s)}
+   477→                  className="h-8 gap-1.5 rounded-xl bg-emerald-500 text-[12.5px] font-semibold text-white hover:bg-emerald-600"
+   478→                >
+   479→                  <CheckCircle2 className="h-3.5 w-3.5" />
+   480→                  Valider le reversement
+   481→                </Button>
+   482→              ) : (
+   483→                <span className="inline-flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 py-1.5 text-[11.5px] font-semibold text-neutral-500">
+   484→                  <Lock className="h-3.5 w-3.5" />
+   485→                  Validation réservée à l&apos;administration
+   486→                </span>
+   487→              ))}
+   488→            {s.statut === "en_cours" &&
+   489→              (isAdmin ? (
+   490→                <Button
+   491→                  size="sm"
+   492→                  onClick={() => onPay(s)}
+   493→                  className="h-8 gap-1.5 rounded-xl bg-coral-500 text-[12.5px] font-semibold text-white hover:bg-coral-600"
+   494→                >
+   495→                  <Banknote className="h-3.5 w-3.5" />
+   496→                  Enregistrer le reversement
+   497→                </Button>
+   498→              ) : (
+   499→                <span className="inline-flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 py-1.5 text-[11.5px] font-semibold text-neutral-500">
+   500→                  <Lock className="h-3.5 w-3.5" />
+   501→                  Paiement réservé à l&apos;administration
+   502→                </span>
+   503→              ))}
+   504→            {s.statut === "paye" && (
+   505→              <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-[11.5px] font-semibold text-emerald-600">
+   506→                <CheckCircle2 className="h-3.5 w-3.5" />
+   507→                Payé {s.payeLe} · réf. {s.refPaiement}
+   508→              </span>
+   509→            )}
+   510→          </div>
+   511→        </div>
+   512→
+   513→        <div className="space-y-6 px-6 py-5">
+   514→          {/* Alerte manualisation au lancement */}
+   515→          {s.statut === "en_cours" && (
+   516→            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+   517→              <div className="flex items-center gap-2">
+   518→                <Info className="h-4 w-4 shrink-0 text-amber-600" />
+   519→                <p className="text-[12.5px] font-bold text-amber-700">
+   520→                  Exécution du paiement finalisée manuellement au lancement
+   521→                </p>
+   522→              </div>
+   523→              <p className="mt-1.5 text-[12.5px] leading-relaxed text-amber-700/90">
+   524→                Le reversement effectif dépend du modèle d&apos;encaissement retenu
+   525→                par TBM (
+   526→                {ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label.toLowerCase()}).
+   527→                Exécutez le virement ou le transfert opérateur, puis enregistrez sa
+   528→                référence ici : la preuve de reversement sera rattachée au dossier.
+   529→              </p>
+   530→            </div>
+   531→          )}
+   532→
+   533→          {/* Décompte */}
+   534→          <section>
+   535→            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+   536→              Décompte de la période
+   537→            </h4>
+   538→            {s.statut === "a_calculer" ? (
+   539→              <div className="mt-2.5 rounded-2xl border border-neutral-200/70 p-4">
+   540→                <div className="rounded-xl bg-amber-50/70 p-3.5">
+   541→                  <p className="text-[12.5px] font-bold text-amber-700">
+   542→                    Estimation provisionnelle : ≈ {formatNumber(s.estimation?.brut ?? 0)} FCFA
+   543→                    collectés
+   544→                  </p>
+   545→                  <p className="mt-1 text-[12px] leading-relaxed text-amber-700/90">
+   546→                    {s.estimation?.transactions ?? 0} transactions confirmées ·{" "}
+   547→                    {s.estimation?.billets ?? 0} billets — montants définitifs au
+   548→                    calcul, après clôture du rapprochement quotidien (A02).
+   549→                  </p>
+   550→                </div>
+   551→                <p className="mt-3 text-[12px] leading-relaxed text-neutral-500">
+   552→                  Le calcul consolidera : collecté brut − remboursements exécutés
+   553→                  (A03) − commission TBM ({s.commissionTaux} %) = net à reverser.
+   554→                  Le relevé de collecte et l&apos;avis de commission seront générés
+   555→                  automatiquement.
+   556→                </p>
+   557→              </div>
+   558→            ) : (
+   559→              <div className="mt-2.5 overflow-hidden rounded-2xl border border-neutral-200/70">
+   560→                <div className="divide-y divide-dashed divide-neutral-100">
+   561→                  <DecompteLine
+   562→                    label="Collecté brut"
+   563→                    sub={`${s.nbTransactions} transactions confirmées · ${s.nbBillets} billets émis (A02)`}
+   564→                    amount={`${formatNumber(s.brutCollecte)} FCFA`}
+   565→                  />
+   566→                  <DecompteLine
+   567→                    sign="minus"
+   568→                    label="Remboursements exécutés"
+   569→                    sub={`${s.nbRemboursements} dossier${s.nbRemboursements > 1 ? "s" : ""} remboursé${s.nbRemboursements > 1 ? "s" : ""} sur la période (A03)`}
+   570→                    amount={`− ${formatNumber(s.remboursements)} FCFA`}
+   571→                  />
+   572→                  <DecompteLine
+   573→                    sign="equals"
+   574→                    label="Collecté net"
+   575→                    amount={`${formatNumber(netCollecte)} FCFA`}
+   576→                  />
+   577→                  <DecompteLine
+   578→                    sign="minus"
+   579→                    label="Commission TBM"
+   580→                    sub={`taux contractuel ${s.commissionTaux} % (accord A01)`}
+   581→                    amount={`− ${formatNumber(s.commissionMontant)} FCFA`}
+   582→                  />
+   583→                </div>
+   584→                <div className="flex items-center justify-between gap-3 bg-coral-50/80 px-3.5 py-3">
+   585→                  <span className="text-[13px] font-bold text-coral-700">
+   586→                    Net à reverser à {s.compagnie}
+   587→                  </span>
+   588→                  <span className="text-[15px] font-black tabular-nums text-coral-600">
+   589→                    {formatFcfa(s.netAReverser)}
+   590→                  </span>
+   591→                </div>
+   592→              </div>
+   593→            )}
+   594→          </section>
+   595→
+   596→          {/* Infos & cycle de vie */}
+   597→          <section>
+   598→            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+   599→              Informations du reversement
+   600→            </h4>
+   601→            <div className="mt-2.5 space-y-2.5 rounded-2xl border border-neutral-200/70 p-4">
+   602→              <InfoLine label="Période" value={s.periode} />
+   603→              <InfoLine
+   604→                label="Compagnie"
+   605→                value={s.compagnie}
+   606→                badge={<TauxBadge taux={s.commissionTaux} />}
+   607→              />
+   608→              <InfoLine
+   609→                label="Modèle d'encaissement"
+   610→                value={ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label}
+   611→              />
+   612→              {s.moyen && (
+   613→                <InfoLine
+   614→                  label="Moyen de reversement"
+   615→                  value=""
+   616→                  badge={<MoyenBadge moyen={s.moyen} />}
+   617→                />
+   618→              )}
+   619→              {s.refPaiement && (
+   620→                <InfoLine
+   621→                  label="Référence du paiement"
+   622→                  value={s.refPaiement}
+   623→                  mono
+   624→                  action={<CopyRef value={s.refPaiement} />}
+   625→                />
+   626→              )}
+   627→              <InfoLine
+   628→                label="Calcul"
+   629→                value={s.calculeLe ? `${s.calculeLe} · ${s.calculePar}` : "— à faire"}
+   630→              />
+   631→              <InfoLine
+   632→                label="Validation"
+   633→                value={s.valideLe ? `${s.valideLe} · ${s.validePar}` : "— en attente"}
+   634→              />
+   635→              <InfoLine
+   636→                label="Paiement"
+   637→                value={s.payeLe ? `${s.payeLe} · ${s.payePar}` : "— à exécuter"}
+   638→              />
+   639→            </div>
+   640→          </section>
+   641→
+   642→          {/* Justificatifs & relevés */}
+   643→          <section>
+   644→            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+   645→              Justificatifs &amp; relevés ({s.docs.length})
+   646→            </h4>
+   647→            <p className="mt-1 text-[11.5px] text-neutral-400">
+   648→              Téléchargeables — ils servent de pièces au dossier et aux échanges
+   649→              avec la compagnie.
+   650→            </p>
+   651→            <div className="mt-2.5 space-y-2">
+   652→              {s.docs.length === 0 ? (
+   653→                <p className="rounded-xl bg-neutral-50 p-3 text-[12px] text-neutral-400">
+   654→                  Aucun justificatif — le relevé de collecte et l&apos;avis de
+   655→                  commission sont générés au calcul du reversement.
+   656→                </p>
+   657→              ) : (
+   658→                s.docs.map((d) => (
+   659→                  <DocButton
+   660→                    key={d.id}
+   661→                    doc={d}
+   662→                    revId={s.id}
+   663→                    onDownload={onDownloadDoc}
+   664→                  />
+   665→                ))
+   666→              )}
+   667→            </div>
+   668→          </section>
+   669→
+   670→          {/* Historique du reversement (traçabilité complète) */}
+   671→          <section>
+   672→            <h4 className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+   673→              Historique du reversement ({s.historique.length})
+   674→            </h4>
+   675→            <p className="mt-1 text-[11.5px] text-neutral-400">
+   676→              Traçabilité complète : chaque étape est signée et tracée au journal
+   677→              d&apos;audit (A06).
+   678→            </p>
+   679→            <ol className="mt-3 space-y-3.5">
+   680→              {[...s.historique].reverse().map((e) => (
+   681→                <li key={e.id} className="flex gap-3">
+   682→                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-neutral-200" />
+   683→                  <div className="min-w-0 flex-1">
+   684→                    <div className="flex flex-wrap items-center gap-2">
+   685→                      <EventBadge kind={e.type} />
+   686→                      <span className="text-[11.5px] font-medium text-neutral-500">
+   687→                        {e.date}
+   688→                      </span>
+   689→                    </div>
+   690→                    <p className="mt-1 text-[12.5px] leading-relaxed text-neutral-600">
+   691→                      {e.detail}
+   692→                    </p>
+   693→                    <p className="mt-0.5 text-[11px] text-neutral-400">
+   694→                      {e.par} · {e.role}
+   695→                    </p>
+   696→                  </div>
+   697→                </li>
+   698→              ))}
+   699→            </ol>
+   700→          </section>
+   701→        </div>
+   702→      </SheetContent>
+   703→    </Sheet>
+   704→  );
+   705→}
+   706→
+   707→/* ============================== Page ============================= */
+   708→
+   709→export function SettlementsPage() {
+   710→  const { toast } = useToast();
+   711→  const user = useAuthStore((s) => s.user);
+   712→  const auteur = user?.name ?? "Opérateur";
+   713→  const roleLabel = user?.role === "admin" ? "Administrateur TBM" : "Support TBM";
+   714→  const isAdmin = user?.role === "admin";
+   715→
+   716→  const settlements = useTbmStore((s) => s.settlements);
+   717→  const companies = useTbmStore((s) => s.companies);
+   718→  const calculateSettlement = useTbmStore((s) => s.calculateSettlement);
+   719→  const validateSettlement = useTbmStore((s) => s.validateSettlement);
+   720→  const paySettlement = useTbmStore((s) => s.paySettlement);
+   721→
+   722→  const [query, setQuery] = useState("");
+   723→  const [statut, setStatut] = useState<string>("all");
+   724→  const [compagnie, setCompagnie] = useState<string>("all");
+   725→  const [selectedId, setSelectedId] = useState<string | null>(null);
+   726→  const [dialog, setDialog] = useState<DialogState>(null);
+   727→  const [payMoyen, setPayMoyen] = useState<ReversementMoyen>("virement_bancaire");
+   728→  const [payRef, setPayRef] = useState("");
+   729→  const [error, setError] = useState<string | null>(null);
+   730→
+   731→  const selected = selectedId
+   732→    ? settlements.find((s) => s.id === selectedId) ?? null
+   733→    : null;
+   734→
+   735→  const compagniesList = useMemo(
+   736→    () => Array.from(new Set(settlements.map((s) => s.compagnie))),
+   737→    [settlements]
+   738→  );
+   739→
+   740→  const filtered = useMemo(() => {
+   741→    const q = normalizeKey(query);
+   742→    return settlements.filter((s) => {
+   743→      if (statut !== "all" && s.statut !== statut) return false;
+   744→      if (compagnie !== "all" && s.compagnie !== compagnie) return false;
+   745→      if (q === "") return true;
+   746→      const hay = normalizeKey(
+   747→        [
+   748→          s.id,
+   749→          s.compagnie,
+   750→          s.periode,
+   751→          s.refPaiement ?? "",
+   752→          String(s.brutCollecte),
+   753→          String(s.netAReverser),
+   754→        ].join(" ")
+   755→      );
+   756→      return hay.includes(q);
+   757→    });
+   758→  }, [settlements, query, statut, compagnie]);
+   759→
+   760→  /* KPIs */
+   761→  const kpi = useMemo(() => {
+   762→    const withAmounts = settlements.filter((s) => s.statut !== "a_calculer");
+   763→    const collecte = withAmounts.reduce((acc, s) => acc + s.brutCollecte, 0);
+   764→    const commissions = withAmounts.reduce((acc, s) => acc + s.commissionMontant, 0);
+   765→    const attente = settlements
+   766→      .filter((s) => s.statut === "a_valider" || s.statut === "en_cours")
+   767→      .reduce((acc, s) => acc + s.netAReverser, 0);
+   768→    const payes = settlements.filter((s) => s.statut === "paye");
+   769→    const payeTotal = payes.reduce((acc, s) => acc + s.netAReverser, 0);
+   770→    return { collecte, commissions, attente, payes, payeTotal };
+   771→  }, [settlements]);
+   772→
+   773→  const aTraiter = settlements.filter(
+   774→    (s) => s.statut !== "paye"
+   775→  );
+   776→
+   777→  /* Historique des paiements */
+   778→  const payesSorted = useMemo(
+   779→    () =>
+   780→      settlements
+   781→        .filter((s) => s.statut === "paye")
+   782→        .sort((a, b) => (a.payeLe ?? "").localeCompare(b.payeLe ?? "")),
+   783→    [settlements]
+   784→  );
+   785→
+   786→  /* Agrégat par compagnie */
+   787→  const perCompany = useMemo(() => {
+   788→    return compagniesList
+   789→      .map((nom) => {
+   790→        const list = settlements.filter((s) => s.compagnie === nom);
+   791→        const last = [...list].sort((a, b) => b.id.localeCompare(a.id))[0];
+   792→        return {
+   793→          nom,
+   794→          taux: last?.commissionTaux ?? 0,
+   795→          nb: list.length,
+   796→          collecte: list.reduce((acc, s) => acc + s.brutCollecte, 0),
+   797→          commissions: list.reduce((acc, s) => acc + s.commissionMontant, 0),
+   798→          reverses: list
+   799→            .filter((s) => s.statut === "paye")
+   800→            .reduce((acc, s) => acc + s.netAReverser, 0),
+   801→          attente: list
+   802→            .filter((s) => s.statut === "a_valider" || s.statut === "en_cours")
+   803→            .reduce((acc, s) => acc + s.netAReverser, 0),
+   804→          aCalculer: list.filter((s) => s.statut === "a_calculer").length,
+   805→          last,
+   806→        };
+   807→      })
+   808→      .sort((a, b) => b.collecte - a.collecte);
+   809→  }, [compagniesList, settlements]);
+   810→
+   811→  const openValidate = (s: Settlement) => {
+   812→    setSelectedId(s.id);
+   813→    setDialog({ kind: "validate" });
+   814→    setError(null);
+   815→  };
+   816→  const openPay = (s: Settlement) => {
+   817→    setSelectedId(s.id);
+   818→    setDialog({ kind: "pay" });
+   819→    setPayMoyen("virement_bancaire");
+   820→    setPayRef("");
+   821→    setError(null);
+   822→  };
+   823→  const closeDialog = () => {
+   824→    setDialog(null);
+   825→    setError(null);
+   826→  };
+   827→
+   828→  const calculate = (s: Settlement) => {
+   829→    calculateSettlement(s.id, auteur, roleLabel);
+   830→    toast({
+   831→      title: "Reversement calculé",
+   832→      description: `${s.id} — décompte consolidé, en attente de validation (relevé de collecte et avis de commission générés).`,
+   833→    });
+   834→  };
+   835→
+   836→  const confirmValidate = () => {
+   837→    if (!selected || dialog?.kind !== "validate") return;
+   838→    validateSettlement(selected.id, auteur, roleLabel);
+   839→    toast({
+   840→      title: "Reversement validé",
+   841→      description: `${selected.id} — ${formatFcfa(selected.netAReverser)} engagés pour ${selected.compagnie}. Exécution du paiement à finaliser.`,
+   842→    });
+   843→    closeDialog();
+   844→  };
+   845→
+   846→  const confirmPay = () => {
+   847→    if (!selected || dialog?.kind !== "pay") return;
+   848→    if (payRef.trim().length < 4) {
+   849→      setError(
+   850→        "Référence de paiement obligatoire (4 caractères minimum) — avis de virement ou référence opérateur. Elle prouve l'exécution du reversement."
+   851→      );
+   852→      return;
+   853→    }
+   854→    paySettlement(selected.id, payMoyen, payRef.trim(), auteur, roleLabel);
+   855→    toast({
+   856→      title: "Reversement enregistré",
+   857→      description: `${selected.id} — ${formatFcfa(selected.netAReverser)} versés à ${selected.compagnie} (réf. ${payRef.trim()}). Preuve rattachée au dossier.`,
+   858→    });
+   859→    closeDialog();
+   860→  };
+   861→
+   862→  const downloadDoc = (doc: SettlementDoc, revId: string) => {
+   863→    toast({
+   864→      title: "Justificatif téléchargé",
+   865→      description: `${revId} — ${doc.nom} (${doc.taille})`,
+   866→    });
+   867→  };
+   868→
+   869→  const exportCsv = () => {
+   870→    const header = [
+   871→      "Reference",
+   872→      "Periode",
+   873→      "Compagnie",
+   874→      "Taux commission",
+   875→      "Brut collecte",
+   876→      "Remboursements",
+   877→      "Net collecte",
+   878→      "Commission TBM",
+   879→      "Net a reverser",
+   880→      "Statut",
+   881→      "Moyen",
+   882→      "Ref paiement",
+   883→      "Calcule par",
+   884→      "Valide par",
+   885→      "Paye le",
+   886→      "Paye par",
+   887→    ].join(";");
+   888→    const rows = filtered.map((s) =>
+   889→      [
+   890→        s.id,
+   891→        s.periode,
+   892→        s.compagnie,
+   893→        `${s.commissionTaux} %`,
+   894→        s.brutCollecte,
+   895→        s.remboursements,
+   896→        settlementNetCollecte(s),
+   897→        s.commissionMontant,
+   898→        s.netAReverser,
+   899→        SETTLEMENT_STATUS_META[s.statut].label,
+   900→        s.moyen ? REVERSEMENT_MOYEN_META[s.moyen].label : "",
+   901→        s.refPaiement ?? "",
+   902→        s.calculePar ?? "",
+   903→        s.validePar ?? "",
+   904→        s.payeLe ?? "",
+   905→        s.payePar ?? "",
+   906→      ]
+   907→        .map((c) => String(c).replace(/;/g, ","))
+   908→        .join(";")
+   909→    );
+   910→    const csv = [header, ...rows].join("\n");
+   911→    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+   912→    const url = URL.createObjectURL(blob);
+   913→    const link = document.createElement("a");
+   914→    link.href = url;
+   915→    link.download = "tbm-commissions-reversements.csv";
+   916→    link.click();
+   917→    URL.revokeObjectURL(url);
+   918→    toast({
+   919→      title: "Export CSV généré",
+   920→      description: `${filtered.length} reversement(s) exporté(s) — décomptes, statuts et références de paiement inclus.`,
+   921→    });
+   922→  };
+   923→
+   924→  return (
+   925→    <div>
+   926→      {/* En-tête */}
+   927→      <div className="flex flex-wrap items-start justify-between gap-3">
+   928→        <div>
+   929→          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
+   930→            Commissions &amp; reversements
+   931→          </h2>
+   932→          <p className="mt-0.5 text-[12.5px] text-neutral-400">
+   933→            A11 — Montants collectés par compagnie, commissions TBM et net à
+   934→            reverser. Conçu dès le départ pour les deux modèles d&apos;encaissement.
+   935→          </p>
+   936→        </div>
+   937→        <Button
+   938→          variant="outline"
+   939→          onClick={exportCsv}
+   940→          className="h-9 gap-1.5 rounded-xl border-neutral-200 text-[12.5px] font-medium shadow-none hover:border-neutral-300"
+   941→        >
+   942→          <Download className="h-4 w-4 text-neutral-400" />
+   943→          Exporter
+   944→        </Button>
+   945→      </div>
+   946→
+   947→      {/* Bandeau modèle d'encaissement + droits */}
+   948→      <motion.div
+   949→        initial={{ opacity: 0, y: 12 }}
+   950→        animate={{ opacity: 1, y: 0 }}
+   951→        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+   952→        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/60 px-4 py-3"
+   953→      >
+   954→        <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
+   955→          <Info className="h-4 w-4 text-coral-500" />
+   956→          Modèle d&apos;encaissement retenu :{" "}
+   957→          {ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label} —
+   958→        </span>
+   959→        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
+   960→          <li className="flex items-center gap-1.5">
+   961→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+   962→            Conçu pour les deux modèles (collecte TBM ou collecte compagnie)
+   963→          </li>
+   964→          <li className="flex items-center gap-1.5">
+   965→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+   966→            Au lancement, calcul, validation et paiement finalisés manuellement
+   967→          </li>
+   968→          <li className="flex items-center gap-1.5">
+   969→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+   970→            {isAdmin
+   971→              ? "Calcul, validation et exécution des reversements"
+   972→              : "Calcul et consultation — validation et paiement réservés à l'administration"}
+   973→          </li>
+   974→        </ul>
+   975→      </motion.div>
+   976→
+   977→      {/* KPIs */}
+   978→      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+   979→        <MiniKpi
+   980→          icon={Wallet}
+   981→          label="Collecté (périodes traitées)"
+   982→          value={formatFcfa(kpi.collecte)}
+   983→          hint={`${settlements.length} reversements · ${compagniesList.length} compagnies`}
+   984→          tone="bg-coral-100 text-coral-600"
+   985→        />
+   986→        <MiniKpi
+   987→          icon={Percent}
+   988→          label="Commissions TBM"
+   989→          value={formatFcfa(kpi.commissions)}
+   990→          hint="taux contractuels 8 à 12 %"
+   991→          tone="bg-violet-100 text-violet-600"
+   992→        />
+   993→        <MiniKpi
+   994→          icon={Hourglass}
+   995→          label="Net à reverser — en attente"
+   996→          value={formatFcfa(kpi.attente)}
+   997→          hint={`${aTraiter.length} reversement${aTraiter.length > 1 ? "s" : ""} à traiter`}
+   998→          tone="bg-amber-100 text-amber-600"
+   999→        />
+  1000→        <MiniKpi
+  1001→          icon={CheckCircle2}
+  1002→          label="Reversements payés"
+  1003→          value={formatFcfa(kpi.payeTotal)}
+  1004→          hint={`${kpi.payes.length} reversement${kpi.payes.length > 1 ? "s" : ""} exécuté${kpi.payes.length > 1 ? "s" : ""}`}
+  1005→          tone="bg-emerald-100 text-emerald-600"
+  1006→        />
+  1007→      </div>
+  1008→
+  1009→      {/* Onglets */}
+  1010→      <Tabs defaultValue="cycle" className="mt-5">
+  1011→        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+  1012→          <TabsTrigger
+  1013→            value="cycle"
+  1014→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+  1015→          >
+  1016→            <Calculator className="h-3.5 w-3.5" />
+  1017→            Cycle de reversement
+  1018→            {aTraiter.length > 0 && (
+  1019→              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 text-[9.5px] font-bold text-white">
+  1020→                {aTraiter.length}
+  1021→              </span>
+  1022→            )}
+  1023→          </TabsTrigger>
+  1024→          <TabsTrigger
+  1025→            value="paiements"
+  1026→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+  1027→          >
+  1028→            <Banknote className="h-3.5 w-3.5" />
+  1029→            Historique des paiements
+  1030→          </TabsTrigger>
+  1031→          <TabsTrigger
+  1032→            value="compagnies"
+  1033→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+  1034→          >
+  1035→            <Wallet className="h-3.5 w-3.5" />
+  1036→            Par compagnie
+  1037→          </TabsTrigger>
+  1038→        </TabsList>
+  1039→
+  1040→        {/* ---------------------- Cycle de reversement ---------------------- */}
+  1041→        <TabsContent value="cycle" className="mt-4">
+  1042→          {/* Filtres */}
+  1043→          <div className="flex flex-wrap items-center gap-2.5">
+  1044→            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
+  1045→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+  1046→              <Input
+  1047→                value={query}
+  1048→                onChange={(e) => setQuery(e.target.value)}
+  1049→                placeholder="Réf. (REV-…), compagnie, période, réf. paiement…"
+  1050→                aria-label="Rechercher un reversement"
+  1051→                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+  1052→              />
+  1053→            </div>
+  1054→            <Select value={statut} onValueChange={setStatut}>
+  1055→              <SelectTrigger
+  1056→                aria-label="Filtrer par statut"
+  1057→                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+  1058→              >
+  1059→                <SelectValue />
+  1060→              </SelectTrigger>
+  1061→              <SelectContent className="rounded-xl border-neutral-100">
+  1062→                <SelectItem value="all" className="rounded-lg text-[13px]">
+  1063→                  Tous statuts
+  1064→                </SelectItem>
+  1065→                {Object.entries(SETTLEMENT_STATUS_META).map(([key, meta]) => (
+  1066→                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+  1067→                    {meta.label}
+  1068→                  </SelectItem>
+  1069→                ))}
+  1070→              </SelectContent>
+  1071→            </Select>
+  1072→            <Select value={compagnie} onValueChange={setCompagnie}>
+  1073→              <SelectTrigger
+  1074→                aria-label="Filtrer par compagnie"
+  1075→                className="h-9 w-[180px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+  1076→              >
+  1077→                <SelectValue />
+  1078→              </SelectTrigger>
+  1079→              <SelectContent className="rounded-xl border-neutral-100">
+  1080→                <SelectItem value="all" className="rounded-lg text-[13px]">
+  1081→                  Toutes compagnies
+  1082→                </SelectItem>
+  1083→                {compagniesList.map((nom) => (
+  1084→                  <SelectItem key={nom} value={nom} className="rounded-lg text-[13px]">
+  1085→                    {nom}
+  1086→                  </SelectItem>
+  1087→                ))}
+  1088→              </SelectContent>
+  1089→            </Select>
+  1090→          </div>
+  1091→
+  1092→          {/* Tableau */}
+  1093→          <motion.section
+  1094→            initial={{ opacity: 0, y: 12 }}
+  1095→            animate={{ opacity: 1, y: 0 }}
+  1096→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+  1097→            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+  1098→          >
+  1099→            <div className="ff-scrollbar overflow-x-auto">
+  1100→              <Table>
+  1101→                <TableHeader>
+  1102→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+  1103→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+  1104→                      Réf. &amp; période
+  1105→                    </TableHead>
+  1106→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1107→                      Compagnie
+  1108→                    </TableHead>
+  1109→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1110→                      Collecté
+  1111→                    </TableHead>
+  1112→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1113→                      Commission
+  1114→                    </TableHead>
+  1115→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1116→                      Net à reverser
+  1117→                    </TableHead>
+  1118→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1119→                      Statut
+  1120→                    </TableHead>
+  1121→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1122→                      Justificatifs
+  1123→                    </TableHead>
+  1124→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+  1125→                      <span className="sr-only">Actions</span>
+  1126→                    </TableHead>
+  1127→                  </TableRow>
+  1128→                </TableHeader>
+  1129→                <TableBody>
+  1130→                  {filtered.map((s) => (
+  1131→                    <TableRow
+  1132→                      key={s.id}
+  1133→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+  1134→                      onClick={() => setSelectedId(s.id)}
+  1135→                    >
+  1136→                      <TableCell className="py-3.5 pl-5">
+  1137→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
+  1138→                          {s.id}
+  1139→                        </span>
+  1140→                        <span className="block text-[11px] text-neutral-400">
+  1141→                          {s.periode}
+  1142→                        </span>
+  1143→                      </TableCell>
+  1144→                      <TableCell className="pt-3.5">
+  1145→                        <span className="flex items-center gap-2.5">
+  1146→                          <CompanyAvatar nom={s.compagnie} />
+  1147→                          <span className="min-w-0">
+  1148→                            <span className="block truncate text-[12.5px] font-medium text-neutral-700">
+  1149→                              {s.compagnie}
+  1150→                            </span>
+  1151→                            <span className="block text-[11px] text-neutral-400">
+  1152→                              taux {s.commissionTaux} %
+  1153→                            </span>
+  1154→                          </span>
+  1155→                        </span>
+  1156→                      </TableCell>
+  1157→                      <TableCell className="pt-3.5">
+  1158→                        {s.statut === "a_calculer" ? (
+  1159→                          <span className="block text-[12.5px] italic text-neutral-400">
+  1160→                            ≈ {formatNumber(s.estimation?.brut ?? 0)} FCFA
+  1161→                            <span className="ml-1 text-[10.5px] not-italic">
+  1162→                              (provisoire)
+  1163→                            </span>
+  1164→                          </span>
+  1165→                        ) : (
+  1166→                          <>
+  1167→                            <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+  1168→                              {formatNumber(s.brutCollecte)}
+  1169→                            </span>
+  1170→                            <span className="block text-[11px] tabular-nums text-neutral-400">
+  1171→                              − {formatNumber(s.remboursements)} remb. · net{" "}
+  1172→                              {formatNumber(settlementNetCollecte(s))}
+  1173→                            </span>
+  1174→                          </>
+  1175→                        )}
+  1176→                      </TableCell>
+  1177→                      <TableCell className="pt-3.5">
+  1178→                        {s.statut === "a_calculer" ? (
+  1179→                          <span className="text-[12.5px] text-neutral-300">—</span>
+  1180→                        ) : (
+  1181→                          <>
+  1182→                            <TauxBadge taux={s.commissionTaux} />
+  1183→                            <span className="mt-1 block text-[11.5px] font-semibold tabular-nums text-neutral-600">
+  1184→                              {formatNumber(s.commissionMontant)} FCFA
+  1185→                            </span>
+  1186→                          </>
+  1187→                        )}
+  1188→                      </TableCell>
+  1189→                      <TableCell className="pt-3.5">
+  1190→                        {s.statut === "a_calculer" ? (
+  1191→                          <span className="text-[12.5px] text-neutral-300">— au calcul</span>
+  1192→                        ) : (
+  1193→                          <span className="block text-[13.5px] font-bold tabular-nums text-neutral-900">
+  1194→                            {formatFcfa(s.netAReverser)}
+  1195→                          </span>
+  1196→                        )}
+  1197→                      </TableCell>
+  1198→                      <TableCell className="pt-3.5">
+  1199→                        <StatusBadge statut={s.statut} />
+  1200→                        <span className="mt-1 block max-w-[150px] truncate text-[11px] text-neutral-400">
+  1201→                          {s.statut === "paye"
+  1202→                            ? `payé ${s.payeLe}`
+  1203→                            : s.statut === "en_cours"
+  1204→                              ? `validé ${s.valideLe}`
+  1205→                              : s.statut === "a_valider"
+  1206→                                ? `calculé ${s.calculeLe}`
+  1207→                                : "calcul à lancer"}
+  1208→                        </span>
+  1209→                      </TableCell>
+  1210→                      <TableCell className="pt-3.5">
+  1211→                        {s.docs.length === 0 ? (
+  1212→                          <span className="text-[11.5px] text-neutral-300">
+  1213→                            au calcul
+  1214→                          </span>
+  1215→                        ) : (
+  1216→                          <div className="flex items-center gap-1">
+  1217→                            {s.docs.map((d) => (
+  1218→                              <DocButton
+  1219→                                key={d.id}
+  1220→                                doc={d}
+  1221→                                revId={s.id}
+  1222→                                onDownload={downloadDoc}
+  1223→                                compact
+  1224→                              />
+  1225→                            ))}
+  1226→                          </div>
+  1227→                        )}
+  1228→                      </TableCell>
+  1229→                      <TableCell className="pr-5 pt-3 text-right">
+  1230→                        {s.statut === "a_calculer" ? (
+  1231→                          <Button
+  1232→                            size="sm"
+  1233→                            onClick={(e) => {
+  1234→                              e.stopPropagation();
+  1235→                              calculate(s);
+  1236→                            }}
+  1237→                            className="h-8 rounded-lg bg-sky-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-sky-600"
+  1238→                          >
+  1239→                            <Calculator className="h-3.5 w-3.5" />
+  1240→                            Calculer
+  1241→                          </Button>
+  1242→                        ) : s.statut === "a_valider" ? (
+  1243→                          isAdmin ? (
+  1244→                            <Button
+  1245→                              size="sm"
+  1246→                              onClick={(e) => {
+  1247→                                e.stopPropagation();
+  1248→                                openValidate(s);
+  1249→                              }}
+  1250→                              className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
+  1251→                            >
+  1252→                              Valider
+  1253→                            </Button>
+  1254→                          ) : (
+  1255→                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+  1256→                              <Lock className="h-3 w-3" />
+  1257→                              Admin requis
+  1258→                            </span>
+  1259→                          )
+  1260→                        ) : s.statut === "en_cours" ? (
+  1261→                          isAdmin ? (
+  1262→                            <Button
+  1263→                              size="sm"
+  1264→                              variant="outline"
+  1265→                              onClick={(e) => {
+  1266→                                e.stopPropagation();
+  1267→                                openPay(s);
+  1268→                              }}
+  1269→                              className="h-8 rounded-lg border-coral-200 bg-coral-50 px-2.5 text-[12px] font-semibold text-coral-600 shadow-none hover:bg-coral-100"
+  1270→                            >
+  1271→                              <Banknote className="h-3.5 w-3.5" />
+  1272→                              Reversement
+  1273→                            </Button>
+  1274→                          ) : (
+  1275→                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+  1276→                              <Lock className="h-3 w-3" />
+  1277→                              Admin requis
+  1278→                            </span>
+  1279→                          )
+  1280→                        ) : (
+  1281→                          <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-emerald-500">
+  1282→                            <CheckCircle2 className="h-3.5 w-3.5" />
+  1283→                            Payé
+  1284→                          </span>
+  1285→                        )}
+  1286→                      </TableCell>
+  1287→                    </TableRow>
+  1288→                  ))}
+  1289→                  {filtered.length === 0 && (
+  1290→                    <TableRow>
+  1291→                      <TableCell
+  1292→                        colSpan={8}
+  1293→                        className="py-10 text-center text-[13px] text-neutral-400"
+  1294→                      >
+  1295→                        Aucun reversement ne correspond à ces filtres.
+  1296→                      </TableCell>
+  1297→                    </TableRow>
+  1298→                  )}
+  1299→                </TableBody>
+  1300→              </Table>
+  1301→            </div>
+  1302→          </motion.section>
+  1303→        </TabsContent>
+  1304→
+  1305→        {/* --------------------- Historique des paiements --------------------- */}
+  1306→        <TabsContent value="paiements" className="mt-4">
+  1307→          <motion.section
+  1308→            initial={{ opacity: 0, y: 12 }}
+  1309→            animate={{ opacity: 1, y: 0 }}
+  1310→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+  1311→            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+  1312→          >
+  1313→            <div className="ff-scrollbar overflow-x-auto">
+  1314→              <Table>
+  1315→                <TableHeader>
+  1316→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+  1317→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+  1318→                      Reversement
+  1319→                    </TableHead>
+  1320→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1321→                      Compagnie
+  1322→                    </TableHead>
+  1323→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1324→                      Net reversé
+  1325→                    </TableHead>
+  1326→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1327→                      Moyen
+  1328→                    </TableHead>
+  1329→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1330→                      Référence du paiement
+  1331→                    </TableHead>
+  1332→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+  1333→                      Preuve
+  1334→                    </TableHead>
+  1335→                  </TableRow>
+  1336→                </TableHeader>
+  1337→                <TableBody>
+  1338→                  {payesSorted.map((s) => (
+  1339→                    <TableRow
+  1340→                      key={s.id}
+  1341→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+  1342→                      onClick={() => setSelectedId(s.id)}
+  1343→                    >
+  1344→                      <TableCell className="py-3.5 pl-5">
+  1345→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
+  1346→                          {s.id}
+  1347→                        </span>
+  1348→                        <span className="block text-[11px] text-neutral-400">
+  1349→                          payé le {s.payeLe} · {s.payePar}
+  1350→                        </span>
+  1351→                      </TableCell>
+  1352→                      <TableCell className="pt-3.5">
+  1353→                        <span className="flex items-center gap-2.5">
+  1354→                          <CompanyAvatar nom={s.compagnie} />
+  1355→                          <span className="min-w-0">
+  1356→                            <span className="block truncate text-[12.5px] font-medium text-neutral-700">
+  1357→                              {s.compagnie}
+  1358→                            </span>
+  1359→                            <span className="block text-[11px] text-neutral-400">
+  1360→                              {s.periode}
+  1361→                            </span>
+  1362→                          </span>
+  1363→                        </span>
+  1364→                      </TableCell>
+  1365→                      <TableCell className="pt-3.5">
+  1366→                        <span className="block text-[13px] font-bold tabular-nums text-neutral-900">
+  1367→                          {formatFcfa(s.netAReverser)}
+  1368→                        </span>
+  1369→                        <span className="block text-[11px] text-neutral-400">
+  1370→                          commission {formatNumber(s.commissionMontant)} FCFA
+  1371→                        </span>
+  1372→                      </TableCell>
+  1373→                      <TableCell className="pt-3.5">
+  1374→                        {s.moyen && <MoyenBadge moyen={s.moyen} />}
+  1375→                      </TableCell>
+  1376→                      <TableCell className="pt-3.5">
+  1377→                        <span className="inline-flex items-center gap-0.5 rounded-lg bg-neutral-50 px-2 py-1 font-mono text-[11.5px] font-semibold text-neutral-600 ring-1 ring-neutral-200/70">
+  1378→                          {s.refPaiement}
+  1379→                          <CopyRef value={s.refPaiement ?? ""} />
+  1380→                        </span>
+  1381→                      </TableCell>
+  1382→                      <TableCell className="pr-5 pt-3.5">
+  1383→                        {s.docs
+  1384→                          .filter((d) => d.kind === "preuve_paiement")
+  1385→                          .map((d) => (
+  1386→                            <DocButton
+  1387→                              key={d.id}
+  1388→                              doc={d}
+  1389→                              revId={s.id}
+  1390→                              onDownload={downloadDoc}
+  1391→                              compact
+  1392→                            />
+  1393→                          ))}
+  1394→                      </TableCell>
+  1395→                    </TableRow>
+  1396→                  ))}
+  1397→                  {payesSorted.length === 0 && (
+  1398→                    <TableRow>
+  1399→                      <TableCell
+  1400→                        colSpan={6}
+  1401→                        className="py-10 text-center text-[13px] text-neutral-400"
+  1402→                      >
+  1403→                        Aucun reversement payé pour le moment.
+  1404→                      </TableCell>
+  1405→                    </TableRow>
+  1406→                  )}
+  1407→                </TableBody>
+  1408→              </Table>
+  1409→            </div>
+  1410→            {payesSorted.length > 0 && (
+  1411→              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+  1412→                <span className="text-[12px] font-medium text-neutral-500">
+  1413→                  Total reversé aux compagnies (démonstration)
+  1414→                </span>
+  1415→                <span className="text-[13px] font-bold tabular-nums text-emerald-600">
+  1416→                  {formatFcfa(kpi.payeTotal)}
+  1417→                </span>
+  1418→              </div>
+  1419→            )}
+  1420→          </motion.section>
+  1421→        </TabsContent>
+  1422→
+  1423→        {/* ------------------------- Par compagnie ------------------------- */}
+  1424→        <TabsContent value="compagnies" className="mt-4">
+  1425→          <motion.section
+  1426→            initial={{ opacity: 0, y: 12 }}
+  1427→            animate={{ opacity: 1, y: 0 }}
+  1428→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+  1429→            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+  1430→          >
+  1431→            <div className="ff-scrollbar overflow-x-auto">
+  1432→              <Table>
+  1433→                <TableHeader>
+  1434→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+  1435→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+  1436→                      Compagnie
+  1437→                    </TableHead>
+  1438→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1439→                      Collecté cumulé
+  1440→                    </TableHead>
+  1441→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1442→                      Commissions TBM
+  1443→                    </TableHead>
+  1444→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1445→                      Net reversé
+  1446→                    </TableHead>
+  1447→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1448→                      En attente
+  1449→                    </TableHead>
+  1450→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+  1451→                      Dernier reversement
+  1452→                    </TableHead>
+  1453→                  </TableRow>
+  1454→                </TableHeader>
+  1455→                <TableBody>
+  1456→                  {perCompany.map((c) => (
+  1457→                    <TableRow
+  1458→                      key={c.nom}
+  1459→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+  1460→                      onClick={() => c.last && setSelectedId(c.last.id)}
+  1461→                    >
+  1462→                      <TableCell className="py-3.5 pl-5">
+  1463→                        <span className="flex items-center gap-2.5">
+  1464→                          <CompanyAvatar nom={c.nom} />
+  1465→                          <span className="min-w-0">
+  1466→                            <span className="block truncate text-[13px] font-semibold text-neutral-800">
+  1467→                              {c.nom}
+  1468→                            </span>
+  1469→                            <span className="block text-[11px] text-neutral-400">
+  1470→                              {c.nb} reversement{c.nb > 1 ? "s" : ""} · taux {c.taux} %
+  1471→                            </span>
+  1472→                          </span>
+  1473→                        </span>
+  1474→                      </TableCell>
+  1475→                      <TableCell className="pt-3.5">
+  1476→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+  1477→                          {formatFcfa(c.collecte)}
+  1478→                        </span>
+  1479→                      </TableCell>
+  1480→                      <TableCell className="pt-3.5">
+  1481→                        <span className="block text-[13px] font-semibold tabular-nums text-violet-600">
+  1482→                          {formatFcfa(c.commissions)}
+  1483→                        </span>
+  1484→                      </TableCell>
+  1485→                      <TableCell className="pt-3.5">
+  1486→                        <span className="block text-[13px] font-semibold tabular-nums text-emerald-600">
+  1487→                          {formatFcfa(c.reverses)}
+  1488→                        </span>
+  1489→                      </TableCell>
+  1490→                      <TableCell className="pt-3.5">
+  1491→                        {c.attente > 0 ? (
+  1492→                          <span className="block text-[13px] font-semibold tabular-nums text-amber-600">
+  1493→                            {formatFcfa(c.attente)}
+  1494→                          </span>
+  1495→                        ) : c.aCalculer > 0 ? (
+  1496→                          <span className="text-[11.5px] text-neutral-400">
+  1497→                            {c.aCalculer} au calcul
+  1498→                          </span>
+  1499→                        ) : (
+  1500→                          <span className="text-[11.5px] text-neutral-300">—</span>
+  1501→                        )}
+  1502→                      </TableCell>
+  1503→                      <TableCell className="pr-5 pt-3.5">
+  1504→                        {c.last && (
+  1505→                          <>
+  1506→                            <div className="flex flex-wrap items-center gap-1.5">
+  1507→                              <StatusBadge statut={c.last.statut} />
+  1508→                            </div>
+  1509→                            <span className="mt-1 block text-[11px] text-neutral-400">
+  1510→                              {c.last.id} · {c.last.periode}
+  1511→                            </span>
+  1512→                          </>
+  1513→                        )}
+  1514→                      </TableCell>
+  1515→                    </TableRow>
+  1516→                  ))}
+  1517→                </TableBody>
+  1518→              </Table>
+  1519→            </div>
+  1520→          </motion.section>
+  1521→        </TabsContent>
+  1522→      </Tabs>
+  1523→
+  1524→      {/* Fiche reversement */}
+  1525→      <SettlementSheet
+  1526→        settlement={selected}
+  1527→        open={selected != null}
+  1528→        onOpenChange={(v) => !v && setSelectedId(null)}
+  1529→        isAdmin={isAdmin}
+  1530→        onCalculate={calculate}
+  1531→        onValidate={openValidate}
+  1532→        onPay={openPay}
+  1533→        onDownloadDoc={downloadDoc}
+  1534→      />
+  1535→
+  1536→      {/* Dialog : validation */}
+  1537→      <Dialog
+  1538→        open={dialog?.kind === "validate" && selected != null}
+  1539→        onOpenChange={(open) => !open && closeDialog()}
+  1540→      >
+  1541→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+  1542→          {dialog?.kind === "validate" && selected && (
+  1543→            <>
+  1544→              <DialogHeader>
+  1545→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1546→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+  1547→                  Valider le reversement {selected.id}
+  1548→                </DialogTitle>
+  1549→                <DialogDescription className="text-[12.5px] leading-relaxed">
+  1550→                  {selected.compagnie} · {selected.periode}. La validation engage
+  1551→                  le reversement du net — l&apos;exécution du paiement reste
+  1552→                  finalisée manuellement au lancement.
+  1553→                </DialogDescription>
+  1554→              </DialogHeader>
+  1555→              <div className="space-y-1 rounded-xl bg-neutral-50 p-3.5 text-[12.5px]">
+  1556→                <div className="flex justify-between">
+  1557→                  <span className="text-neutral-500">Collecté brut</span>
+  1558→                  <span className="font-semibold tabular-nums text-neutral-800">
+  1559→                    {formatNumber(selected.brutCollecte)} FCFA
+  1560→                  </span>
+  1561→                </div>
+  1562→                <div className="flex justify-between">
+  1563→                  <span className="text-neutral-500">− Remboursements</span>
+  1564→                  <span className="font-semibold tabular-nums text-neutral-800">
+  1565→                    − {formatNumber(selected.remboursements)} FCFA
+  1566→                  </span>
+  1567→                </div>
+  1568→                <div className="flex justify-between">
+  1569→                  <span className="text-neutral-500">
+  1570→                    − Commission TBM ({selected.commissionTaux} %)
+  1571→                  </span>
+  1572→                  <span className="font-semibold tabular-nums text-neutral-800">
+  1573→                    − {formatNumber(selected.commissionMontant)} FCFA
+  1574→                  </span>
+  1575→                </div>
+  1576→                <div className="flex justify-between border-t border-dashed border-neutral-200 pt-1.5">
+  1577→                  <span className="font-semibold text-coral-700">
+  1578→                    Net à reverser
+  1579→                  </span>
+  1580→                  <span className="font-black tabular-nums text-coral-600">
+  1581→                    {formatFcfa(selected.netAReverser)}
+  1582→                  </span>
+  1583→                </div>
+  1584→              </div>
+  1585→              <DialogFooter className="gap-2">
+  1586→                <Button
+  1587→                  variant="outline"
+  1588→                  onClick={closeDialog}
+  1589→                  className="h-9 rounded-xl border-neutral-200 text-[13px] shadow-none"
+  1590→                >
+  1591→                  Annuler
+  1592→                </Button>
+  1593→                <Button
+  1594→                  onClick={confirmValidate}
+  1595→                  className="h-9 rounded-xl bg-emerald-500 text-[13px] font-semibold text-white hover:bg-emerald-600"
+  1596→                >
+  1597→                  <ShieldCheck className="h-4 w-4" />
+  1598→                  Valider et passer en cours
+  1599→                </Button>
+  1600→              </DialogFooter>
+  1601→            </>
+  1602→          )}
+  1603→        </DialogContent>
+  1604→      </Dialog>
+  1605→
+  1606→      {/* Dialog : enregistrement du paiement */}
+  1607→      <Dialog
+  1608→        open={dialog?.kind === "pay" && selected != null}
+  1609→        onOpenChange={(open) => !open && closeDialog()}
+  1610→      >
+  1611→        <DialogContent className="rounded-2xl sm:max-w-[500px]">
+  1612→          {dialog?.kind === "pay" && selected && (
+  1613→            <>
+  1614→              <DialogHeader>
+  1615→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1616→                  <Banknote className="h-5 w-5 text-coral-500" />
+  1617→                  Enregistrer le reversement {selected.id}
+  1618→                </DialogTitle>
+  1619→                <DialogDescription className="text-[12.5px] leading-relaxed">
+  1620→                  {selected.compagnie} — {formatFcfa(selected.netAReverser)} à
+  1621→                  reverser. Saisissez la référence du virement ou du transfert
+  1622→                  opérateur : la preuve de reversement sera rattachée au dossier et
+  1623→                  l&apos;opération tracée au journal d&apos;audit.
+  1624→                </DialogDescription>
+  1625→              </DialogHeader>
+  1626→              <div className="space-y-3.5">
+  1627→                <div className="space-y-1.5">
+  1628→                  <Label htmlFor="moyen" className="text-[13px]">
+  1629→                    Moyen de reversement
+  1630→                  </Label>
+  1631→                  <Select
+  1632→                    value={payMoyen}
+  1633→                    onValueChange={(v) => setPayMoyen(v as ReversementMoyen)}
+  1634→                  >
+  1635→                    <SelectTrigger
+  1636→                      id="moyen"
+  1637→                      className="h-9.5 rounded-xl border-neutral-200 text-[13px] shadow-none"
+  1638→                    >
+  1639→                      <SelectValue />
+  1640→                    </SelectTrigger>
+  1641→                    <SelectContent className="rounded-xl border-neutral-100">
+  1642→                      {Object.entries(REVERSEMENT_MOYEN_META).map(([key, meta]) => (
+  1643→                        <SelectItem
+  1644→                          key={key}
+  1645→                          value={key}
+  1646→                          className="rounded-lg text-[13px]"
+  1647→                        >
+  1648→                          {meta.label}
+  1649→                        </SelectItem>
+  1650→                      ))}
+  1651→                    </SelectContent>
+  1652→                  </Select>
+  1653→                </div>
+  1654→                <div className="space-y-1.5">
+  1655→                  <Label htmlFor="ref-paiement" className="text-[13px]">
+  1656→                    Référence du paiement <span className="text-rose-500">*</span>
+  1657→                  </Label>
+  1658→                  <Input
+  1659→                    id="ref-paiement"
+  1660→                    value={payRef}
+  1661→                    onChange={(e) => setPayRef(e.target.value)}
+  1662→                    placeholder="Ex. BCEAO-88402-TBM, OM-REV-88012…"
+  1663→                    className="h-9.5 rounded-xl border-neutral-200 font-mono text-[13px]"
+  1664→                  />
+  1665→                </div>
+  1666→                {error && (
+  1667→                  <p className="rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-600">
+  1668→                    {error}
+  1669→                  </p>
+  1670→                )}
+  1671→              </div>
+  1672→              <DialogFooter className="gap-2">
+  1673→                <Button
+  1674→                  variant="outline"
+  1675→                  onClick={closeDialog}
+  1676→                  className="h-9 rounded-xl border-neutral-200 text-[13px] shadow-none"
+  1677→                >
+  1678→                  Annuler
+  1679→                </Button>
+  1680→                <Button
+  1681→                  onClick={confirmPay}
+  1682→                  className="h-9 rounded-xl bg-coral-500 text-[13px] font-semibold text-white hover:bg-coral-600"
+  1683→                >
+  1684→                  <Check className="h-4 w-4" />
+  1685→                  Enregistrer le reversement
+  1686→                </Button>
+  1687→              </DialogFooter>
+  1688→            </>
+  1689→          )}
+  1690→        </DialogContent>
+  1691→      </Dialog>
+  1692→    </div>
+  1693→  );
+  1694→}
+  1695→

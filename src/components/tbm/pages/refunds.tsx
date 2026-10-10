@@ -10,7 +10,10 @@ import {
   Clock,
   Copy,
   Download,
+  Eye,
+  HandCoins,
   Hourglass,
+  Landmark,
   Lock,
   Phone,
   Scale,
@@ -18,7 +21,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Smartphone,
+  Snowflake,
   UserCheck,
+  X,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,10 +58,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 import {
   formatFcfa,
   formatNumber,
@@ -65,7 +73,6 @@ import {
   REFUND_EVENT_META,
   REFUND_REASON_META,
   REFUND_STATUS_META,
-  REFUND_SUPPORT_LIMIT,
   type Refund,
   type RefundEventKind,
   type RefundReason,
@@ -306,6 +313,7 @@ function RefundSheet({
   onOpenChange,
   refunds,
   isAdmin,
+  plafond,
   canDecide,
   onClaim,
   onDecide,
@@ -318,6 +326,7 @@ function RefundSheet({
   onOpenChange: (v: boolean) => void;
   refunds: Refund[];
   isAdmin: boolean;
+  plafond: number;
   canDecide: (montant: number) => boolean;
   onClaim: (r: Refund) => void;
   onDecide: (r: Refund, approuve: boolean) => void;
@@ -419,7 +428,7 @@ function RefundSheet({
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 py-1.5 text-[11.5px] font-semibold text-neutral-500">
                   <Lock className="h-3.5 w-3.5" />
-                  Validation administrateur requise (&gt; {formatNumber(REFUND_SUPPORT_LIMIT)} FCFA)
+                  Validation administrateur requise (&gt; {formatNumber(plafond)} FCFA)
                 </span>
               )
             )}
@@ -436,7 +445,7 @@ function RefundSheet({
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 py-1.5 text-[11.5px] font-semibold text-neutral-500">
                   <Lock className="h-3.5 w-3.5" />
-                  Versement réservé à l&apos;administration (&gt; {formatNumber(REFUND_SUPPORT_LIMIT)} FCFA)
+                  Versement réservé à l&apos;administration (&gt; {formatNumber(plafond)} FCFA)
                 </span>
               )
             )}
@@ -639,9 +648,9 @@ function RefundSheet({
                   <p className="mt-1 text-[11px] text-neutral-400">— {r.traitePar}</p>
                 </div>
               )}
-              {!isAdmin && r.montantRemboursable > REFUND_SUPPORT_LIMIT && r.statut === "en_attente" && (
+              {!isAdmin && r.montantRemboursable > plafond && r.statut === "en_attente" && (
                 <p className="rounded-xl bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-700">
-                  Ce dossier dépasse votre plafond de traitement ({formatNumber(REFUND_SUPPORT_LIMIT)} FCFA).
+                  Ce dossier dépasse votre plafond de traitement ({formatNumber(plafond)} FCFA).
                   Seule l&apos;administration peut le valider ou le refuser.
                 </p>
               )}
@@ -741,12 +750,18 @@ export function RefundsPage() {
   const addRefundVersement = useTbmStore((s) => s.addRefundVersement);
   const openRefundDispute = useTbmStore((s) => s.openRefundDispute);
   const resolveRefundDispute = useTbmStore((s) => s.resolveRefundDispute);
+  // Paramètres métier (A04) : plafond de traitement du support — modifiable en direct
+  const settings = useTbmStore((s) => s.settings);
+  const plafond = settings.plafondSupportFcfa;
 
   const [query, setQuery] = useState("");
   const [statut, setStatut] = useState<string>("all");
   const [motif, setMotif] = useState<string>("all");
   const [litige, setLitige] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Onglets + fiche détail synchronisés à l'URL (?tab=, ?sel=) — deep-linking
+  const [tabParam, setTab] = useParamState("tab", "dossiers");
+  const tab = validParam(tabParam, ["dossiers", "versements", "litiges"], "dossiers");
+  const [selParam, setSel] = useParamState("sel", "");
   const [dialog, setDialog] = useState<DialogState>(null);
   const [justification, setJustification] = useState("");
   const [versementMontant, setVersementMontant] = useState("");
@@ -754,10 +769,11 @@ export function RefundsPage() {
   const [litigeDetail, setLitigeDetail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  /** Droits : support limité au seuil, administration sans plafond. */
-  const canDecide = (montant: number) => isAdmin || montant <= REFUND_SUPPORT_LIMIT;
+  /** Droits : support limité au plafond du paramétrage, administration sans plafond. */
+  const canDecide = (montant: number) => isAdmin || montant <= plafond;
 
-  const selected = selectedId ? refunds.find((r) => r.id === selectedId) ?? null : null;
+  // La fiche dérive l'item du store par id (find) : statuts/versements toujours à jour
+  const selected = selParam ? refunds.find((r) => r.id === selParam) ?? null : null;
 
   const filtered = useMemo(() => {
     const q = normalizeKey(query);
@@ -790,27 +806,43 @@ export function RefundsPage() {
   const soldes = refunds.filter((r) => r.statut === "rembourse").length;
   const litiges = refunds.filter((r) => r.litige?.ouvert);
 
+  /** Liste aplatie des versements opérateur, tous dossiers confondus (onglet dédié). */
+  const versementsFlat = useMemo(
+    () => refunds.flatMap((r) => r.versements.map((v) => ({ v, r }))),
+    [refunds]
+  );
+  const totalVersementsFlat = versementsFlat.reduce((s, x) => s + x.v.montant, 0);
+
+  /** Onglet Litiges : dossiers avec litige ouvert OU résolu (ouverts en premier). */
+  const dossiersLitige = useMemo(
+    () =>
+      refunds
+        .filter((r) => r.litige)
+        .sort((a, b) => Number(!!b.litige?.ouvert) - Number(!!a.litige?.ouvert)),
+    [refunds]
+  );
+
   const openDecide = (r: Refund, approuve: boolean) => {
-    setSelectedId(r.id);
+    setSel(r.id);
     setDialog({ kind: "decide", approuve });
     setJustification("");
     setError(null);
   };
   const openVersement = (r: Refund) => {
-    setSelectedId(r.id);
+    setSel(r.id);
     setDialog({ kind: "versement" });
     setVersementMontant(String(refundResteDu(r)));
     setVersementRef("");
     setError(null);
   };
   const openLitige = (r: Refund) => {
-    setSelectedId(r.id);
+    setSel(r.id);
     setDialog({ kind: "litige" });
     setLitigeDetail("");
     setError(null);
   };
   const openLitigeResolu = (r: Refund) => {
-    setSelectedId(r.id);
+    setSel(r.id);
     setDialog({ kind: "litige-resolu" });
     setLitigeDetail("");
     setError(null);
@@ -988,7 +1020,7 @@ export function RefundsPage() {
             <span className="h-1 w-1 rounded-full bg-neutral-300" />
             {isAdmin
               ? "Traitement sans plafond de montant"
-              : `Traitement jusqu'à ${formatNumber(REFUND_SUPPORT_LIMIT)} FCFA`}
+              : `Traitement jusqu'à ${formatNumber(plafond)} FCFA (paramétrage)`}
           </li>
           <li className="flex items-center gap-1.5">
             <span className="h-1 w-1 rounded-full bg-neutral-300" />
@@ -1035,224 +1067,484 @@ export function RefundsPage() {
         />
       </div>
 
-      {/* Filtres */}
-      <div className="mt-5 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Réf., passager, téléphone, TXN, réservation…"
-            aria-label="Rechercher un dossier de remboursement"
-            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
-          />
-        </div>
-        <Select value={statut} onValueChange={setStatut}>
-          <SelectTrigger
-            aria-label="Filtrer par statut"
-            className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+      {/* Onglets — synchronisés au paramètre URL ?tab= */}
+      <Tabs value={tab} onValueChange={setTab} className="mt-5">
+        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+          <TabsTrigger
+            value="dossiers"
+            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
-            {Object.entries(REFUND_STATUS_META).map(([key, meta]) => (
-              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={motif} onValueChange={setMotif}>
-          <SelectTrigger
-            aria-label="Filtrer par motif"
-            className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+            <HandCoins className="h-3.5 w-3.5" />
+            Dossiers
+            {pending.length > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9.5px] font-bold text-white">
+                {pending.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="versements"
+            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous motifs</SelectItem>
-            {Object.entries(REFUND_REASON_META).map(([key, meta]) => (
-              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={litige} onValueChange={setLitige}>
-          <SelectTrigger
-            aria-label="Filtrer par litige"
-            className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+            <Landmark className="h-3.5 w-3.5" />
+            Versements opérateur
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200 px-1 text-[9.5px] font-bold text-neutral-600">
+              {versementsFlat.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="litiges"
+            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous dossiers</SelectItem>
-            <SelectItem value="ouvert" className="rounded-lg text-[13px]">Litiges ouverts</SelectItem>
-            <SelectItem value="aucun" className="rounded-lg text-[13px]">Sans litige</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            <Scale className="h-3.5 w-3.5" />
+            Litiges
+            {litiges.length > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+                {litiges.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tableau */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
-      >
-        <div className="ff-scrollbar overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">Réf.</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Passager</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Motif</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Transaction</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Montants</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Statut</TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => {
-                const gelé = r.litige?.ouvert ?? false;
-                const reste = refundResteDu(r);
-                return (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
-                    onClick={() => setSelectedId(r.id)}
-                  >
-                    <TableCell className="py-3.5 pl-5">
-                      <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">{r.id}</span>
-                      <span className="block text-[11px] text-neutral-400">{r.demande}</span>
-                    </TableCell>
-                    <TableCell className="max-w-[170px] pt-3.5">
-                      <span className="block truncate text-[12.5px] font-medium text-neutral-700">{r.passager}</span>
-                      <span className="block truncate text-[11px] text-neutral-400">{r.telephone}</span>
-                    </TableCell>
-                    <TableCell className="max-w-[210px] pt-3.5">
-                      <ReasonBadge motif={r.motif} />
-                      <span className="mt-1 block truncate text-[11.5px] text-neutral-400" title={r.motifDetail}>
-                        {r.motifDetail}
-                      </span>
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <span className="block font-mono text-[12px] font-semibold text-neutral-600">{r.transaction}</span>
-                      <span className="block text-[11px] text-neutral-400">
-                        {r.refReservation ?? r.compagnie}
-                      </span>
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
-                        {formatFcfa(r.montantRemboursable)}
-                      </span>
-                      {refundMontantRembourse(r) > 0 ? (
-                        <RembourseProgress r={r} compact />
-                      ) : (
-                        <span className="block text-[11px] text-neutral-400">aucun versement</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <StatusBadge statut={r.statut} />
-                        {gelé && <LitigePill />}
-                      </div>
-                      <span className="mt-1 block max-w-[150px] truncate text-[11px] text-neutral-400">
-                        {r.traitePar ? `par ${r.traitePar}` : "non attribué"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="pr-5 pt-3 text-right">
-                      {r.statut === "en_attente" ? (
-                        gelé ? (
-                          <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-rose-500">
-                            <Scale className="h-3.5 w-3.5" />
-                            Gelé
-                          </span>
-                        ) : canDecide(r.montantRemboursable) ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDecide(r, true);
-                              }}
-                              className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
-                            >
-                              Valider
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDecide(r, false);
-                              }}
-                              className="h-8 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium text-rose-500 shadow-none hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                            >
-                              Refuser
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
-                            <Lock className="h-3 w-3" />
-                            Admin requis
-                          </span>
-                        )
-                      ) : r.statut === "approuve" ? (
-                        gelé ? (
-                          <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-rose-500">
-                            <Scale className="h-3.5 w-3.5" />
-                            Gelé
-                          </span>
-                        ) : canDecide(reste) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openVersement(r);
-                            }}
-                            className="h-8 rounded-lg border-coral-200 bg-coral-50 px-2.5 text-[12px] font-semibold text-coral-600 shadow-none hover:bg-coral-100"
-                          >
-                            <Banknote className="h-3.5 w-3.5" />
-                            Verser
-                          </Button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
-                            <Lock className="h-3 w-3" />
-                            Admin requis
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-[11.5px] text-neutral-300">Clôturé</span>
-                      )}
-                    </TableCell>
+        {/* --------------------- Dossiers (liste) ---------------------- */}
+        <TabsContent value="dossiers" className="mt-4">
+          {/* Filtres */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Réf., passager, téléphone, TXN, réservation…"
+                aria-label="Rechercher un dossier de remboursement"
+                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+              />
+            </div>
+            <Select value={statut} onValueChange={setStatut}>
+              <SelectTrigger
+                aria-label="Filtrer par statut"
+                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
+                {Object.entries(REFUND_STATUS_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={motif} onValueChange={setMotif}>
+              <SelectTrigger
+                aria-label="Filtrer par motif"
+                className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous motifs</SelectItem>
+                {Object.entries(REFUND_REASON_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={litige} onValueChange={setLitige}>
+              <SelectTrigger
+                aria-label="Filtrer par litige"
+                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous dossiers</SelectItem>
+                <SelectItem value="ouvert" className="rounded-lg text-[13px]">Litiges ouverts</SelectItem>
+                <SelectItem value="aucun" className="rounded-lg text-[13px]">Sans litige</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Tableau */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <div className="ff-scrollbar overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">Réf.</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Passager</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Motif</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Transaction</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Montants</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Statut</TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
                   </TableRow>
-                );
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-[13px] text-neutral-400">
-                    Aucun dossier ne correspond à ces filtres.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </motion.section>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((r) => {
+                    const gelé = r.litige?.ouvert ?? false;
+                    const reste = refundResteDu(r);
+                    return (
+                      <TableRow
+                        key={r.id}
+                        className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+                        onClick={() => setSel(r.id)}
+                      >
+                        <TableCell className="py-3.5 pl-5">
+                          <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">{r.id}</span>
+                          <span className="block text-[11px] text-neutral-400">{r.demande}</span>
+                        </TableCell>
+                        <TableCell className="max-w-[170px] pt-3.5">
+                          <span className="block truncate text-[12.5px] font-medium text-neutral-700">{r.passager}</span>
+                          <span className="block truncate text-[11px] text-neutral-400">{r.telephone}</span>
+                        </TableCell>
+                        <TableCell className="max-w-[210px] pt-3.5">
+                          <ReasonBadge motif={r.motif} />
+                          <span className="mt-1 block truncate text-[11.5px] text-neutral-400" title={r.motifDetail}>
+                            {r.motifDetail}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pt-3.5">
+                          <span className="block font-mono text-[12px] font-semibold text-neutral-600">{r.transaction}</span>
+                          <span className="block text-[11px] text-neutral-400">
+                            {r.refReservation ?? r.compagnie}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pt-3.5">
+                          <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+                            {formatFcfa(r.montantRemboursable)}
+                          </span>
+                          {refundMontantRembourse(r) > 0 ? (
+                            <RembourseProgress r={r} compact />
+                          ) : (
+                            <span className="block text-[11px] text-neutral-400">aucun versement</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="pt-3.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <StatusBadge statut={r.statut} />
+                            {gelé && <LitigePill />}
+                          </div>
+                          <span className="mt-1 block max-w-[150px] truncate text-[11px] text-neutral-400">
+                            {r.traitePar ? `par ${r.traitePar}` : "non attribué"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pr-5 pt-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {r.statut === "en_attente" ? (
+                              gelé ? (
+                                <ActionIconButton
+                                  icon={Snowflake}
+                                  disabled
+                                  label="Dossier gelé — litige ouvert"
+                                />
+                              ) : canDecide(r.montantRemboursable) ? (
+                                <>
+                                  <ActionIconButton
+                                    icon={Check}
+                                    tone="emerald"
+                                    label="Valider le remboursement"
+                                    onClick={() => openDecide(r, true)}
+                                  />
+                                  <ActionIconButton
+                                    icon={X}
+                                    tone="rose"
+                                    label="Refuser le remboursement"
+                                    onClick={() => openDecide(r, false)}
+                                  />
+                                </>
+                              ) : (
+                                <ActionIconButton
+                                  icon={Lock}
+                                  disabled
+                                  label="Admin requis — au-delà du plafond support"
+                                />
+                              )
+                            ) : r.statut === "approuve" ? (
+                              gelé ? (
+                                <ActionIconButton
+                                  icon={Snowflake}
+                                  disabled
+                                  label="Dossier gelé — litige ouvert"
+                                />
+                              ) : canDecide(reste) ? (
+                                <ActionIconButton
+                                  icon={Banknote}
+                                  tone="coral"
+                                  label="Enregistrer un versement opérateur"
+                                  onClick={() => openVersement(r)}
+                                />
+                              ) : (
+                                <ActionIconButton
+                                  icon={Lock}
+                                  disabled
+                                  label="Admin requis — au-delà du plafond support"
+                                />
+                              )
+                            ) : null}
+                            <ActionIconButton
+                              icon={Eye}
+                              label={`Voir la fiche du dossier ${r.id}`}
+                              onClick={() => setSel(r.id)}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-[13px] text-neutral-400">
+                        Aucun dossier ne correspond à ces filtres.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </motion.section>
+        </TabsContent>
+
+        {/* ------------------ Versements opérateur --------------------- */}
+        <TabsContent value="versements" className="mt-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
+            <Landmark className="h-4 w-4 shrink-0 text-neutral-400" />
+            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+              Liste aplatie de tous les versements opérateur enregistrés, tous dossiers
+              confondus — chaque tranche est prouvée par sa référence opérateur.
+            </p>
+            <span className="ml-auto text-[12px] font-semibold text-neutral-600">
+              {versementsFlat.length} versement{versementsFlat.length > 1 ? "s" : ""} ·{" "}
+              {formatFcfa(totalVersementsFlat)} versés
+            </span>
+          </div>
+
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <div className="ff-scrollbar overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                      Date
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Dossier
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Montant
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Réf. opérateur
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Agent
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {versementsFlat.map(({ v, r }) => (
+                    <TableRow
+                      key={v.id}
+                      className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                      onClick={() => setSel(r.id)}
+                    >
+                      <TableCell className="py-3.5 pl-5 text-[12.5px] text-neutral-600">
+                        {v.date}
+                      </TableCell>
+                      <TableCell>
+                        <span className="block font-mono text-[12.5px] font-semibold text-neutral-800">
+                          {r.id}
+                        </span>
+                        <span className="block text-[11px] text-neutral-400">
+                          {r.passager} · {r.operateur}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[13px] font-semibold tabular-nums text-emerald-700">
+                        {formatFcfa(v.montant)}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-mono text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200/70">
+                          {v.refOperateur}
+                          <CopyRef value={v.refOperateur} />
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[12.5px] text-neutral-600">
+                        {v.par}
+                      </TableCell>
+                      <TableCell className="pr-5">
+                        <div className="flex items-center justify-end gap-1">
+                          <ActionIconButton
+                            icon={Eye}
+                            label={`Voir la fiche du dossier ${r.id}`}
+                            onClick={() => setSel(r.id)}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {versementsFlat.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+                        Aucun versement enregistré pour le moment — validez un dossier
+                        puis enregistrez le versement opérateur.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </motion.section>
+        </TabsContent>
+
+        {/* -------------------------- Litiges -------------------------- */}
+        <TabsContent value="litiges" className="mt-4">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
+            <Scale className="h-4 w-4 shrink-0 text-neutral-400" />
+            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+              Litiges ouverts (dossiers gelés) et litiges résolus — toute décision ou
+              versement est suspendu jusqu&apos;à la levée du litige, réservée à
+              l&apos;administration.
+            </p>
+          </div>
+
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <div className="ff-scrollbar overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                      Dossier
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Motif
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Litige
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                      Détail / résolution
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dossiersLitige.map((r) => {
+                    const l = r.litige!;
+                    const ouvert = l.ouvert;
+                    return (
+                      <TableRow
+                        key={r.id}
+                        className={cn(
+                          "cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70",
+                          ouvert && "bg-rose-50/40"
+                        )}
+                        onClick={() => setSel(r.id)}
+                      >
+                        <TableCell className="py-3.5 pl-5">
+                          <span className="block font-mono text-[12.5px] font-semibold text-neutral-800">
+                            {r.id}
+                          </span>
+                          <span className="block text-[11px] text-neutral-400">
+                            {r.passager} · {r.telephone}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pt-3.5">
+                          <ReasonBadge motif={r.motif} />
+                        </TableCell>
+                        <TableCell className="pt-3.5">
+                          {ouvert ? (
+                            <LitigePill />
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+                              <ShieldCheck className="h-3 w-3" />
+                              Litige résolu
+                            </span>
+                          )}
+                          <span className="mt-1 block text-[11px] text-neutral-400">
+                            {ouvert
+                              ? `ouvert ${l.ouvertLe}${l.ouvertPar ? ` par ${l.ouvertPar}` : ""}`
+                              : `ouvert ${l.ouvertLe}${l.resoluPar ? ` · levé par ${l.resoluPar}` : ""}`}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-[300px] pt-3.5">
+                          <span
+                            className={cn(
+                              "block truncate text-[12px]",
+                              ouvert ? "text-rose-600" : "text-emerald-700"
+                            )}
+                            title={ouvert ? l.detail : l.resolution ?? l.detail}
+                          >
+                            {ouvert ? l.detail : l.resolution ?? l.detail}
+                          </span>
+                        </TableCell>
+                        <TableCell className="pr-5 pt-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {ouvert && isAdmin && (
+                              <ActionIconButton
+                                icon={ShieldCheck}
+                                tone="emerald"
+                                label="Lever le litige (résolution administrative)"
+                                onClick={() => openLitigeResolu(r)}
+                              />
+                            )}
+                            <ActionIconButton
+                              icon={Eye}
+                              label={`Voir la fiche du dossier ${r.id}`}
+                              onClick={() => setSel(r.id)}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {dossiersLitige.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-10 text-center text-[13px] text-neutral-400">
+                        Aucun litige — tous les dossiers sont traités sans blocage.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </motion.section>
+        </TabsContent>
+      </Tabs>
 
       {/* Fiche dossier */}
       <RefundSheet
         refund={selected}
         open={selected != null}
-        onOpenChange={(v) => !v && setSelectedId(null)}
+        onOpenChange={(v) => {
+          if (!v) setSel("");
+        }}
         refunds={refunds}
         isAdmin={isAdmin}
+        plafond={plafond}
         canDecide={canDecide}
         onClaim={claim}
         onDecide={openDecide}

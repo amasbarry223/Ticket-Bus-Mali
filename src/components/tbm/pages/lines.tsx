@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CalendarClock,
+  Eye,
   History,
   MapPin,
   Route,
@@ -34,6 +35,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTbmStore } from "@/lib/tbm-store";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 import {
   COMPANY_STATUS_META,
   companyDepartures,
@@ -50,6 +53,8 @@ import {
   type DepartureStatus,
 } from "@/components/tbm/data";
 import { cn } from "@/lib/utils";
+
+const TABS = ["departs", "lignes"] as const;
 
 /* ============================ Pièces communes ============================ */
 
@@ -291,30 +296,44 @@ function ModificationsTimeline({
 export function LinesPage() {
   const companies = useTbmStore((s) => s.companies);
 
-  const [view, setView] = useState<"departs" | "lignes">("departs");
+  /* ---- Paramètres d’URL : onglet + fiche sélectionnée (?tab=, ?sel=) ---- */
+  const [tabParam, setTabParam] = useParamState("tab", "departs");
+  const view = validParam(tabParam, TABS, "departs") as "departs" | "lignes";
+  const [selParam, setSelParam] = useParamState("sel", "");
+  const setSel = (v: string | null) => setSelParam(v ?? "");
+
   const [query, setQuery] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dayFilter, setDayFilter] = useState("all");
-  const [selectedDepId, setSelectedDepId] = useState<string | null>(null);
-  const [selectedLineKey, setSelectedLineKey] = useState<string | null>(null);
 
   const companyById = useMemo(
     () => new Map(companies.map((c) => [c.id, c])),
     [companies]
   );
 
-  /* ---- KPIs du jour ---- */
+  /* ---- KPIs du jour (live : tient compte des compagnies suspendues) ---- */
   const kpis = useMemo(() => {
     const today = companyDepartures.filter((d) => d.jour === "Aujourd'hui");
-    const sold = today.reduce((a, d) => a + (d.placesTotal - d.placesDispo), 0);
-    const cap = today.reduce((a, d) => a + d.placesTotal, 0);
+    const exploitables = today.filter(
+      (d) =>
+        d.statut !== "annule" &&
+        companyById.get(d.compagnie)?.statut !== "suspendue"
+    );
+    const sold = exploitables.reduce(
+      (a, d) => a + (d.placesTotal - d.placesDispo),
+      0
+    );
+    const cap = exploitables.reduce((a, d) => a + d.placesTotal, 0);
     const occ = cap > 0 ? Math.round((sold / cap) * 100) : 0;
     const perturbes = today.filter(
-      (d) => d.statut === "retarde" || d.statut === "annule"
+      (d) =>
+        d.statut === "retarde" ||
+        d.statut === "annule" ||
+        companyById.get(d.compagnie)?.statut === "suspendue"
     ).length;
     return { count: today.length, sold, occ, perturbes, modifs: departureModifications.length };
-  }, []);
+  }, [companyById]);
 
   /* ---- Tableau des départs filtré ---- */
   const filteredDeparts = useMemo(() => {
@@ -398,6 +417,14 @@ export function LinesPage() {
     );
   }, [network, query, companyById]);
 
+  /* ---- Sélection des fiches, synchronisée à l’URL (?sel=) ---- */
+  const selectedDepId = companyDepartures.some((d) => d.id === selParam)
+    ? selParam
+    : null;
+  const selectedLineKey = network.some((n) => n.key === selParam)
+    ? selParam
+    : null;
+
   /* ---- Fiche détail départ ---- */
   const selectedDep = companyDepartures.find((d) => d.id === selectedDepId) ?? null;
   const depCompany = selectedDep ? companyById.get(selectedDep.compagnie) : null;
@@ -458,7 +485,7 @@ export function LinesPage() {
           index={1}
           label="Places vendues (jour)"
           value={formatNumber(kpis.sold)}
-          hint="toutes compagnies confondues"
+          hint="hors départs annulés et suspendus"
           icon={Ticket}
           tone="neutral"
         />
@@ -474,7 +501,7 @@ export function LinesPage() {
           index={3}
           label="Départs perturbés"
           value={formatNumber(kpis.perturbes)}
-          hint={`${kpis.modifs} modifications suivies`}
+          hint={`retards, annulations, suspensions · ${kpis.modifs} modifs suivies`}
           icon={History}
           tone="rose"
         />
@@ -573,7 +600,7 @@ export function LinesPage() {
       {/* ---- Vue : départs / lignes ---- */}
       <Tabs
         value={view}
-        onValueChange={(v) => setView(v as "departs" | "lignes")}
+        onValueChange={(v) => setTabParam(v)}
       >
         <TabsList className="mt-3 h-9 rounded-xl bg-neutral-100 p-1">
           <TabsTrigger value="departs" className="h-7 rounded-lg text-[12.5px]">
@@ -617,6 +644,9 @@ export function LinesPage() {
                     <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
                       Statut
                     </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -628,7 +658,7 @@ export function LinesPage() {
                     return (
                       <TableRow
                         key={d.id}
-                        onClick={() => setSelectedDepId(d.id)}
+                        onClick={() => setSel(d.id)}
                         className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
                       >
                         <TableCell className="py-3.5 pl-5">
@@ -698,13 +728,23 @@ export function LinesPage() {
                             </p>
                           )}
                         </TableCell>
+                        <TableCell className="pr-5">
+                          <div className="flex justify-end">
+                            <ActionIconButton
+                              icon={Eye}
+                              label="Voir la fiche du départ"
+                              tone="coral"
+                              onClick={() => setSel(d.id)}
+                            />
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {filteredDeparts.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="py-10 text-center text-[13px] text-neutral-400"
                       >
                         Aucun départ ne correspond à votre recherche.
@@ -745,7 +785,7 @@ export function LinesPage() {
                       Compagnies
                     </TableHead>
                     <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
-                      <span className="sr-only">Détails</span>
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -756,7 +796,7 @@ export function LinesPage() {
                     return (
                       <TableRow
                         key={n.key}
-                        onClick={() => setSelectedLineKey(n.key)}
+                        onClick={() => setSel(n.key)}
                         className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
                       >
                         <TableCell className="py-3.5 pl-5">
@@ -815,8 +855,15 @@ export function LinesPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="pr-5 text-right text-[11.5px] font-medium text-coral-600">
-                          Consulter
+                        <TableCell className="pr-5">
+                          <div className="flex justify-end">
+                            <ActionIconButton
+                              icon={Eye}
+                              label="Voir la fiche de la ligne"
+                              tone="coral"
+                              onClick={() => setSel(n.key)}
+                            />
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -842,7 +889,7 @@ export function LinesPage() {
       <Sheet
         open={!!selectedDep}
         onOpenChange={(o) => {
-          if (!o) setSelectedDepId(null);
+          if (!o) setSel(null);
         }}
       >
         <SheetContent
@@ -979,7 +1026,7 @@ export function LinesPage() {
       <Sheet
         open={!!selectedLine}
         onOpenChange={(o) => {
-          if (!o) setSelectedLineKey(null);
+          if (!o) setSel(null);
         }}
       >
         <SheetContent
@@ -1088,10 +1135,7 @@ export function LinesPage() {
                       <DepartureMiniRow
                         key={d.id}
                         dep={d}
-                        onSelect={() => {
-                          setSelectedLineKey(null);
-                          setSelectedDepId(d.id);
-                        }}
+                        onSelect={() => setSel(d.id)}
                       />
                     ))}
                   </div>

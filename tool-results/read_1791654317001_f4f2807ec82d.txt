@@ -1,0 +1,580 @@
+  1101→          </SelectTrigger>
+  1102→          <SelectContent className="rounded-xl border-neutral-100">
+  1103→            <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
+  1104→            {(Object.keys(USER_STATUS_META) as UserStatus[]).map((s) => (
+  1105→              <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
+  1106→                {USER_STATUS_META[s].label}
+  1107→              </SelectItem>
+  1108→            ))}
+  1109→          </SelectContent>
+  1110→        </Select>
+  1111→        <Select value={compagnieFilter} onValueChange={setCompagnieFilter}>
+  1112→          <SelectTrigger
+  1113→            aria-label="Filtrer par compagnie"
+  1114→            className="h-9 w-[160px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+  1115→          >
+  1116→            <SelectValue />
+  1117→          </SelectTrigger>
+  1118→          <SelectContent className="rounded-xl border-neutral-100">
+  1119→            <SelectItem value="all" className="rounded-lg text-[13px]">Toutes compagnies</SelectItem>
+  1120→            {compagnieNames.map((c) => (
+  1121→              <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
+  1122→                {c}
+  1123→              </SelectItem>
+  1124→            ))}
+  1125→          </SelectContent>
+  1126→        </Select>
+  1127→      </div>
+  1128→
+  1129→      {/* Tableau */}
+  1130→      <motion.section
+  1131→        initial={{ opacity: 0, y: 12 }}
+  1132→        animate={{ opacity: 1, y: 0 }}
+  1133→        transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+  1134→        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+  1135→      >
+  1136→        <div className="ff-scrollbar overflow-x-auto">
+  1137→          <Table>
+  1138→            <TableHeader>
+  1139→              <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+  1140→                <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+  1141→                  Utilisateur
+  1142→                </TableHead>
+  1143→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1144→                  Rôle
+  1145→                </TableHead>
+  1146→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1147→                  Périmètre
+  1148→                </TableHead>
+  1149→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1150→                  Statut
+  1151→                </TableHead>
+  1152→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+  1153→                  Dernière connexion
+  1154→                </TableHead>
+  1155→                <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+  1156→                  <span className="sr-only">Actions</span>
+  1157→                </TableHead>
+  1158→              </TableRow>
+  1159→            </TableHeader>
+  1160→            <TableBody>
+  1161→              {filtered.map((u) => {
+  1162→                const isSelf = u.email === selfEmail;
+  1163→                const isAdminUser = u.role === "Administrateur TBM";
+  1164→                return (
+  1165→                  <TableRow
+  1166→                    key={u.id}
+  1167→                    className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+  1168→                    onClick={() => setSelectedId(u.id)}
+  1169→                  >
+  1170→                    <TableCell className="py-3.5 pl-5">
+  1171→                      <div className="flex items-center gap-3">
+  1172→                        <Avatar nom={u.nom} />
+  1173→                        <span className="min-w-0">
+  1174→                          <span className="block truncate text-[13px] font-semibold text-neutral-800">
+  1175→                            {u.nom}
+  1176→                            {isSelf && (
+  1177→                              <span className="ml-1.5 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-medium text-neutral-400">
+  1178→                                vous
+  1179→                              </span>
+  1180→                            )}
+  1181→                          </span>
+  1182→                          <span className="block truncate text-[11.5px] text-neutral-400">
+  1183→                            {u.telephone ?? u.email}
+  1184→                          </span>
+  1185→                        </span>
+  1186→                      </div>
+  1187→                    </TableCell>
+  1188→                    <TableCell className="pt-3.5">
+  1189→                      <RoleBadge role={u.role} />
+  1190→                      <span className="mt-1 block text-[11px] text-neutral-400">
+  1191→                        {USER_ROLE_META[u.role].scopeLabel}
+  1192→                      </span>
+  1193→                    </TableCell>
+  1194→                    <TableCell className="pt-3.5">
+  1195→                      <ScopePill u={u} />
+  1196→                    </TableCell>
+  1197→                    <TableCell className="pt-3.5">
+  1198→                      <StatusBadge statut={u.statut} />
+  1199→                      {u.statut === "bloque" && u.bloqueMotif && (
+  1200→                        <span
+  1201→                          className="mt-1 block max-w-[190px] truncate text-[11px] text-rose-400"
+  1202→                          title={u.bloqueMotif}
+  1203→                        >
+  1204→                          {u.bloqueMotif}
+  1205→                        </span>
+  1206→                      )}
+  1207→                      {u.statut === "attente" && (
+  1208→                        <span className="mt-1 block text-[11px] text-neutral-400">
+  1209→                          créé {u.creeLe.toLowerCase()}
+  1210→                        </span>
+  1211→                      )}
+  1212→                    </TableCell>
+  1213→                    <TableCell className="pt-3.5">
+  1214→                      {u.derniereConnexion ? (
+  1215→                        <span className="block text-[12.5px] text-neutral-600">
+  1216→                          {u.derniereConnexion}
+  1217→                        </span>
+  1218→                      ) : (
+  1219→                        <span className="block text-[11.5px] text-neutral-300">
+  1220→                          Jamais
+  1221→                        </span>
+  1222→                      )}
+  1223→                      {u.connexions.length > 0 && (
+  1224→                        <span className="block text-[11px] text-neutral-400">
+  1225→                          {u.connexions.length} connex. ·{" "}
+  1226→                          {u.connexions.filter((c) => c.resultat === "echec").length} échec
+  1227→                          {u.connexions.filter((c) => c.resultat === "echec").length > 1 ? "s" : ""}
+  1228→                        </span>
+  1229→                      )}
+  1230→                    </TableCell>
+  1231→                    <TableCell className="pr-5 pt-3 text-right">
+  1232→                      {u.statut === "attente" ? (
+  1233→                        <Button
+  1234→                          size="sm"
+  1235→                          onClick={(e) => {
+  1236→                            e.stopPropagation();
+  1237→                            openActivate(u);
+  1238→                          }}
+  1239→                          className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
+  1240→                        >
+  1241→                          <CheckCircle2 className="h-3.5 w-3.5" />
+  1242→                          Activer
+  1243→                        </Button>
+  1244→                      ) : u.statut === "bloque" ? (
+  1245→                        <Button
+  1246→                          size="sm"
+  1247→                          variant="outline"
+  1248→                          onClick={(e) => {
+  1249→                            e.stopPropagation();
+  1250→                            openUnblock(u);
+  1251→                          }}
+  1252→                          className="h-8 rounded-lg border-emerald-200 px-2.5 text-[12px] font-medium text-emerald-600 shadow-none hover:bg-emerald-50"
+  1253→                        >
+  1254→                          <ShieldCheck className="h-3.5 w-3.5" />
+  1255→                          Débloquer
+  1256→                        </Button>
+  1257→                      ) : isAdminUser || isSelf ? (
+  1258→                        <span
+  1259→                          className="inline-flex items-center gap-1 text-[11.5px] text-neutral-300"
+  1260→                          title={
+  1261→                            isAdminUser
+  1262→                              ? "Un administrateur TBM ne peut pas être bloqué"
+  1263→                              : "Vous ne pouvez pas bloquer votre propre compte"
+  1264→                          }
+  1265→                        >
+  1266→                          <ShieldCheck className="h-3.5 w-3.5" />
+  1267→                          Protégé
+  1268→                        </span>
+  1269→                      ) : (
+  1270→                        <Button
+  1271→                          size="sm"
+  1272→                          variant="outline"
+  1273→                          onClick={(e) => {
+  1274→                            e.stopPropagation();
+  1275→                            openBlock(u);
+  1276→                          }}
+  1277→                          className="h-8 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium text-rose-500 shadow-none hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+  1278→                        >
+  1279→                          <Ban className="h-3.5 w-3.5" />
+  1280→                          Bloquer
+  1281→                        </Button>
+  1282→                      )}
+  1283→                    </TableCell>
+  1284→                  </TableRow>
+  1285→                );
+  1286→              })}
+  1287→              {filtered.length === 0 && (
+  1288→                <TableRow>
+  1289→                  <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+  1290→                    Aucun compte ne correspond à ces filtres.
+  1291→                  </TableCell>
+  1292→                </TableRow>
+  1293→              )}
+  1294→            </TableBody>
+  1295→          </Table>
+  1296→        </div>
+  1297→      </motion.section>
+  1298→
+  1299→      {/* Fiche utilisateur */}
+  1300→      <UserSheet
+  1301→        user={selected}
+  1302→        open={selected != null}
+  1303→        onOpenChange={(v) => !v && setSelectedId(null)}
+  1304→        selfEmail={selfEmail}
+  1305→        onActivate={openActivate}
+  1306→        onBlock={openBlock}
+  1307→        onUnblock={openUnblock}
+  1308→        onRole={openRole}
+  1309→      />
+  1310→
+  1311→      {/* Dialog : création de compte professionnel */}
+  1312→      <Dialog
+  1313→        open={dialog?.kind === "create"}
+  1314→        onOpenChange={(open) => !open && closeDialog()}
+  1315→      >
+  1316→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+  1317→          <DialogHeader>
+  1318→            <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1319→              <Plus className="h-4 w-4 text-coral-500" />
+  1320→              Créer un compte professionnel
+  1321→            </DialogTitle>
+  1322→            <DialogDescription className="text-[12.5px] leading-relaxed">
+  1323→              Le compte est créé « à activer » : aucun accès tant que TBM ne
+  1324→              l&apos;active pas. Il sera strictement cloisonné aux données de sa
+  1325→              compagnie.
+  1326→            </DialogDescription>
+  1327→          </DialogHeader>
+  1328→          <div className="space-y-3.5 py-1">
+  1329→            <div className="space-y-1.5">
+  1330→              <Label htmlFor="usr-nom" className="text-[12.5px] text-neutral-600">
+  1331→                Nom complet *
+  1332→              </Label>
+  1333→              <Input
+  1334→                id="usr-nom"
+  1335→                value={formNom}
+  1336→                onChange={(e) => setFormNom(e.target.value)}
+  1337→                placeholder="ex. Seydou BÂ"
+  1338→                className="h-9.5 rounded-xl border-neutral-200 focus-visible:ring-coral-200"
+  1339→              />
+  1340→            </div>
+  1341→            <div className="space-y-1.5">
+  1342→              <Label htmlFor="usr-email" className="text-[12.5px] text-neutral-600">
+  1343→                E-mail professionnel *
+  1344→              </Label>
+  1345→              <Input
+  1346→                id="usr-email"
+  1347→                type="email"
+  1348→                value={formEmail}
+  1349→                onChange={(e) => setFormEmail(e.target.value)}
+  1350→                placeholder="prenom.nom@compagnie.ml"
+  1351→                className="h-9.5 rounded-xl border-neutral-200 focus-visible:ring-coral-200"
+  1352→              />
+  1353→            </div>
+  1354→            <div className="space-y-1.5">
+  1355→              <Label htmlFor="usr-tel" className="text-[12.5px] text-neutral-600">
+  1356→                Téléphone * <span className="font-normal text-neutral-400">(SMS du mot de passe provisoire)</span>
+  1357→              </Label>
+  1358→              <div className="relative">
+  1359→                <Phone className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+  1360→                <Input
+  1361→                  id="usr-tel"
+  1362→                  value={formTel}
+  1363→                  onChange={(e) => setFormTel(e.target.value)}
+  1364→                  placeholder="+223 76 00 00 00"
+  1365→                  className="h-9.5 rounded-xl border-neutral-200 pl-9 focus-visible:ring-coral-200"
+  1366→                />
+  1367→              </div>
+  1368→            </div>
+  1369→            <div className="grid grid-cols-2 gap-3">
+  1370→              <div className="space-y-1.5">
+  1371→                <Label className="text-[12.5px] text-neutral-600">Rôle *</Label>
+  1372→                <Select value={formRole} onValueChange={(v) => setFormRole(v as UserRole)}>
+  1373→                  <SelectTrigger className="h-9.5 w-full rounded-xl border-neutral-200 text-[13px] shadow-none hover:border-neutral-300">
+  1374→                    <SelectValue />
+  1375→                  </SelectTrigger>
+  1376→                  <SelectContent className="rounded-xl border-neutral-100">
+  1377→                    {PRO_ROLES.map((r) => (
+  1378→                      <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
+  1379→                        {USER_ROLE_META[r].label}
+  1380→                      </SelectItem>
+  1381→                    ))}
+  1382→                  </SelectContent>
+  1383→                </Select>
+  1384→              </div>
+  1385→              <div className="space-y-1.5">
+  1386→                <Label className="text-[12.5px] text-neutral-600">Compagnie *</Label>
+  1387→                <Select value={formCompagnie} onValueChange={setFormCompagnie}>
+  1388→                  <SelectTrigger className="h-9.5 w-full rounded-xl border-neutral-200 text-[13px] shadow-none hover:border-neutral-300">
+  1389→                    <SelectValue placeholder="Choisir…" />
+  1390→                  </SelectTrigger>
+  1391→                  <SelectContent className="rounded-xl border-neutral-100">
+  1392→                    {compagnieNames.map((c) => (
+  1393→                      <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
+  1394→                        {c}
+  1395→                      </SelectItem>
+  1396→                    ))}
+  1397→                  </SelectContent>
+  1398→                </Select>
+  1399→              </div>
+  1400→            </div>
+  1401→            <p className="rounded-xl bg-violet-50 px-3 py-2.5 text-[11.5px] leading-relaxed text-violet-700">
+  1402→              <Building2 className="mr-1.5 inline h-3.5 w-3.5" />
+  1403→              Le compte ne verra jamais les données privées des autres compagnies —
+  1404→              isolation appliquée par la plateforme.
+  1405→            </p>
+  1406→            {error && (
+  1407→              <p className="rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-600">
+  1408→                {error}
+  1409→              </p>
+  1410→            )}
+  1411→          </div>
+  1412→          <DialogFooter className="gap-2 pt-1">
+  1413→            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+  1414→              Annuler
+  1415→            </Button>
+  1416→            <Button onClick={confirmCreate} className="h-9 rounded-xl bg-coral-500 font-semibold text-white hover:bg-coral-600">
+  1417→              Créer le compte
+  1418→            </Button>
+  1419→          </DialogFooter>
+  1420→        </DialogContent>
+  1421→      </Dialog>
+  1422→
+  1423→      {/* Dialog : activation */}
+  1424→      <Dialog
+  1425→        open={dialog?.kind === "activate" && selected != null}
+  1426→        onOpenChange={(open) => !open && closeDialog()}
+  1427→      >
+  1428→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+  1429→          <DialogHeader>
+  1430→            <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1431→              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+  1432→              Activer le compte
+  1433→            </DialogTitle>
+  1434→            <DialogDescription className="text-[12.5px] leading-relaxed">
+  1435→              Vérifiez l&apos;identité du titulaire avant activation — l&apos;action
+  1436→              est tracée au journal d&apos;audit avec votre nom.
+  1437→            </DialogDescription>
+  1438→          </DialogHeader>
+  1439→          {selected && (
+  1440→            <div className="space-y-3 py-1">
+  1441→              <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3.5">
+  1442→                <Avatar nom={selected.nom} />
+  1443→                <div className="min-w-0">
+  1444→                  <p className="truncate text-[13px] font-semibold text-neutral-800">
+  1445→                    {selected.nom}
+  1446→                  </p>
+  1447→                  <p className="truncate text-[11.5px] text-neutral-400">
+  1448→                    {selected.email}
+  1449→                  </p>
+  1450→                </div>
+  1451→              </div>
+  1452→              <div className="space-y-2 rounded-2xl bg-neutral-50/70 p-3.5 text-[12.5px] text-neutral-600">
+  1453→                <p>
+  1454→                  Rôle : <span className="font-semibold text-neutral-800">{selected.role}</span>
+  1455→                  {selected.compagnie && (
+  1456→                    <>
+  1457→                      {" "}— périmètre «{" "}
+  1458→                      <span className="font-semibold text-violet-600">{selected.compagnie}</span>{" "}
+  1459→                      » uniquement
+  1460→                    </>
+  1461→                  )}
+  1462→                </p>
+  1463→                <p>
+  1464→                  Un mot de passe provisoire sera envoyé par SMS
+  1465→                  {selected.telephone ? (
+  1466→                    <> au <span className="font-semibold">{selected.telephone}</span>.</>
+  1467→                  ) : (
+  1468→                    "."
+  1469→                  )}
+  1470→                </p>
+  1471→                <p className="text-[11.5px] text-neutral-400">
+  1472→                  Le compte accèdera immédiatement à son périmètre ; il est invité à
+  1473→                  changer son mot de passe à la première connexion.
+  1474→                </p>
+  1475→              </div>
+  1476→            </div>
+  1477→          )}
+  1478→          <DialogFooter className="gap-2 pt-1">
+  1479→            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+  1480→              Annuler
+  1481→            </Button>
+  1482→            <Button onClick={confirmActivate} className="h-9 rounded-xl bg-emerald-500 font-semibold text-white hover:bg-emerald-600">
+  1483→              Activer le compte
+  1484→            </Button>
+  1485→          </DialogFooter>
+  1486→        </DialogContent>
+  1487→      </Dialog>
+  1488→
+  1489→      {/* Dialog : blocage */}
+  1490→      <Dialog
+  1491→        open={dialog?.kind === "block" && selected != null}
+  1492→        onOpenChange={(open) => !open && closeDialog()}
+  1493→      >
+  1494→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+  1495→          <DialogHeader>
+  1496→            <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1497→              <Ban className="h-4 w-4 text-rose-500" />
+  1498→              Bloquer le compte
+  1499→            </DialogTitle>
+  1500→            <DialogDescription className="text-[12.5px] leading-relaxed">
+  1501→              Le compte perdra immédiatement l&apos;accès au back-office et à
+  1502→              l&apos;application mobile.
+  1503→            </DialogDescription>
+  1504→          </DialogHeader>
+  1505→          {selected && (
+  1506→            <div className="space-y-3 py-1">
+  1507→              <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3.5">
+  1508→                <Avatar nom={selected.nom} />
+  1509→                <div className="min-w-0">
+  1510→                  <p className="truncate text-[13px] font-semibold text-neutral-800">
+  1511→                    {selected.nom}
+  1512→                  </p>
+  1513→                  <p className="truncate text-[11.5px] text-neutral-400">
+  1514→                    {selected.role}
+  1515→                    {selected.compagnie ? ` · ${selected.compagnie}` : ""}
+  1516→                  </p>
+  1517→                </div>
+  1518→              </div>
+  1519→              <div className="space-y-1.5">
+  1520→                <Label htmlFor="usr-motif" className="text-[12.5px] text-neutral-600">
+  1521→                  Motif du blocage * <span className="font-normal text-neutral-400">(obligatoire, tracé)</span>
+  1522→                </Label>
+  1523→                <Textarea
+  1524→                  id="usr-motif"
+  1525→                  value={motif}
+  1526→                  onChange={(e) => setMotif(e.target.value)}
+  1527→                  placeholder="ex. Activité suspecte détectée sur les ventes — vérification requise avant rétablissement."
+  1528→                  className="min-h-[84px] rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+  1529→                />
+  1530→                <p className="text-[11px] text-neutral-400">
+  1531→                  Le motif sera tracé au journal d&apos;audit (A06) et visible dans la
+  1532→                  fiche du compte.
+  1533→                </p>
+  1534→              </div>
+  1535→              {error && (
+  1536→                <p className="rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-600">
+  1537→                  {error}
+  1538→                </p>
+  1539→              )}
+  1540→            </div>
+  1541→          )}
+  1542→          <DialogFooter className="gap-2 pt-1">
+  1543→            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+  1544→              Annuler
+  1545→            </Button>
+  1546→            <Button onClick={confirmBlock} className="h-9 rounded-xl bg-rose-500 font-semibold text-white hover:bg-rose-600">
+  1547→              Bloquer le compte
+  1548→            </Button>
+  1549→          </DialogFooter>
+  1550→        </DialogContent>
+  1551→      </Dialog>
+  1552→
+  1553→      {/* Dialog : déblocage */}
+  1554→      <Dialog
+  1555→        open={dialog?.kind === "unblock" && selected != null}
+  1556→        onOpenChange={(open) => !open && closeDialog()}
+  1557→      >
+  1558→        <DialogContent className="rounded-2xl sm:max-w-[460px]">
+  1559→          <DialogHeader>
+  1560→            <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1561→              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+  1562→              Débloquer le compte
+  1563→            </DialogTitle>
+  1564→            <DialogDescription className="text-[12.5px] leading-relaxed">
+  1565→              Après vérification de l&apos;identité du titulaire, l&apos;accès sera
+  1566→              rétabli. Les échecs de connexion restent visibles dans
+  1567→              l&apos;historique.
+  1568→            </DialogDescription>
+  1569→          </DialogHeader>
+  1570→          {selected && (
+  1571→            <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3.5">
+  1572→              <Avatar nom={selected.nom} />
+  1573→              <div className="min-w-0">
+  1574→                <p className="truncate text-[13px] font-semibold text-neutral-800">
+  1575→                  {selected.nom}
+  1576→                </p>
+  1577→                <p className="truncate text-[11.5px] text-neutral-400">
+  1578→                  {selected.role}
+  1579→                  {selected.compagnie ? ` · ${selected.compagnie}` : ""}
+  1580→                </p>
+  1581→              </div>
+  1582→            </div>
+  1583→          )}
+  1584→          <DialogFooter className="gap-2 pt-1">
+  1585→            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+  1586→              Annuler
+  1587→            </Button>
+  1588→            <Button onClick={confirmUnblock} className="h-9 rounded-xl bg-emerald-500 font-semibold text-white hover:bg-emerald-600">
+  1589→              Débloquer
+  1590→            </Button>
+  1591→          </DialogFooter>
+  1592→        </DialogContent>
+  1593→      </Dialog>
+  1594→
+  1595→      {/* Dialog : changement de rôle */}
+  1596→      <Dialog
+  1597→        open={dialog?.kind === "role" && selected != null}
+  1598→        onOpenChange={(open) => !open && closeDialog()}
+  1599→      >
+  1600→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+  1601→          <DialogHeader>
+  1602→            <DialogTitle className="flex items-center gap-2 text-[16px]">
+  1603→              <UserCog className="h-4 w-4 text-coral-500" />
+  1604→              Changer le rôle
+  1605→            </DialogTitle>
+  1606→            <DialogDescription className="text-[12.5px] leading-relaxed">
+  1607→              Les permissions et le périmètre d&apos;isolation sont recalculés
+  1608→              automatiquement à partir du nouveau rôle.
+  1609→            </DialogDescription>
+  1610→          </DialogHeader>
+  1611→          {selected && (
+  1612→            <div className="space-y-3.5 py-1">
+  1613→              <div className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3.5">
+  1614→                <Avatar nom={selected.nom} />
+  1615→                <div className="min-w-0">
+  1616→                  <p className="truncate text-[13px] font-semibold text-neutral-800">
+  1617→                    {selected.nom}
+  1618→                  </p>
+  1619→                  <p className="truncate text-[11.5px] text-neutral-400">
+  1620→                    Rôle actuel : {selected.role}
+  1621→                  </p>
+  1622→                </div>
+  1623→              </div>
+  1624→              <div className="space-y-1.5">
+  1625→                <Label className="text-[12.5px] text-neutral-600">Nouveau rôle *</Label>
+  1626→                <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+  1627→                  <SelectTrigger className="h-9.5 w-full rounded-xl border-neutral-200 text-[13px] shadow-none hover:border-neutral-300">
+  1628→                    <SelectValue />
+  1629→                  </SelectTrigger>
+  1630→                  <SelectContent className="rounded-xl border-neutral-100">
+  1631→                    {(Object.keys(USER_ROLE_META) as UserRole[])
+  1632→                      .filter((r) => r !== selected.role)
+  1633→                      .map((r) => (
+  1634→                        <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
+  1635→                          {USER_ROLE_META[r].label}
+  1636→                        </SelectItem>
+  1637→                      ))}
+  1638→                  </SelectContent>
+  1639→                </Select>
+  1640→                <p className="text-[11px] text-neutral-400">
+  1641→                  Périmètre cible : {USER_ROLE_META[newRole].scopeLabel.toLowerCase()}.
+  1642→                </p>
+  1643→              </div>
+  1644→              <div className="space-y-1.5">
+  1645→                <Label htmlFor="usr-justif" className="text-[12.5px] text-neutral-600">
+  1646→                  Justification * <span className="font-normal text-neutral-400">(obligatoire, tracée)</span>
+  1647→                </Label>
+  1648→                <Textarea
+  1649→                  id="usr-justif"
+  1650→                  value={justification}
+  1651→                  onChange={(e) => setJustification(e.target.value)}
+  1652→                  placeholder="ex. Promotion suite au départ de l'ancien gestionnaire — validé par la direction."
+  1653→                  className="min-h-[84px] rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+  1654→                />
+  1655→                <p className="text-[11px] text-neutral-400">
+  1656→                  La justification sera citée au journal d&apos;audit (A06) avec votre
+  1657→                  nom.
+  1658→                </p>
+  1659→              </div>
+  1660→              {error && (
+  1661→                <p className="rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-600">
+  1662→                  {error}
+  1663→                </p>
+  1664→              )}
+  1665→            </div>
+  1666→          )}
+  1667→          <DialogFooter className="gap-2 pt-1">
+  1668→            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+  1669→              Annuler
+  1670→            </Button>
+  1671→            <Button onClick={confirmRole} className="h-9 rounded-xl bg-coral-500 font-semibold text-white hover:bg-coral-600">
+  1672→              Modifier le rôle
+  1673→            </Button>
+  1674→          </DialogFooter>
+  1675→        </DialogContent>
+  1676→      </Dialog>
+  1677→    </div>
+  1678→  );
+  1679→}
+  1680→

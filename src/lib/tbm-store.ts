@@ -5,6 +5,7 @@ import {
   defaultSettings,
   initialAudit,
   initialCompanies,
+  initialNotifications,
   initialRefunds,
   initialSettlements,
   initialUserAccounts,
@@ -14,6 +15,7 @@ import {
   SETTLEMENT_PRECOMPUTED,
   type AuditAction,
   type AuditEntry,
+  type CityNotification,
   type Company,
   type CompanyStatus,
   type Operator,
@@ -36,6 +38,7 @@ let refundVersementSeq = 131;
 let userSeq = 13;
 let settlementEventSeq = 340;
 let settlementDocSeq = 122;
+let notifSeq = 32;
 
 const fcfa = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 
@@ -53,6 +56,8 @@ interface TbmState {
   settings: Settings;
   transactions: Transaction[];
   closedReconciliations: string[]; // clés « jour|opérateur » clôturées
+  notifications: CityNotification[]; // A07 — notifications ciblées envoyées
+  settlements: Settlement[]; // A11 — reversements par compagnie et période
 
   setCompanyStatus: (id: string, statut: CompanyStatus, auteur: string) => void;
   addCompany: (company: Company, auteur: string) => void;
@@ -110,6 +115,11 @@ interface TbmState {
     role: string
   ) => void;
   saveSettings: (settings: Settings, auteur: string) => void;
+  sendNotification: (
+    input: { cible: "all" | string; message: string },
+    auteur: string,
+    role: string
+  ) => void;
   confirmPendingPayment: (id: string, auteur: string) => void;
   resolveTransactionAnomaly: (
     id: string,
@@ -145,6 +155,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
   settings: defaultSettings,
   transactions: initialTransactions,
   closedReconciliations: [],
+  notifications: initialNotifications,
   settlements: initialSettlements,
 
   setCompanyStatus: (id, statut, auteur) =>
@@ -618,8 +629,10 @@ export const useTbmStore = create<TbmState>()((set) => ({
             ? {
                 ...r,
                 litige: {
-                  ...r.litige,
                   ouvert: false,
+                  detail: r.litige?.detail ?? "",
+                  ouvertLe: r.litige?.ouvertLe ?? "",
+                  ouvertPar: r.litige?.ouvertPar,
                   resolution,
                   resoluPar: auteur,
                 },
@@ -655,7 +668,41 @@ export const useTbmStore = create<TbmState>()((set) => ({
             settings.fraisMode === "fixe"
               ? `${settings.fraisValeur} FCFA/ticket`
               : `${settings.fraisValeur} %`
-          }, commission par défaut ${settings.commissionDefaut} %, blocage des places ${settings.blocageMinutes} min.`,
+          }, commission par défaut ${settings.commissionDefaut} %, blocage des places ${settings.blocageMinutes} min, plafond support ${fcfa(
+            settings.plafondSupportFcfa
+          )} FCFA, encaissement ${settings.encaissementMode === "plateforme" ? "par TBM" : "par les compagnies"}.`,
+        }),
+        ...state.audit,
+      ],
+    })),
+
+  sendNotification: (input, auteur, role) =>
+    set((state) => ({
+      notifications: [
+        {
+          id: `NOT-${notifSeq++}`,
+          date: "À l'instant",
+          cible: input.cible,
+          message: input.message.trim(),
+          envoyePar: auteur,
+          canal: "SMS + push" as const,
+          destinataires: input.cible === "all" ? 5250 : 1200,
+        },
+        ...state.notifications,
+      ],
+      audit: [
+        makeAudit({
+          date: "À l'instant",
+          auteur,
+          role,
+          action: "Notification",
+          objet: "Notification ciblée",
+          detail: `Notification « ${
+            input.message.trim().slice(0, 60) +
+            (input.message.trim().length > 60 ? "…" : "")
+          } » envoyée à : ${
+            input.cible === "all" ? "tous les voyageurs" : `ville de ${input.cible}`
+          } (SMS + push).`,
         }),
         ...state.audit,
       ],

@@ -1,0 +1,600 @@
+     1→   841→        st,
+     2→   842→        nbPlateforme: side.length,
+     3→   843→        montantPlateforme: side.reduce((s, t) => s + t.montant, 0),
+     4→   844→        anomalies: anomaliesJour,
+     5→   845→        closed,
+     6→   846→        ecart,
+     7→   847→        statut,
+     8→   848→        key,
+     9→   849→      };
+    10→   850→    });
+    11→   851→  }, [transactions, closedReconciliations]);
+    12→   852→
+    13→   853→  const ecartsRestants = reconciliationRows.filter((r) => r.statut === "ecart").length;
+    14→   854→  const nbClotures = closedReconciliations.length;
+    15→   855→
+    16→   856→  const openTxn = (t: Transaction) => {
+    17→   857→    setSelectedId(t.id);
+    18→   858→    setSheetOpen(true);
+    19→   859→  };
+    20→   860→
+    21→   861→  const exportCsv = () => {
+    22→   862→    const header =
+    23→   863→      "Reference TBM;Ref operateur;Ref reservation;Date;Jour;Compagnie;Operateur;Telephone;Montant (FCFA);Statut;Billets emis;Present au releve;Anomalie";
+    24→   864→    const rows = filtered.map((t) =>
+    25→   865→      [
+    26→   866→        t.id,
+    27→   867→        t.refOperateur,
+    28→   868→        t.refReservation ?? "",
+    29→   869→        t.date,
+    30→   870→        t.jour,
+    31→   871→        t.compagnie,
+    32→   872→        t.operateur,
+    33→   873→        t.telephone,
+    34→   874→        t.montant,
+    35→   875→        PAYMENT_STATUS_META[t.statut].label,
+    36→   876→        t.billetsEmis,
+    37→   877→        t.releve ? "Oui" : "Non",
+    38→   878→        t.anomalie
+    39→   879→          ? t.anomalie.statut === "detectee"
+    40→   880→            ? "Debite sans billet (detectee)"
+    41→   881→            : "Debite sans billet (resolue)"
+    42→   882→          : "",
+    43→   883→      ].join(";")
+    44→   884→    );
+    45→   885→    const csv = [header, ...rows].join("\n");
+    46→   886→    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+    47→   887→    const url = URL.createObjectURL(blob);
+    48→   888→    const link = document.createElement("a");
+    49→   889→    link.href = url;
+    50→   890→    link.download = "tbm-paiements-transactions.csv";
+    51→   891→    link.click();
+    52→   892→    URL.revokeObjectURL(url);
+    53→   893→    toast({
+    54→   894→      title: "Export CSV généré",
+    55→   895→      description: `${filtered.length} transaction(s) exportée(s) — références opérateur, réservations et anomalies incluses.`,
+    56→   896→    });
+    57→   897→  };
+    58→   898→
+    59→   899→  return (
+    60→   900→    <div>
+    61→   901→      {/* En-tête */}
+    62→   902→      <div className="flex flex-wrap items-center justify-between gap-3">
+    63→   903→        <div>
+    64→   904→          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
+    65→   905→            Paiements &amp; Transactions
+    66→   906→          </h2>
+    67→   907→          <p className="mt-0.5 max-w-xl text-[12.5px] text-neutral-400">
+    68→   908→            A02 — Orange Money et Moov Money : suivi, détection des débits sans billet,
+    69→   909→            rapprochement quotidien avec les relevés opérateurs et reçus de paiement.
+    70→   910→          </p>
+    71→   911→        </div>
+    72→   912→        <Button
+    73→   913→          variant="outline"
+    74→   914→          onClick={exportCsv}
+    75→   915→          className="h-9 gap-1.5 rounded-lg border-neutral-200 bg-white px-3.5 text-[13px] font-medium text-neutral-600 shadow-none hover:border-neutral-300 hover:text-neutral-800"
+    76→   916→        >
+    77→   917→          <Download className="h-4 w-4" />
+    78→   918→          Export CSV
+    79→   919→        </Button>
+    80→   920→      </div>
+    81→   921→
+    82→   922→      {/* KPIs */}
+    83→   923→      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    84→   924→        <MiniKpi
+    85→   925→          icon={ArrowLeftRight}
+    86→   926→          label="Encaissé (réussi)"
+    87→   927→          value={formatFcfa(encaisse)}
+    88→   928→          hint={`${nbEncaisse} transaction${nbEncaisse > 1 ? "s" : ""} confirmée${nbEncaisse > 1 ? "s" : ""}`}
+    89→   929→          tone="bg-emerald-50 text-emerald-600"
+    90→   930→        />
+    91→   931→        <MiniKpi
+    92→   932→          icon={Hourglass}
+    93→   933→          label="En attente de retour"
+    94→   934→          value={`${enAttente}`}
+    95→   935→          hint="places bloquées 10 min (RG1)"
+    96→   936→          tone="bg-amber-50 text-amber-600"
+    97→   937→        />
+    98→   938→        <MiniKpi
+    99→   939→          icon={ShieldAlert}
+   100→   940→          label="Débités sans billet"
+   101→   941→          value={`${anomaliesOuvertes}`}
+   102→   942→          hint={anomaliesOuvertes > 0 ? "à résoudre avant clôture" : "aucune anomalie ouverte"}
+   103→   943→          tone={anomaliesOuvertes > 0 ? "bg-rose-50 text-rose-600" : "bg-neutral-100 text-neutral-500"}
+   104→   944→        />
+   105→   945→        <MiniKpi
+   106→   946→          icon={Scale}
+   107→   947→          label="Rapprochement quotidien"
+   108→   948→          value={ecartsRestants > 0 ? `${ecartsRestants} écart${ecartsRestants > 1 ? "s" : ""}` : "À jour"}
+   109→   949→          hint={`${operatorStatements.length} relevés reçus · ${nbClotures} clôturé${nbClotures > 1 ? "s" : ""}`}
+   110→   950→          tone={ecartsRestants > 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}
+   111→   951→        />
+   112→   952→      </div>
+   113→   953→
+   114→   954→      {/* Onglets */}
+   115→   955→      <Tabs defaultValue="transactions" className="mt-5">
+   116→   956→        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+   117→   957→          <TabsTrigger
+   118→   958→            value="transactions"
+   119→   959→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+   120→   960→          >
+   121→   961→            <ArrowLeftRight className="h-3.5 w-3.5" />
+   122→   962→            Transactions
+   123→   963→          </TabsTrigger>
+   124→   964→          <TabsTrigger
+   125→   965→            value="rapprochement"
+   126→   966→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+   127→   967→          >
+   128→   968→            <Scale className="h-3.5 w-3.5" />
+   129→   969→            Rapprochement quotidien
+   130→   970→            {ecartsRestants > 0 && (
+   131→   971→              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+   132→   972→                {ecartsRestants}
+   133→   973→              </span>
+   134→   974→            )}
+   135→   975→          </TabsTrigger>
+   136→   976→          <TabsTrigger
+   137→   977→            value="anomalies"
+   138→   978→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+   139→   979→          >
+   140→   980→            <ShieldAlert className="h-3.5 w-3.5" />
+   141→   981→            Anomalies
+   142→   982→            {anomaliesOuvertes > 0 && (
+   143→   983→              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+   144→   984→                {anomaliesOuvertes}
+   145→   985→              </span>
+   146→   986→            )}
+   147→   987→          </TabsTrigger>
+   148→   988→        </TabsList>
+   149→   989→
+   150→   990→        {/* ------------------------- Transactions ------------------------ */}
+   151→   991→        <TabsContent value="transactions" className="mt-4">
+   152→   992→          {/* Filtres */}
+   153→   993→          <div className="flex flex-wrap items-center gap-2.5">
+   154→   994→            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
+   155→   995→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+   156→   996→              <Input
+   157→   997→                value={query}
+   158→   998→                onChange={(e) => setQuery(e.target.value)}
+   159→   999→                placeholder="Réf. opérateur (OM-…, MM-…), réf. réservation, TXN, téléphone…"
+   160→  1000→                aria-label="Rechercher une transaction"
+   161→  1001→                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+   162→  1002→              />
+   163→  1003→            </div>
+   164→  1004→            <Select value={operator} onValueChange={setOperator}>
+   165→  1005→              <SelectTrigger
+   166→  1006→                aria-label="Filtrer par opérateur"
+   167→  1007→                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+   168→  1008→              >
+   169→  1009→                <SelectValue />
+   170→  1010→              </SelectTrigger>
+   171→  1011→              <SelectContent className="rounded-xl border-neutral-100">
+   172→  1012→                <SelectItem value="all" className="rounded-lg text-[13px]">
+   173→  1013→                  Tous opérateurs
+   174→  1014→                </SelectItem>
+   175→  1015→                {OPERATORS.map((o) => (
+   176→  1016→                  <SelectItem key={o} value={o} className="rounded-lg text-[13px]">
+   177→  1017→                    {o}
+   178→  1018→                  </SelectItem>
+   179→  1019→                ))}
+   180→  1020→              </SelectContent>
+   181→  1021→            </Select>
+   182→  1022→            <Select value={status} onValueChange={setStatus}>
+   183→  1023→              <SelectTrigger
+   184→  1024→                aria-label="Filtrer par statut"
+   185→  1025→                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+   186→  1026→              >
+   187→  1027→                <SelectValue />
+   188→  1028→              </SelectTrigger>
+   189→  1029→              <SelectContent className="rounded-xl border-neutral-100">
+   190→  1030→                <SelectItem value="all" className="rounded-lg text-[13px]">
+   191→  1031→                  Tous statuts
+   192→  1032→                </SelectItem>
+   193→  1033→                {Object.entries(PAYMENT_STATUS_META).map(([key, meta]) => (
+   194→  1034→                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+   195→  1035→                    {meta.label}
+   196→  1036→                  </SelectItem>
+   197→  1037→                ))}
+   198→  1038→              </SelectContent>
+   199→  1039→            </Select>
+   200→  1040→            <Select value={jour} onValueChange={setJour}>
+   201→  1041→              <SelectTrigger
+   202→  1042→                aria-label="Filtrer par jour"
+   203→  1043→                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+   204→  1044→              >
+   205→  1045→                <SelectValue />
+   206→  1046→              </SelectTrigger>
+   207→  1047→              <SelectContent className="rounded-xl border-neutral-100">
+   208→  1048→                <SelectItem value="all" className="rounded-lg text-[13px]">
+   209→  1049→                  Tous les jours
+   210→  1050→                </SelectItem>
+   211→  1051→                {jours.map((j) => (
+   212→  1052→                  <SelectItem key={j} value={j} className="rounded-lg text-[13px]">
+   213→  1053→                    {j}
+   214→  1054→                  </SelectItem>
+   215→  1055→                ))}
+   216→  1056→              </SelectContent>
+   217→  1057→            </Select>
+   218→  1058→            <span className="ml-auto text-[12px] text-neutral-400">
+   219→  1059→              {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+   220→  1060→            </span>
+   221→  1061→          </div>
+   222→  1062→
+   223→  1063→          {/* Tableau */}
+   224→  1064→          <motion.section
+   225→  1065→            initial={{ opacity: 0, y: 12 }}
+   226→  1066→            animate={{ opacity: 1, y: 0 }}
+   227→  1067→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   228→  1068→            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   229→  1069→          >
+   230→  1070→            <div className="ff-scrollbar overflow-x-auto">
+   231→  1071→              <Table>
+   232→  1072→                <TableHeader>
+   233→  1073→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   234→  1074→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+   235→  1075→                      Référence
+   236→  1076→                    </TableHead>
+   237→  1077→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   238→  1078→                      Réservation
+   239→  1079→                    </TableHead>
+   240→  1080→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   241→  1081→                      Compagnie
+   242→  1082→                    </TableHead>
+   243→  1083→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   244→  1084→                      Montant
+   245→  1085→                    </TableHead>
+   246→  1086→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   247→  1087→                      Billets
+   248→  1088→                    </TableHead>
+   249→  1089→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+   250→  1090→                      Statut
+   251→  1091→                    </TableHead>
+   252→  1092→                  </TableRow>
+   253→  1093→                </TableHeader>
+   254→  1094→                <TableBody>
+   255→  1095→                  {filtered.map((t) => (
+   256→  1096→                    <TableRow
+   257→  1097→                      key={t.id}
+   258→  1098→                      className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+   259→  1099→                      onClick={() => openTxn(t)}
+   260→  1100→                    >
+   261→  1101→                      <TableCell className="py-3.5 pl-5">
+   262→  1102→                        <div className="flex items-center gap-1.5">
+   263→  1103→                          <span className="font-mono text-[12.5px] font-semibold text-neutral-800">
+   264→  1104→                            {t.refOperateur}
+   265→  1105→                          </span>
+   266→  1106→                          <CopyRef value={t.refOperateur} />
+   267→  1107→                        </div>
+   268→  1108→                        <div className="mt-1 flex items-center gap-1.5">
+   269→  1109→                          <OperatorBadge op={t.operateur} />
+   270→  1110→                          <span className="font-mono text-[10.5px] text-neutral-400">{t.id}</span>
+   271→  1111→                        </div>
+   272→  1112→                      </TableCell>
+   273→  1113→                      <TableCell className="text-[12.5px]">
+   274→  1114→                        {t.refReservation ? (
+   275→  1115→                          <span className="font-mono font-semibold text-neutral-700">
+   276→  1116→                            {t.refReservation}
+   277→  1117→                          </span>
+   278→  1118→                        ) : (
+   279→  1119→                          <span className="text-neutral-300">—</span>
+   280→  1120→                        )}
+   281→  1121→                      </TableCell>
+   282→  1122→                      <TableCell>
+   283→  1123→                        <p className="text-[12.5px] font-medium text-neutral-600">{t.compagnie}</p>
+   284→  1124→                        <p className="text-[11px] text-neutral-400">{t.date}</p>
+   285→  1125→                      </TableCell>
+   286→  1126→                      <TableCell className="text-[13px] font-semibold tabular-nums text-neutral-800">
+   287→  1127→                        {formatFcfa(t.montant)}
+   288→  1128→                      </TableCell>
+   289→  1129→                      <TableCell>
+   290→  1130→                        {t.billetsEmis > 0 ? (
+   291→  1131→                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+   292→  1132→                            {t.billetsEmis} émis
+   293→  1133→                          </span>
+   294→  1134→                        ) : t.statut === "reussi" ? (
+   295→  1135→                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+   296→  1136→                            <Ban className="h-3 w-3" />
+   297→  1137→                            0 émis
+   298→  1138→                          </span>
+   299→  1139→                        ) : (
+   300→  1140→                          <span className="text-[11.5px] text-neutral-300">—</span>
+   301→  1141→                        )}
+   302→  1142→                      </TableCell>
+   303→  1143→                      <TableCell className="pr-5">
+   304→  1144→                        <div className="flex flex-wrap items-center gap-1.5">
+   305→  1145→                          <StatusBadge statut={t.statut} />
+   306→  1146→                          {t.anomalie?.statut === "detectee" && (
+   307→  1147→                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+   308→  1148→                              <ShieldAlert className="h-3 w-3" />
+   309→  1149→                              Sans billet
+   310→  1150→                            </span>
+   311→  1151→                          )}
+   312→  1152→                        </div>
+   313→  1153→                      </TableCell>
+   314→  1154→                    </TableRow>
+   315→  1155→                  ))}
+   316→  1156→                  {filtered.length === 0 && (
+   317→  1157→                    <TableRow>
+   318→  1158→                      <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+   319→  1159→                        Aucune transaction ne correspond à ces critères.
+   320→  1160→                      </TableCell>
+   321→  1161→                    </TableRow>
+   322→  1162→                  )}
+   323→  1163→                </TableBody>
+   324→  1164→              </Table>
+   325→  1165→            </div>
+   326→  1166→          </motion.section>
+   327→  1167→        </TabsContent>
+   328→  1168→
+   329→  1169→        {/* ---------------------- Rapprochement -------------------------- */}
+   330→  1170→        <TabsContent value="rapprochement" className="mt-4">
+   331→  1171→          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
+   332→  1172→            <Scale className="h-4 w-4 shrink-0 text-neutral-400" />
+   333→  1173→            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+   334→  1174→              Rapprochement quotidien : chaque débit confirmé côté plateforme est
+   335→  1175→              confronté au relevé de l&apos;opérateur. La clôture est bloquée tant
+   336→  1176→              qu&apos;une anomalie « débité sans billet » reste ouverte.
+   337→  1177→            </p>
+   338→  1178→          </div>
+   339→  1179→
+   340→  1180→          <motion.section
+   341→  1181→            initial={{ opacity: 0, y: 12 }}
+   342→  1182→            animate={{ opacity: 1, y: 0 }}
+   343→  1183→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   344→  1184→            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   345→  1185→          >
+   346→  1186→            <div className="ff-scrollbar overflow-x-auto">
+   347→  1187→              <Table>
+   348→  1188→                <TableHeader>
+   349→  1189→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   350→  1190→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+   351→  1191→                      Jour · Opérateur
+   352→  1192→                    </TableHead>
+   353→  1193→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   354→  1194→                      Plateforme TBM
+   355→  1195→                    </TableHead>
+   356→  1196→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   357→  1197→                      Relevé opérateur
+   358→  1198→                    </TableHead>
+   359→  1199→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   360→  1200→                      Écarts
+   361→  1201→                    </TableHead>
+   362→  1202→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+   363→  1203→                      Statut
+   364→  1204→                    </TableHead>
+   365→  1205→                  </TableRow>
+   366→  1206→                </TableHeader>
+   367→  1207→                <TableBody>
+   368→  1208→                  {reconciliationRows.map((r) => (
+   369→  1209→                    <TableRow key={r.key} className="border-neutral-100 hover:bg-transparent">
+   370→  1210→                      <TableCell className="py-3.5 pl-5">
+   371→  1211→                        <p className="text-[13px] font-semibold text-neutral-800">{r.st.jour}</p>
+   372→  1212→                        <div className="mt-1">
+   373→  1213→                          <OperatorBadge op={r.st.operateur} />
+   374→  1214→                        </div>
+   375→  1215→                      </TableCell>
+   376→  1216→                      <TableCell className="text-[12.5px] text-neutral-600">
+   377→  1217→                        <span className="font-semibold tabular-nums text-neutral-800">
+   378→  1218→                          {formatFcfa(r.montantPlateforme)}
+   379→  1219→                        </span>
+   380→  1220→                        <span className="ml-1 text-neutral-400">
+   381→  1221→                          · {r.nbPlateforme} transaction{r.nbPlateforme > 1 ? "s" : ""}
+   382→  1222→                        </span>
+   383→  1223→                      </TableCell>
+   384→  1224→                      <TableCell className="text-[12.5px] text-neutral-600">
+   385→  1225→                        <span className="font-semibold tabular-nums text-neutral-800">
+   386→  1226→                          {formatFcfa(r.st.montantReleve)}
+   387→  1227→                        </span>
+   388→  1228→                        <span className="ml-1 text-neutral-400">
+   389→  1229→                          · {r.st.nbReleve} entrée{r.st.nbReleve > 1 ? "s" : ""}
+   390→  1230→                        </span>
+   391→  1231→                        <p className="text-[10.5px] text-neutral-400">Reçu : {r.st.recu}</p>
+   392→  1232→                      </TableCell>
+   393→  1233→                      <TableCell className="max-w-[280px]">
+   394→  1234→                        {r.st.ecarts.length === 0 && r.anomalies.length === 0 ? (
+   395→  1235→                          <span className="text-[11.5px] text-neutral-300">—</span>
+   396→  1236→                        ) : (
+   397→  1237→                          <div className="space-y-1.5">
+   398→  1238→                            {r.st.ecarts.map((e) => (
+   399→  1239→                              <div key={e.ref} className="flex items-start gap-1.5">
+   400→  1240→                                <span
+   401→  1241→                                  className={cn(
+   402→  1242→                                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+   403→  1243→                                    RECONCILIATION_ECART_META[e.type].className
+   404→  1244→                                  )}
+   405→  1245→                                >
+   406→  1246→                                  {RECONCILIATION_ECART_META[e.type].label}
+   407→  1247→                                </span>
+   408→  1248→                                <span className="font-mono text-[10.5px] text-neutral-500">{e.ref}</span>
+   409→  1249→                              </div>
+   410→  1250→                            ))}
+   411→  1251→                            {r.anomalies.map((a) => (
+   412→  1252→                              <div key={a.id} className="flex items-start gap-1.5">
+   413→  1253→                                <span className="inline-flex shrink-0 items-center rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+   414→  1254→                                  Débité sans billet
+   415→  1255→                                </span>
+   416→  1256→                                <span className="font-mono text-[10.5px] text-neutral-500">
+   417→  1257→                                  {a.id}
+   418→  1258→                                </span>
+   419→  1259→                              </div>
+   420→  1260→                            ))}
+   421→  1261→                          </div>
+   422→  1262→                        )}
+   423→  1263→                      </TableCell>
+   424→  1264→                      <TableCell className="pr-5">
+   425→  1265→                        <div className="flex flex-col items-start gap-2">
+   426→  1266→                          {r.statut === "cloture" && (
+   427→  1267→                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+   428→  1268→                              <CheckCircle2 className="h-3 w-3" />
+   429→  1269→                              Clôturé
+   430→  1270→                            </span>
+   431→  1271→                          )}
+   432→  1272→                          {r.statut === "ecart" && (
+   433→  1273→                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+   434→  1274→                              <ShieldAlert className="h-3 w-3" />
+   435→  1275→                              Écart détecté
+   436→  1276→                            </span>
+   437→  1277→                          )}
+   438→  1278→                          {r.statut === "provisoire" && (
+   439→  1279→                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
+   440→  1280→                              <Clock className="h-3 w-3" />
+   441→  1281→                              Provisoire
+   442→  1282→                            </span>
+   443→  1283→                          )}
+   444→  1284→                          {r.statut === "conforme" && (
+   445→  1285→                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+   446→  1286→                              <CheckCircle2 className="h-3 w-3" />
+   447→  1287→                              Conforme
+   448→  1288→                            </span>
+   449→  1289→                          )}
+   450→  1290→                          {!r.closed && (
+   451→  1291→                            <Button
+   452→  1292→                              variant="outline"
+   453→  1293→                              size="sm"
+   454→  1294→                              disabled={r.ecart}
+   455→  1295→                              title={
+   456→  1296→                                r.ecart
+   457→  1297→                                  ? "Résolvez d'abord les anomalies « débité sans billet » de ce jour"
+   458→  1298→                                  : "Enregistrer la clôture du rapprochement (tracée à l'audit)"
+   459→  1299→                              }
+   460→  1300→                              className="h-7 gap-1 rounded-lg border-neutral-200 px-2.5 text-[11.5px]"
+   461→  1301→                              onClick={() => {
+   462→  1302→                                closeReconciliation(r.st.jour, r.st.operateur, auteur);
+   463→  1303→                                toast({
+   464→  1304→                                  title: "Rapprochement clôturé",
+   465→  1305→                                  description: `${r.st.operateur} · ${r.st.jour} — clôture tracée au journal d'audit.`,
+   466→  1306→                                });
+   467→  1307→                              }}
+   468→  1308→                            >
+   469→  1309→                              <ClipboardCheck className="h-3 w-3" />
+   470→  1310→                              Clôturer
+   471→  1311→                            </Button>
+   472→  1312→                          )}
+   473→  1313→                        </div>
+   474→  1314→                      </TableCell>
+   475→  1315→                    </TableRow>
+   476→  1316→                  ))}
+   477→  1317→                </TableBody>
+   478→  1318→              </Table>
+   479→  1319→            </div>
+   480→  1320→          </motion.section>
+   481→  1321→        </TabsContent>
+   482→  1322→
+   483→  1323→        {/* ------------------------ Anomalies ---------------------------- */}
+   484→  1324→        <TabsContent value="anomalies" className="mt-4">
+   485→  1325→          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
+   486→  1326→            <ShieldAlert className="h-4 w-4 shrink-0 text-neutral-400" />
+   487→  1327→            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+   488→  1328→              Détection des paiements débités sans ticket reçu : tout débit confirmé
+   489→  1329→              par l&apos;opérateur mais sans billet émis est isolé ici pour résolution
+   490→  1330→              (remboursement via A03 ou régularisation).
+   491→  1331→            </p>
+   492→  1332→          </div>
+   493→  1333→
+   494→  1334→          <div className="mt-3 space-y-3">
+   495→  1335→            {transactions.filter((t) => t.anomalie).length === 0 && (
+   496→  1336→              <div className="ff-card flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-white p-6">
+   497→  1337→                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+   498→  1338→                  <ShieldCheck className="h-5 w-5" />
+   499→  1339→                </span>
+   500→  1340→                <div>
+   501→  1341→                  <p className="text-[13.5px] font-semibold text-neutral-800">
+   502→  1342→                    Aucune anomalie de rapprochement
+   503→  1343→                  </p>
+   504→  1344→                  <p className="text-[12px] text-neutral-400">
+   505→  1345→                    Tous les paiements débités correspondent à des billets émis.
+   506→  1346→                  </p>
+   507→  1347→                </div>
+   508→  1348→              </div>
+   509→  1349→            )}
+   510→  1350→            {transactions
+   511→  1351→              .filter((t) => t.anomalie)
+   512→  1352→              .map((t) => (
+   513→  1353→                <motion.div
+   514→  1354→                  key={t.id}
+   515→  1355→                  initial={{ opacity: 0, y: 12 }}
+   516→  1356→                  animate={{ opacity: 1, y: 0 }}
+   517→  1357→                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+   518→  1358→                  className={cn(
+   519→  1359→                    "ff-card rounded-2xl border bg-white p-4 sm:p-5",
+   520→  1360→                    t.anomalie?.statut === "detectee"
+   521→  1361→                      ? "border-rose-200/80"
+   522→  1362→                      : "border-neutral-200/70 opacity-80"
+   523→  1363→                  )}
+   524→  1364→                >
+   525→  1365→                  <div className="flex flex-wrap items-start justify-between gap-3">
+   526→  1366→                    <div className="min-w-0">
+   527→  1367→                      <div className="flex flex-wrap items-center gap-2">
+   528→  1368→                        <span className="font-mono text-[13.5px] font-bold text-neutral-900">
+   529→  1369→                          {t.id}
+   530→  1370→                        </span>
+   531→  1371→                        <span className="font-mono text-[11.5px] text-neutral-400">
+   532→  1372→                          {t.refOperateur}
+   533→  1373→                        </span>
+   534→  1374→                        {t.anomalie?.statut === "detectee" ? (
+   535→  1375→                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+   536→  1376→                            <ShieldAlert className="h-3 w-3" />
+   537→  1377→                            À traiter
+   538→  1378→                          </span>
+   539→  1379→                        ) : (
+   540→  1380→                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+   541→  1381→                            <CheckCircle2 className="h-3 w-3" />
+   542→  1382→                            Résolue
+   543→  1383→                          </span>
+   544→  1384→                        )}
+   545→  1385→                      </div>
+   546→  1386→                      <p className="mt-1.5 text-[12.5px] leading-relaxed text-neutral-600">
+   547→  1387→                        {t.anomalie?.statut === "resolue"
+   548→  1388→                          ? t.anomalie.resolution
+   549→  1389→                          : t.anomalie?.detail}
+   550→  1390→                      </p>
+   551→  1391→                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-neutral-400">
+   552→  1392→                        <span>{t.date}</span>
+   553→  1393→                        <span className="inline-flex items-center gap-1">
+   554→  1394→                          <Phone className="h-3 w-3" />
+   555→  1395→                          {t.telephone}
+   556→  1396→                        </span>
+   557→  1397→                        <OperatorBadge op={t.operateur} />
+   558→  1398→                        <span className="font-semibold text-neutral-600">
+   559→  1399→                          {formatFcfa(t.montant)}
+   560→  1400→                        </span>
+   561→  1401→                      </div>
+   562→  1402→                      {t.anomalie?.statut === "resolue" && t.anomalie.resoluPar && (
+   563→  1403→                        <p className="mt-1.5 text-[11px] text-emerald-600">
+   564→  1404→                          Résolu par {t.anomalie.resoluPar}
+   565→  1405→                        </p>
+   566→  1406→                      )}
+   567→  1407→                    </div>
+   568→  1408→                    <div className="flex shrink-0 gap-2">
+   569→  1409→                      <Button
+   570→  1410→                        variant="outline"
+   571→  1411→                        size="sm"
+   572→  1412→                        className="h-8 gap-1.5 rounded-xl border-neutral-200 text-[12.5px]"
+   573→  1413→                        onClick={() => openTxn(t)}
+   574→  1414→                      >
+   575→  1415→                        <ReceiptText className="h-3.5 w-3.5" />
+   576→  1416→                        Détail
+   577→  1417→                      </Button>
+   578→  1418→                      {t.anomalie?.statut === "detectee" && (
+   579→  1419→                        <Button
+   580→  1420→                          size="sm"
+   581→  1421→                          className="h-8 gap-1.5 rounded-xl bg-rose-500 text-[12.5px] font-semibold text-white hover:bg-rose-600"
+   582→  1422→                          onClick={() => openTxn(t)}
+   583→  1423→                        >
+   584→  1424→                          Résoudre
+   585→  1425→                        </Button>
+   586→  1426→                      )}
+   587→  1427→                    </div>
+   588→  1428→                  </div>
+   589→  1429→                </motion.div>
+   590→  1430→              ))}
+   591→  1431→          </div>
+   592→  1432→        </TabsContent>
+   593→  1433→      </Tabs>
+   594→  1434→
+   595→  1435→      {/* Fiche détail + reçus + résolution */}
+   596→  1436→      <TransactionSheet txn={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
+   597→  1437→    </div>
+   598→  1438→  );
+   599→  1439→}
+   600→  1440→

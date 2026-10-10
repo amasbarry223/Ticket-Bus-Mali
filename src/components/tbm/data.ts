@@ -2245,6 +2245,7 @@ export type AuditAction =
   | "Annulation"
   | "Compagnie"
   | "Paramétrage"
+  | "Notification"
   | "Utilisateur"
   | "Transaction"
   | "Rapprochement"
@@ -2268,6 +2269,7 @@ export const AUDIT_ACTION_META: Record<AuditAction, { className: string }> = {
   Annulation: { className: "bg-rose-50 text-rose-600" },
   Compagnie: { className: "bg-coral-50 text-coral-600" },
   Paramétrage: { className: "bg-sky-50 text-sky-600" },
+  Notification: { className: "bg-fuchsia-50 text-fuchsia-600" },
   Utilisateur: { className: "bg-emerald-50 text-emerald-600" },
   Transaction: { className: "bg-teal-50 text-teal-600" },
   Rapprochement: { className: "bg-lime-50 text-lime-700" },
@@ -2301,6 +2303,70 @@ export const cities: City[] = [
   { id: "VIL-04", nom: "Mopti", region: "Région de Mopti", gares: ["Gare de Sévaré"] },
   { id: "VIL-05", nom: "Kayes", region: "Région de Kayes", gares: ["Gare de Kayes N'Di"] },
   { id: "VIL-06", nom: "Koutiala", region: "Région de Sikasso", gares: ["Gare centrale"] },
+];
+
+/** Notification ciblée envoyée aux voyageurs (SMS + push) — A07. */
+export interface CityNotification {
+  id: string;
+  date: string;
+  cible: "all" | string; // "all" = tous les voyageurs, sinon nom de ville
+  message: string;
+  envoyePar: string;
+  canal: "SMS + push";
+  destinataires: number; // destinataires estimés
+}
+
+export const initialNotifications: CityNotification[] = [
+  {
+    id: "NOT-031",
+    date: "06/10 07:45",
+    cible: "Bamako",
+    message:
+      "Gare de Sogoniko — les départs de 14 h sont avancés à 13 h 30 ce samedi (travaux RDV). Présentez-vous 45 min avant.",
+    envoyePar: "Daouda FOMBA",
+    canal: "SMS + push",
+    destinataires: 1840,
+  },
+  {
+    id: "NOT-030",
+    date: "05/10 16:52",
+    cible: "all",
+    message:
+      "Maintenance Orange Money cette nuit de 01 h à 03 h — les paiements peuvent échouer. Moov Money reste disponible.",
+    envoyePar: "Daouda FOMBA",
+    canal: "SMS + push",
+    destinataires: 5230,
+  },
+  {
+    id: "NOT-029",
+    date: "05/10 11:20",
+    cible: "Ségou",
+    message:
+      "Le départ SEG-BKO de 16 h 30 est annulé (route inondée). Les billets seront remboursés automatiquement sous 72 h.",
+    envoyePar: "Mody BARRY",
+    canal: "SMS + push",
+    destinataires: 960,
+  },
+  {
+    id: "NOT-028",
+    date: "04/10 09:05",
+    cible: "Sikasso",
+    message:
+      "Nouvelles places disponibles sur Sikasso – Bamako ce week-end : réservez depuis l'application TBM.",
+    envoyePar: "Mody BARRY",
+    canal: "SMS + push",
+    destinataires: 1120,
+  },
+  {
+    id: "NOT-027",
+    date: "03/10 18:30",
+    cible: "all",
+    message:
+      "Pensez à valider votre billet par QR code à l'embarquement — un seul scan par billet, conservez votre téléphone chargé.",
+    envoyePar: "Daouda FOMBA",
+    canal: "SMS + push",
+    destinataires: 5100,
+  },
 ];
 
 /* ------------------------- Statistiques (A08) --------------- */
@@ -2355,6 +2421,8 @@ export interface Settings {
   annulationPlus24h: number; // % remboursé
   annulation24a6h: number;
   annulationMoins6h: number;
+  encaissementMode: EncaissementMode; // A11 — modèle d'encaissement TBM
+  plafondSupportFcfa: number; // A03 — plafond de traitement des remboursements par le support
 }
 
 export const defaultSettings: Settings = {
@@ -2365,7 +2433,25 @@ export const defaultSettings: Settings = {
   annulationPlus24h: 100,
   annulation24a6h: 50,
   annulationMoins6h: 0,
+  encaissementMode: TBM_ENCAISSEMENT_MODE,
+  plafondSupportFcfa: REFUND_SUPPORT_LIMIT,
 };
+
+/** Paramètres consommés par les autres modules (affiché sur la page Paramétrage). */
+export const SETTINGS_CONSUMERS: {
+  key: keyof Settings;
+  module: string;
+  usage: string;
+}[] = [
+  { key: "blocageMinutes", module: "Réservations & billets (A10)", usage: "Places bloquées pendant le paiement (RG1)" },
+  { key: "fraisValeur", module: "Réservations & billets (A10)", usage: "Frais de service affichés avant paiement (RG7)" },
+  { key: "commissionDefaut", module: "Commissions & reversements (A11)", usage: "Taux appliqué aux compagnies sans taux contractuel (RG9)" },
+  { key: "encaissementMode", module: "Commissions & reversements (A11)", usage: "Modèle d'encaissement retenu par TBM" },
+  { key: "plafondSupportFcfa", module: "Remboursements & litiges (A03)", usage: "Plafond de traitement des dossiers par le support" },
+  { key: "annulationPlus24h", module: "Réservations & remboursements", usage: "Palier > 24 h (RG5)" },
+  { key: "annulation24a6h", module: "Réservations & remboursements", usage: "Palier 24 h – 6 h (RG5)" },
+  { key: "annulationMoins6h", module: "Réservations & remboursements", usage: "Palier < 6 h (RG5/RG10)" },
+];
 
 /* --------------- Réservations & billets (A10) --------------- */
 

@@ -8,8 +8,10 @@ import {
   Building2,
   CheckCircle2,
   Download,
+  Eye,
   Hourglass,
   Lock,
+  LockOpen,
   Monitor,
   Phone,
   Plus,
@@ -17,6 +19,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Smartphone,
+  UserCheck,
   UserCog,
   Users,
 } from "lucide-react";
@@ -66,6 +69,8 @@ import {
   type UserRole,
   type UserStatus,
 } from "@/components/tbm/data";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 import { cn } from "@/lib/utils";
 
 /* ============================ Helpers ============================ */
@@ -93,6 +98,31 @@ const PRO_ROLES: UserRole[] = [
   "Gestionnaire de compagnie",
   "Contrôleur",
 ];
+
+/* Onglets page-level (paramètre d'URL ?tab=). */
+const USER_TABS = ["comptes", "a_activer", "activite"] as const;
+
+/** Rang antéchronologique d'une date de démo (« Aujourd'hui 09:14 », « Hier 18:40 », « 02/10 09:10 »). */
+function dateRank(date: string): number {
+  const t = date.match(/(\d{1,2}):(\d{2})/);
+  const hhmm = t ? Number(t[1]) * 60 + Number(t[2]) : 0;
+  if (date.startsWith("Aujourd")) return 4e9 + hhmm;
+  if (date.startsWith("Hier")) return 3e9 + hhmm;
+  const m = date.match(/^(\d{1,2})\/(\d{1,2})/);
+  if (m) return (Number(m[2]) * 100 + Number(m[1])) * 1e6 + hhmm;
+  return 0;
+}
+
+/** Entrée agrégée de l'onglet « Activité sensible » (échecs de connexion + actions sensibles). */
+interface SensitiveEntry {
+  key: string;
+  userId: string;
+  compte: string;
+  date: string;
+  kind: "echec_connexion" | "action";
+  label: string;
+  detail: string;
+}
 
 type DialogState =
   | { kind: "create" }
@@ -700,6 +730,288 @@ function UserSheet({
   );
 }
 
+/* ========================= Tableau des comptes ==================== */
+
+/**
+ * Tableau des comptes — colonne « Actions » en icônes seules (tooltip +
+ * sr-only), conformément au motif ActionIconButton. Le clic sur une ligne
+ * ouvre la fiche ; les actions stoppent la propagation.
+ */
+function UsersTable({
+  rows,
+  selfEmail,
+  onOpen,
+  onActivate,
+  onBlock,
+  onUnblock,
+  emptyLabel,
+}: {
+  rows: UserAccount[];
+  selfEmail: string;
+  onOpen: (u: UserAccount) => void;
+  onActivate: (u: UserAccount) => void;
+  onBlock: (u: UserAccount) => void;
+  onUnblock: (u: UserAccount) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="ff-scrollbar max-h-[640px] overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+              Utilisateur
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Rôle
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Périmètre
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Statut
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Dernière connexion
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((u) => {
+            const isSelf = u.email === selfEmail;
+            const isAdminUser = u.role === "Administrateur TBM";
+            return (
+              <TableRow
+                key={u.id}
+                className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+                onClick={() => onOpen(u)}
+              >
+                <TableCell className="py-3.5 pl-5">
+                  <div className="flex items-center gap-3">
+                    <Avatar nom={u.nom} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] font-semibold text-neutral-800">
+                        {u.nom}
+                        {isSelf && (
+                          <span className="ml-1.5 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-medium text-neutral-400">
+                            vous
+                          </span>
+                        )}
+                      </span>
+                      <span className="block truncate text-[11.5px] text-neutral-400">
+                        {u.telephone ?? u.email}
+                      </span>
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="pt-3.5">
+                  <RoleBadge role={u.role} />
+                  <span className="mt-1 block text-[11px] text-neutral-400">
+                    {USER_ROLE_META[u.role].scopeLabel}
+                  </span>
+                </TableCell>
+                <TableCell className="pt-3.5">
+                  <ScopePill u={u} />
+                </TableCell>
+                <TableCell className="pt-3.5">
+                  <StatusBadge statut={u.statut} />
+                  {u.statut === "bloque" && u.bloqueMotif && (
+                    <span
+                      className="mt-1 block max-w-[190px] truncate text-[11px] text-rose-400"
+                      title={u.bloqueMotif}
+                    >
+                      {u.bloqueMotif}
+                    </span>
+                  )}
+                  {u.statut === "attente" && (
+                    <span className="mt-1 block text-[11px] text-neutral-400">
+                      créé {u.creeLe.toLowerCase()}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="pt-3.5">
+                  {u.derniereConnexion ? (
+                    <span className="block text-[12.5px] text-neutral-600">
+                      {u.derniereConnexion}
+                    </span>
+                  ) : (
+                    <span className="block text-[11.5px] text-neutral-300">
+                      Jamais
+                    </span>
+                  )}
+                  {u.connexions.length > 0 && (
+                    <span className="block text-[11px] text-neutral-400">
+                      {u.connexions.length} connex. ·{" "}
+                      {u.connexions.filter((c) => c.resultat === "echec").length} échec
+                      {u.connexions.filter((c) => c.resultat === "echec").length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="pr-5 pt-3.5">
+                  <div className="flex items-center justify-end gap-1.5">
+                    {u.statut === "attente" ? (
+                      <>
+                        <ActionIconButton
+                          icon={Eye}
+                          label="Voir la fiche"
+                          onClick={() => onOpen(u)}
+                        />
+                        <ActionIconButton
+                          icon={UserCheck}
+                          tone="emerald"
+                          label="Activer le compte"
+                          onClick={() => onActivate(u)}
+                        />
+                      </>
+                    ) : u.statut === "bloque" ? (
+                      <>
+                        <ActionIconButton
+                          icon={Eye}
+                          label="Voir la fiche"
+                          onClick={() => onOpen(u)}
+                        />
+                        <ActionIconButton
+                          icon={LockOpen}
+                          tone="emerald"
+                          label="Débloquer le compte"
+                          onClick={() => onUnblock(u)}
+                        />
+                      </>
+                    ) : isAdminUser || isSelf ? (
+                      <ActionIconButton
+                        icon={ShieldCheck}
+                        disabled
+                        label={
+                          isAdminUser
+                            ? "Administrateur — protégé"
+                            : "Votre propre compte"
+                        }
+                      />
+                    ) : (
+                      <>
+                        <ActionIconButton
+                          icon={Eye}
+                          label="Voir la fiche"
+                          onClick={() => onOpen(u)}
+                        />
+                        <ActionIconButton
+                          icon={Ban}
+                          tone="rose"
+                          label="Bloquer le compte"
+                          onClick={() => onBlock(u)}
+                        />
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* ==================== Tableau d'activité sensible ================= */
+
+/** Agrégat antéchronologique : échecs de connexion + actions sensibles, tous comptes. */
+function ActivityTable({
+  entries,
+  onOpenCompte,
+  emptyLabel,
+}: {
+  entries: SensitiveEntry[];
+  onOpenCompte: (userId: string) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="ff-scrollbar max-h-[560px] overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+              Date
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Compte
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Type
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-xs font-medium text-neutral-400">
+              Détail
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((e) => (
+            <TableRow
+              key={e.key}
+              className="border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+            >
+              <TableCell className="py-3 pl-5 text-[12px] tabular-nums text-neutral-500">
+                {e.date}
+              </TableCell>
+              <TableCell className="py-3">
+                <div className="flex items-center gap-2.5">
+                  <Avatar nom={e.compte} className="h-7 w-7 text-[10px]" />
+                  <button
+                    type="button"
+                    onClick={() => onOpenCompte(e.userId)}
+                    title={`Ouvrir la fiche de ${e.compte}`}
+                    className="max-w-[160px] truncate text-[12.5px] font-semibold text-neutral-700 transition-colors hover:text-coral-600"
+                  >
+                    {e.compte}
+                  </button>
+                </div>
+              </TableCell>
+              <TableCell className="py-3">
+                {e.kind === "echec_connexion" ? (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                    <ShieldAlert className="h-3 w-3" />
+                    Connexion échouée
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-coral-50 px-2 py-0.5 text-[11px] font-semibold text-coral-600">
+                    <Activity className="h-3 w-3" />
+                    {e.label}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell className="max-w-[360px] py-3 pr-5">
+                <span
+                  className="block truncate text-[12.5px] text-neutral-600"
+                  title={e.detail}
+                >
+                  {e.detail}
+                </span>
+              </TableCell>
+            </TableRow>
+          ))}
+          {entries.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="py-10 text-center text-[13px] text-neutral-400">
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 /* ============================== Page ============================= */
 
 export function UsersPage() {
@@ -717,12 +1029,16 @@ export function UsersPage() {
   const unblockUser = useTbmStore((s) => s.unblockUser);
   const changeUserRole = useTbmStore((s) => s.changeUserRole);
 
+  // Onglet page-level + fiche détail synchronisés aux paramètres d'URL (?tab=, ?sel=)
+  const [tabParam, setTabParam] = useParamState("tab", "comptes");
+  const tab = validParam(tabParam, USER_TABS, "comptes");
+  const [selParam, setSel] = useParamState("sel", "");
+
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statutFilter, setStatutFilter] = useState<string>("all");
   const [compagnieFilter, setCompagnieFilter] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
   // Formulaire de création
@@ -738,9 +1054,12 @@ export function UsersPage() {
   const [newRole, setNewRole] = useState<UserRole>("Agent de guichet");
   const [error, setError] = useState<string | null>(null);
 
-  const selected = selectedId
-    ? users.find((u) => u.id === selectedId) ?? null
+  // Fiche dérivée du store par id (live) — les badges suivent les actions.
+  const selected = selParam
+    ? users.find((u) => u.id === selParam) ?? null
     : null;
+  const openSheet = (u: UserAccount) => setSel(u.id);
+  const closeSheet = () => setSel("");
 
   const compagnieNames = useMemo(
     () => companies.map((c) => c.nom).sort((a, b) => a.localeCompare(b, "fr")),
@@ -764,6 +1083,72 @@ export function UsersPage() {
     });
   }, [users, query, kindFilter, roleFilter, statutFilter, compagnieFilter]);
 
+  /** Sous-liste « À activer » : comptes en attente (recherche normalisée appliquée). */
+  const aActiver = useMemo(() => {
+    const q = normalizeKey(query);
+    return users.filter((u) => {
+      if (u.statut !== "attente") return false;
+      if (q === "") return true;
+      const hay = normalizeKey(
+        [u.id, u.nom, u.email, u.telephone ?? "", u.compagnie ?? "", u.role].join(" ")
+      );
+      return hay.includes(q);
+    });
+  }, [users, query]);
+
+  /**
+   * Agrégat antéchronologique (onglet « Activité sensible ») : connexions
+   * échouées et actions sensibles de tous les comptes, du plus récent au plus
+   * ancien, filtrés par la recherche.
+   */
+  const activite = useMemo<SensitiveEntry[]>(() => {
+    const entries: SensitiveEntry[] = [];
+    for (const u of users) {
+      for (const c of u.connexions) {
+        if (c.resultat !== "echec") continue;
+        entries.push({
+          key: `${u.id}-${c.id}`,
+          userId: u.id,
+          compte: u.nom,
+          date: c.date,
+          kind: "echec_connexion",
+          label: "Connexion échouée",
+          detail: c.detail ?? `${c.ip} · ${c.lieu}`,
+        });
+      }
+      for (const a of u.actionsSensibles) {
+        entries.push({
+          key: `${u.id}-${a.id}`,
+          userId: u.id,
+          compte: u.nom,
+          date: a.date,
+          kind: "action",
+          label: a.action,
+          detail: a.detail,
+        });
+      }
+    }
+    entries.sort((x, y) => dateRank(y.date) - dateRank(x.date));
+    const q = normalizeKey(query);
+    if (q === "") return entries;
+    return entries.filter((e) =>
+      normalizeKey([e.compte, e.label, e.detail].join(" ")).includes(q)
+    );
+  }, [users, query]);
+
+  const searchInput = (
+    <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Nom, e-mail, téléphone, compagnie, réf…"
+        aria-label="Rechercher un utilisateur"
+        className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+      />
+    </div>
+  );
+
   const enAttente = users.filter((u) => u.statut === "attente");
   const bloques = users.filter((u) => u.statut === "bloque");
   const voyageurs = users.filter((u) => USER_ROLE_META[u.role].kind === "voyageur");
@@ -783,23 +1168,23 @@ export function UsersPage() {
     setError(null);
   };
   const openActivate = (u: UserAccount) => {
-    setSelectedId(u.id);
+    setSel(u.id);
     setDialog({ kind: "activate" });
     setError(null);
   };
   const openBlock = (u: UserAccount) => {
-    setSelectedId(u.id);
+    setSel(u.id);
     setDialog({ kind: "block" });
     setMotif("");
     setError(null);
   };
   const openUnblock = (u: UserAccount) => {
-    setSelectedId(u.id);
+    setSel(u.id);
     setDialog({ kind: "unblock" });
     setError(null);
   };
   const openRole = (u: UserAccount) => {
-    setSelectedId(u.id);
+    setSel(u.id);
     setDialog({ kind: "role" });
     setJustification("");
     setNewRole(u.role === "Agent de guichet" ? "Gestionnaire de compagnie" : "Agent de guichet");
@@ -1051,256 +1436,221 @@ export function UsersPage() {
         />
       </div>
 
-      {/* Filtres */}
-      <div className="mt-5 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Nom, e-mail, téléphone, compagnie, réf…"
-            aria-label="Rechercher un utilisateur"
-            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
-          />
-        </div>
-        <Select value={kindFilter} onValueChange={setKindFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par type de compte"
-            className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+      {/* Onglets page-level — synchronisés au paramètre d'URL ?tab= */}
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
+        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+          <TabsTrigger
+            value="comptes"
+            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous comptes</SelectItem>
-            <SelectItem value="voyageur" className="rounded-lg text-[13px]">Voyageurs</SelectItem>
-            <SelectItem value="professionnel" className="rounded-lg text-[13px]">Professionnels</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par rôle"
-            className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+            <Users className="h-3.5 w-3.5" />
+            Comptes
+            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
+              {users.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="a_activer"
+            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
           >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous rôles</SelectItem>
-            {(Object.keys(USER_ROLE_META) as UserRole[]).map((r) => (
-              <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
-                {USER_ROLE_META[r].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statutFilter} onValueChange={setStatutFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par statut"
-            className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
-            {(Object.keys(USER_STATUS_META) as UserStatus[]).map((s) => (
-              <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
-                {USER_STATUS_META[s].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={compagnieFilter} onValueChange={setCompagnieFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par compagnie"
-            className="h-9 w-[160px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">Toutes compagnies</SelectItem>
-            {compagnieNames.map((c) => (
-              <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Tableau */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
-      >
-        <div className="ff-scrollbar overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
-                  Utilisateur
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Rôle
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Périmètre
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Statut
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                  Dernière connexion
-                </TableHead>
-                <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((u) => {
-                const isSelf = u.email === selfEmail;
-                const isAdminUser = u.role === "Administrateur TBM";
-                return (
-                  <TableRow
-                    key={u.id}
-                    className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
-                    onClick={() => setSelectedId(u.id)}
-                  >
-                    <TableCell className="py-3.5 pl-5">
-                      <div className="flex items-center gap-3">
-                        <Avatar nom={u.nom} />
-                        <span className="min-w-0">
-                          <span className="block truncate text-[13px] font-semibold text-neutral-800">
-                            {u.nom}
-                            {isSelf && (
-                              <span className="ml-1.5 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-medium text-neutral-400">
-                                vous
-                              </span>
-                            )}
-                          </span>
-                          <span className="block truncate text-[11.5px] text-neutral-400">
-                            {u.telephone ?? u.email}
-                          </span>
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <RoleBadge role={u.role} />
-                      <span className="mt-1 block text-[11px] text-neutral-400">
-                        {USER_ROLE_META[u.role].scopeLabel}
-                      </span>
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <ScopePill u={u} />
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      <StatusBadge statut={u.statut} />
-                      {u.statut === "bloque" && u.bloqueMotif && (
-                        <span
-                          className="mt-1 block max-w-[190px] truncate text-[11px] text-rose-400"
-                          title={u.bloqueMotif}
-                        >
-                          {u.bloqueMotif}
-                        </span>
-                      )}
-                      {u.statut === "attente" && (
-                        <span className="mt-1 block text-[11px] text-neutral-400">
-                          créé {u.creeLe.toLowerCase()}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="pt-3.5">
-                      {u.derniereConnexion ? (
-                        <span className="block text-[12.5px] text-neutral-600">
-                          {u.derniereConnexion}
-                        </span>
-                      ) : (
-                        <span className="block text-[11.5px] text-neutral-300">
-                          Jamais
-                        </span>
-                      )}
-                      {u.connexions.length > 0 && (
-                        <span className="block text-[11px] text-neutral-400">
-                          {u.connexions.length} connex. ·{" "}
-                          {u.connexions.filter((c) => c.resultat === "echec").length} échec
-                          {u.connexions.filter((c) => c.resultat === "echec").length > 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="pr-5 pt-3 text-right">
-                      {u.statut === "attente" ? (
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openActivate(u);
-                          }}
-                          className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Activer
-                        </Button>
-                      ) : u.statut === "bloque" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openUnblock(u);
-                          }}
-                          className="h-8 rounded-lg border-emerald-200 px-2.5 text-[12px] font-medium text-emerald-600 shadow-none hover:bg-emerald-50"
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Débloquer
-                        </Button>
-                      ) : isAdminUser || isSelf ? (
-                        <span
-                          className="inline-flex items-center gap-1 text-[11.5px] text-neutral-300"
-                          title={
-                            isAdminUser
-                              ? "Un administrateur TBM ne peut pas être bloqué"
-                              : "Vous ne pouvez pas bloquer votre propre compte"
-                          }
-                        >
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          Protégé
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openBlock(u);
-                          }}
-                          className="h-8 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium text-rose-500 shadow-none hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          Bloquer
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
-                    Aucun compte ne correspond à ces filtres.
-                  </TableCell>
-                </TableRow>
+            <Hourglass className="h-3.5 w-3.5" />
+            À activer
+            <span
+              className={cn(
+                "rounded-md px-1.5 py-px text-[10.5px] font-semibold",
+                enAttente.length > 0
+                  ? "bg-amber-100 text-amber-600"
+                  : "bg-neutral-200/80 text-neutral-500"
               )}
-            </TableBody>
-          </Table>
-        </div>
-      </motion.section>
+            >
+              {enAttente.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="activite"
+            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Activité sensible
+            <span
+              className={cn(
+                "rounded-md px-1.5 py-px text-[10.5px] font-semibold",
+                activite.length > 0
+                  ? "bg-violet-100 text-violet-600"
+                  : "bg-neutral-200/80 text-neutral-500"
+              )}
+            >
+              {activite.length}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ----- Onglet Comptes : liste complète + filtres ----- */}
+        <TabsContent value="comptes" className="mt-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {searchInput}
+            <Select value={kindFilter} onValueChange={setKindFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par type de compte"
+                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous comptes</SelectItem>
+                <SelectItem value="voyageur" className="rounded-lg text-[13px]">Voyageurs</SelectItem>
+                <SelectItem value="professionnel" className="rounded-lg text-[13px]">Professionnels</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par rôle"
+                className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous rôles</SelectItem>
+                {(Object.keys(USER_ROLE_META) as UserRole[]).map((r) => (
+                  <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
+                    {USER_ROLE_META[r].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statutFilter} onValueChange={setStatutFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par statut"
+                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
+                {(Object.keys(USER_STATUS_META) as UserStatus[]).map((s) => (
+                  <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
+                    {USER_STATUS_META[s].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={compagnieFilter} onValueChange={setCompagnieFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par compagnie"
+                className="h-9 w-[160px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">Toutes compagnies</SelectItem>
+                {compagnieNames.map((c) => (
+                  <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="ml-auto text-[12px] text-neutral-400">
+              {filtered.length} compte{filtered.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <UsersTable
+              rows={filtered}
+              selfEmail={selfEmail}
+              onOpen={openSheet}
+              onActivate={openActivate}
+              onBlock={openBlock}
+              onUnblock={openUnblock}
+              emptyLabel="Aucun compte ne correspond à ces filtres."
+            />
+          </motion.section>
+        </TabsContent>
+
+        {/* ----- Onglet À activer : comptes professionnels en attente ----- */}
+        <TabsContent value="a_activer" className="mt-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {searchInput}
+            <span className="ml-auto text-[12px] text-neutral-400">
+              {aActiver.length} compte{aActiver.length > 1 ? "s" : ""} en attente
+            </span>
+          </div>
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <UsersTable
+              rows={aActiver}
+              selfEmail={selfEmail}
+              onOpen={openSheet}
+              onActivate={openActivate}
+              onBlock={openBlock}
+              onUnblock={openUnblock}
+              emptyLabel={
+                query.trim() !== ""
+                  ? "Aucun compte à activer ne correspond à cette recherche."
+                  : "Aucun compte en attente — tous les comptes professionnels ont accès à leur périmètre."
+              }
+            />
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
+              <Hourglass className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden="true" />
+              <p className="text-[11.5px] text-neutral-400">
+                Créés par le support, ces comptes n&apos;ont aucun accès tant que TBM ne les
+                active pas — l&apos;activation envoie un mot de passe provisoire par SMS.
+              </p>
+            </div>
+          </motion.section>
+        </TabsContent>
+
+        {/* ----- Onglet Activité sensible : agrégat antéchronologique ----- */}
+        <TabsContent value="activite" className="mt-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {searchInput}
+            <span className="ml-auto text-[12px] text-neutral-400">
+              {activite.length} entrée{activite.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <ActivityTable
+              entries={activite}
+              onOpenCompte={setSel}
+              emptyLabel={
+                query.trim() !== ""
+                  ? "Aucune activité sensible ne correspond à cette recherche."
+                  : "Aucune activité sensible — aucun échec de connexion ni action à forte valeur enregistré."
+              }
+            />
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
+              <Activity className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden="true" />
+              <p className="text-[11.5px] text-neutral-400">
+                Connexions échouées et actions sensibles de tous les comptes, de la plus
+                récente à la plus ancienne — chaque action est également inscrite au
+                journal d&apos;audit (A06).
+              </p>
+            </div>
+          </motion.section>
+        </TabsContent>
+      </Tabs>
 
       {/* Fiche utilisateur */}
       <UserSheet
         user={selected}
         open={selected != null}
-        onOpenChange={(v) => !v && setSelectedId(null)}
+        onOpenChange={(v) => {
+          if (!v) closeSheet();
+        }}
         selfEmail={selfEmail}
         onActivate={openActivate}
         onBlock={openBlock}

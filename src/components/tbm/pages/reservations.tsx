@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Copy,
   Check,
+  Eye,
   Hourglass,
   Phone,
   QrCode,
@@ -46,7 +47,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTbmStore } from "@/lib/tbm-store";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 import {
   companyDepartures,
   companyInitials,
@@ -57,9 +61,12 @@ import {
   SCAN_KIND_META,
   TICKET_STATUS_META,
   reservations,
+  type Company,
+  type Departure,
   type Reservation,
   type ReservationStatus,
   type ScanEvent,
+  type ScanKind,
   type Settings,
   type Ticket as TicketModel,
   type TicketStatus,
@@ -99,6 +106,41 @@ function serviceFees(r: Reservation, settings: Settings): number {
 
 function reservationTotal(r: Reservation, settings: Settings): number {
   return tarifsTotal(r) + serviceFees(r, settings);
+}
+
+/* Onglets page-level (paramètre d'URL ?tab=) + billets aplatis. */
+const RES_TABS = ["reservations", "billets"] as const;
+
+/** Ligne aplatie de l'onglet « Billets & contrôles » : un billet + son contexte. */
+interface TicketRow {
+  res: Reservation;
+  ticket: TicketModel;
+  dep: Departure | null;
+}
+
+/**
+ * Dernier ScanEvent pertinent pour un billet : dérivé du statut du billet
+ * (annulation/expiration pour un annulé, embarquement/contrôle pour un
+ * utilisé, émission/paiement pour un émis), avec repli sur le dernier
+ * événement de la réservation.
+ */
+function lastScanFor(r: Reservation, t: TicketModel): ScanEvent | null {
+  if (r.historique.length === 0) return null;
+  const kinds: ScanKind[] =
+    t.statut === "annule"
+      ? ["annulation", "expiration"]
+      : t.statut === "utilise"
+        ? ["scan_embarquement", "controle"]
+        : ["emission", "paiement"];
+  for (let i = r.historique.length - 1; i >= 0; i--) {
+    if (kinds.includes(r.historique[i].type)) return r.historique[i];
+  }
+  return r.historique[r.historique.length - 1];
+}
+
+/** Premier billet ouvrable au QR d'une réservation (non annulé), sinon null. */
+function firstActiveTicket(r: Reservation): TicketModel | null {
+  return r.tickets.find((t) => t.statut !== "annule") ?? null;
 }
 
 const PASSENGER_TINTS = [
@@ -830,6 +872,354 @@ function EticketDialog({
   );
 }
 
+/* ======================= Tableau des réservations ======================== */
+
+/**
+ * Tableau des réservations — colonne « Actions » en icônes seules :
+ * Voir la fiche (Eye) + Voir le billet électronique (QrCode, dès qu'un
+ * billet non annulé existe). Clic ligne = ouverture de la fiche.
+ */
+function ReservationsTable({
+  rows,
+  depById,
+  companyById,
+  settings,
+  onOpen,
+  onOpenEticket,
+  emptyLabel,
+}: {
+  rows: Reservation[];
+  depById: Map<string, Departure>;
+  companyById: Map<string, Company>;
+  settings: Settings;
+  onOpen: (r: Reservation) => void;
+  onOpenEticket: (r: Reservation, t: TicketModel) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="ff-scrollbar max-h-[620px] overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+              Référence
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Passagers
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Départ associé
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 hidden h-11 bg-neutral-50 text-xs font-medium text-neutral-400 md:table-cell">
+              Compagnie
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 hidden h-11 bg-neutral-50 text-xs font-medium text-neutral-400 lg:table-cell">
+              Billets
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-right text-xs font-medium text-neutral-400">
+              Montant
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Statut
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => {
+            const dep = depById.get(r.departId);
+            const company = dep ? companyById.get(dep.compagnie) : undefined;
+            const used = r.tickets.filter((t) => t.statut === "utilise").length;
+            const cancelled = r.tickets.filter((t) => t.statut === "annule").length;
+            const issued = r.tickets.length - used - cancelled;
+            const qrTicket = firstActiveTicket(r);
+            return (
+              <TableRow
+                key={r.id}
+                onClick={() => onOpen(r)}
+                className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+              >
+                <TableCell className="py-3.5 pl-5">
+                  <span className="block text-[13px] font-bold tabular-nums text-neutral-900">
+                    {r.id}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] text-neutral-400">
+                    {r.creee} ·{" "}
+                    {r.canal === "en_ligne" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Smartphone className="h-3 w-3" aria-hidden="true" />
+                        En ligne
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1">
+                        <Store className="h-3 w-3" aria-hidden="true" />
+                        Guichet
+                      </span>
+                    )}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <PassengerStack res={r} />
+                </TableCell>
+                <TableCell>
+                  <span className="block text-[12.5px] font-semibold text-neutral-700">
+                    {dep ? dep.trajet : "—"}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] tabular-nums text-neutral-400">
+                    {dep ? `${dep.jour} · ${dep.heure}` : ""}
+                  </span>
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {company ? (
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ring-1",
+                          companyLogoColor(dep?.compagnie ?? "")
+                        )}
+                      >
+                        {companyInitials(company.nom)}
+                      </span>
+                      <span className="block max-w-[130px] truncate text-[12.5px] font-medium text-neutral-600">
+                        {company.nom}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[12.5px] text-neutral-400">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  {r.tickets.length > 0 ? (
+                    <>
+                      <span className="text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                        {r.tickets.length} billet
+                        {r.tickets.length > 1 ? "s" : ""}
+                      </span>
+                      <span className="mt-0.5 block text-[10.5px] text-neutral-400">
+                        <span className="text-coral-500">
+                          {issued} émis
+                        </span>
+                        {" · "}
+                        <span className="text-emerald-600">
+                          {used} utilisé{used > 1 ? "s" : ""}
+                        </span>
+                        {cancelled > 0 && (
+                          <>
+                            {" · "}
+                            <span className="text-rose-500">
+                              {cancelled} annulé{cancelled > 1 ? "s" : ""}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[12px] text-neutral-300">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                  {r.tickets.length > 0
+                    ? formatFcfa(reservationTotal(r, settings))
+                    : "—"}
+                </TableCell>
+                <TableCell>
+                  <ResStatusBadge statut={r.statut} />
+                </TableCell>
+                <TableCell className="pr-5">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <ActionIconButton
+                      icon={Eye}
+                      label="Voir la fiche"
+                      onClick={() => onOpen(r)}
+                    />
+                    {qrTicket && (
+                      <ActionIconButton
+                        icon={QrCode}
+                        tone="coral"
+                        label="Voir le billet électronique"
+                        onClick={() => onOpenEticket(r, qrTicket)}
+                      />
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={8}
+                className="py-10 text-center text-[13px] text-neutral-400"
+              >
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* ==================== Tableau « Billets & contrôles » ==================== */
+
+/** Liste aplatie de tous les billets : réf., passager, réservation, départ, statut, dernier scan. */
+function TicketsTable({
+  rows,
+  onOpen,
+  onOpenEticket,
+  emptyLabel,
+}: {
+  rows: TicketRow[];
+  onOpen: (r: Reservation) => void;
+  onOpenEticket: (r: Reservation, t: TicketModel) => void;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="ff-scrollbar max-h-[620px] overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+              Réf. billet
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Passager
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Réservation liée
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Départ
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Statut du billet
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+              Dernier scan
+            </TableHead>
+            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+              <span className="sr-only">Actions</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map(({ res, ticket, dep }) => {
+            const scan = lastScanFor(res, ticket);
+            return (
+              <TableRow
+                key={ticket.id}
+                onClick={() => onOpen(res)}
+                className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+              >
+                <TableCell className="py-3.5 pl-5">
+                  <span className="block text-[12.5px] font-bold tabular-nums text-neutral-900">
+                    {ticket.id}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] tabular-nums text-neutral-400">
+                    {formatFcfa(ticket.tarif)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[10px] font-bold",
+                        passengerTint(ticket.passager.nom)
+                      )}
+                    >
+                      {passengerInitials(ticket.passager.nom)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[12.5px] font-semibold text-neutral-800">
+                        {ticket.passager.nom}
+                      </span>
+                      <span className="mt-0.5 block text-[10.5px] text-neutral-400">
+                        Siège {ticket.passager.siege}
+                        {ticket.passager.type === "enfant" ? " · Enfant" : ""}
+                      </span>
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="block text-[12.5px] font-bold tabular-nums text-neutral-700">
+                    {res.id}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] text-neutral-400">
+                    {res.canal === "en_ligne" ? "En ligne" : "Guichet"} · {res.creee}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="block text-[12.5px] font-semibold text-neutral-700">
+                    {dep ? dep.trajet : "—"}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] tabular-nums text-neutral-400">
+                    {dep ? `${dep.jour} · ${dep.heure}` : ""}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <TicketStatusBadge statut={ticket.statut} />
+                </TableCell>
+                <TableCell>
+                  {scan ? (
+                    <>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                          SCAN_KIND_META[scan.type].className
+                        )}
+                      >
+                        {SCAN_KIND_META[scan.type].label}
+                      </span>
+                      <span
+                        className="mt-0.5 block max-w-[240px] truncate text-[10.5px] text-neutral-400"
+                        title={`${scan.date} — ${scan.detail}`}
+                      >
+                        {scan.date} — {scan.detail}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[11.5px] text-neutral-300">Aucun scan</span>
+                  )}
+                </TableCell>
+                <TableCell className="pr-5">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <ActionIconButton
+                      icon={Eye}
+                      label="Voir la fiche"
+                      onClick={() => onOpen(res)}
+                    />
+                    <ActionIconButton
+                      icon={QrCode}
+                      tone="coral"
+                      label="Voir le billet électronique"
+                      onClick={() => onOpenEticket(res, ticket)}
+                    />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="py-10 text-center text-[13px] text-neutral-400"
+              >
+                {emptyLabel}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 /* ============================ Page A10 ============================ */
 
 /**
@@ -841,11 +1231,16 @@ export function ReservationsPage() {
   const companies = useTbmStore((s) => s.companies);
   const settings = useTbmStore((s) => s.settings);
 
+  // Onglet page-level + fiche détail synchronisés aux paramètres d'URL (?tab=, ?sel=)
+  const [tabParam, setTabParam] = useParamState("tab", "reservations");
+  const tab = validParam(tabParam, RES_TABS, "reservations");
+  const [selParam, setSel] = useParamState("sel", "");
+
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [dayFilter, setDayFilter] = useState("all");
-  const [selectedResId, setSelectedResId] = useState<string | null>(null);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("all");
   const [eticket, setEticket] = useState<{
     res: Reservation;
     ticket: TicketModel;
@@ -860,27 +1255,15 @@ export function ReservationsPage() {
     [companies]
   );
 
-  /* ---- KPIs ---- */
-  const kpis = useMemo(() => {
-    const online = reservations.filter((r) => r.canal === "en_ligne").length;
-    const pending = reservations.filter((r) => r.statut === "en_attente").length;
-    const active = reservations
-      .flatMap((r) => r.tickets)
-      .filter((t) => t.statut !== "annule");
-    const used = active.filter((t) => t.statut === "utilise").length;
-    const cancelled = reservations.filter((r) => r.statut === "annulee").length;
-    const expired = reservations.filter((r) => r.statut === "expiree").length;
-    return {
-      total: reservations.length,
-      online,
-      guichet: reservations.length - online,
-      pending,
-      activeTickets: active.length,
-      used,
-      cancelled,
-      expired,
-    };
-  }, []);
+  /* ---- KPIs (recalculés à chaque rendu) ---- */
+  const online = reservations.filter((r) => r.canal === "en_ligne").length;
+  const pending = reservations.filter((r) => r.statut === "en_attente").length;
+  const activeTickets = reservations
+    .flatMap((r) => r.tickets)
+    .filter((t) => t.statut !== "annule");
+  const usedTickets = activeTickets.filter((t) => t.statut === "utilise").length;
+  const cancelledRes = reservations.filter((r) => r.statut === "annulee").length;
+  const expiredRes = reservations.filter((r) => r.statut === "expiree").length;
 
   /* ---- Liste filtrée ---- */
   const filtered = useMemo(() => {
@@ -898,7 +1281,29 @@ export function ReservationsPage() {
     });
   }, [query, statusFilter, companyFilter, dayFilter, depById]);
 
-  const selectedRes = reservations.find((r) => r.id === selectedResId) ?? null;
+  /** Liste aplatie des billets (onglet « Billets & contrôles ») — mêmes filtres + statut du billet. */
+  const ticketRows = useMemo<TicketRow[]>(() => {
+    const q = normalizeKey(query);
+    const rows: TicketRow[] = [];
+    for (const r of filtered) {
+      const dep = depById.get(r.departId) ?? null;
+      for (const t of r.tickets) {
+        if (ticketStatusFilter !== "all" && t.statut !== ticketStatusFilter) continue;
+        if (
+          q !== "" &&
+          !normalizeKey([t.id, t.passager.nom, r.id, r.telephone].join(" ")).includes(q)
+        )
+          continue;
+        rows.push({ res: r, ticket: t, dep });
+      }
+    }
+    return rows;
+  }, [filtered, ticketStatusFilter, depById, query]);
+
+  // Fiche dérivée par id (live) — réservations A10 : données de démo en lecture seule.
+  const selectedRes = reservations.find((r) => r.id === selParam) ?? null;
+  const openSheet = (r: Reservation) => setSel(r.id);
+  const closeSheet = () => setSel("");
 
   return (
     <div>
@@ -922,15 +1327,15 @@ export function ReservationsPage() {
         <Kpi
           index={0}
           label="Réservations"
-          value={formatNumber(kpis.total)}
-          hint={`${kpis.online} en ligne · ${kpis.guichet} au guichet`}
+          value={formatNumber(reservations.length)}
+          hint={`${online} en ligne · ${reservations.length - online} au guichet`}
           icon={ClipboardList}
           tone="coral"
         />
         <Kpi
           index={1}
           label="En attente de paiement"
-          value={formatNumber(kpis.pending)}
+          value={formatNumber(pending)}
           hint={`places bloquées ${settings.blocageMinutes} min (RG1)`}
           icon={Hourglass}
           tone="amber"
@@ -938,16 +1343,16 @@ export function ReservationsPage() {
         <Kpi
           index={2}
           label="Billets actifs"
-          value={formatNumber(kpis.activeTickets)}
-          hint={`${kpis.used} validés au scan`}
+          value={formatNumber(activeTickets.length)}
+          hint={`${usedTickets} validés au scan`}
           icon={QrCode}
           tone="emerald"
         />
         <Kpi
           index={3}
           label="Annulées / expirées"
-          value={formatNumber(kpis.cancelled + kpis.expired)}
-          hint={`${kpis.cancelled} annulées · ${kpis.expired} expirées`}
+          value={formatNumber(cancelledRes + expiredRes)}
+          hint={`${cancelledRes} annulées · ${expiredRes} expirées`}
           icon={CircleSlash}
           tone="rose"
         />
@@ -1021,173 +1426,119 @@ export function ReservationsPage() {
           </SelectContent>
         </Select>
         <span className="ml-auto text-[12px] text-neutral-400">
-          {filtered.length} réservation{filtered.length > 1 ? "s" : ""}
+          {tab === "billets"
+            ? `${ticketRows.length} billet${ticketRows.length > 1 ? "s" : ""}`
+            : `${filtered.length} réservation${filtered.length > 1 ? "s" : ""}`}
         </span>
       </div>
 
-      {/* ---- Tableau ---- */}
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
-      >
-        <div className="ff-scrollbar overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
-                      Référence
-                    </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                      Passagers
-                    </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
-                      Départ associé
-                    </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 md:table-cell">
-                      Compagnie
-                    </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 lg:table-cell">
-                      Billets
-                    </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
-                      Montant
-                    </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
-                      Statut
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((r) => {
-                    const dep = depById.get(r.departId);
-                    const company = dep ? companyById.get(dep.compagnie) : undefined;
-                    const used = r.tickets.filter((t) => t.statut === "utilise").length;
-                    const cancelled = r.tickets.filter((t) => t.statut === "annule").length;
-                    const issued = r.tickets.length - used - cancelled;
-                    return (
-                      <TableRow
-                        key={r.id}
-                        onClick={() => setSelectedResId(r.id)}
-                        className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
-                      >
-                        <TableCell className="py-3.5 pl-5">
-                          <span className="block text-[13px] font-bold tabular-nums text-neutral-900">
-                            {r.id}
-                          </span>
-                          <span className="mt-0.5 block text-[10.5px] text-neutral-400">
-                            {r.creee} ·{" "}
-                            {r.canal === "en_ligne" ? (
-                              <span className="inline-flex items-center gap-1">
-                                <Smartphone className="h-3 w-3" aria-hidden="true" />
-                                En ligne
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1">
-                                <Store className="h-3 w-3" aria-hidden="true" />
-                                Guichet
-                              </span>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <PassengerStack res={r} />
-                        </TableCell>
-                        <TableCell>
-                          <span className="block text-[12.5px] font-semibold text-neutral-700">
-                            {dep ? dep.trajet : "—"}
-                          </span>
-                          <span className="mt-0.5 block text-[10.5px] tabular-nums text-neutral-400">
-                            {dep ? `${dep.jour} · ${dep.heure}` : ""}
-                          </span>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {company ? (
-                            <div className="flex items-center gap-2">
-                              <span
-                                aria-hidden="true"
-                                className={cn(
-                                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ring-1",
-                                  companyLogoColor(dep?.compagnie ?? "")
-                                )}
-                              >
-                                {companyInitials(company.nom)}
-                              </span>
-                              <span className="block max-w-[130px] truncate text-[12.5px] font-medium text-neutral-600">
-                                {company.nom}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[12.5px] text-neutral-400">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {r.tickets.length > 0 ? (
-                            <>
-                              <span className="text-[12.5px] font-semibold tabular-nums text-neutral-700">
-                                {r.tickets.length} billet
-                                {r.tickets.length > 1 ? "s" : ""}
-                              </span>
-                              <span className="mt-0.5 block text-[10.5px] text-neutral-400">
-                                <span className="text-coral-500">
-                                  {issued} émis
-                                </span>
-                                {" · "}
-                                <span className="text-emerald-600">
-                                  {used} utilisé{used > 1 ? "s" : ""}
-                                </span>
-                                {cancelled > 0 && (
-                                  <>
-                                    {" · "}
-                                    <span className="text-rose-500">
-                                      {cancelled} annulé{cancelled > 1 ? "s" : ""}
-                                    </span>
-                                  </>
-                                )}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-[12px] text-neutral-300">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
-                          {r.tickets.length > 0
-                            ? formatFcfa(reservationTotal(r, settings))
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="pr-5">
-                          <div className="flex justify-end">
-                            <ResStatusBadge statut={r.statut} />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {filtered.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="py-10 text-center text-[13px] text-neutral-400"
-                      >
-                        Aucune réservation ne correspond à votre recherche.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+      {/* ---- Onglets page-level (synchronisés au paramètre ?tab=) ---- */}
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-4">
+        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+          <TabsTrigger
+            value="reservations"
+            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <TicketIcon className="h-3.5 w-3.5" />
+            Réservations
+            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
+              {filtered.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="billets"
+            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            Billets &amp; contrôles
+            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
+              {ticketRows.length}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ----- Onglet Réservations ----- */}
+        <TabsContent value="reservations" className="mt-3">
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <ReservationsTable
+              rows={filtered}
+              depById={depById}
+              companyById={companyById}
+              settings={settings}
+              onOpen={openSheet}
+              onOpenEticket={(r, t) => setEticket({ res: r, ticket: t })}
+              emptyLabel="Aucune réservation ne correspond à votre recherche."
+            />
 
             {/* Pied de carte : rappel du périmètre support */}
             <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
               <TicketIcon className="h-3.5 w-3.5 text-neutral-300" aria-hidden="true" />
               <p className="text-[11.5px] text-neutral-400">
                 Le support retrouve ici un billet en quelques secondes ;
-                l’émission et le reporting restent gérés par les compagnies.
+                l&apos;émission et le reporting restent gérés par les compagnies.
               </p>
               <ArrowRight className="ml-auto hidden h-3.5 w-3.5 text-neutral-300 sm:block" aria-hidden="true" />
             </div>
-      </motion.section>
+          </motion.section>
+        </TabsContent>
+
+        {/* ----- Onglet Billets & contrôles : liste aplatie des tickets ----- */}
+        <TabsContent value="billets" className="mt-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Select value={ticketStatusFilter} onValueChange={setTicketStatusFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par statut du billet"
+                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-neutral-100">
+                <SelectItem value="all" className="rounded-lg text-[13px]">
+                  Tous les billets
+                </SelectItem>
+                {(Object.keys(TICKET_STATUS_META) as TicketStatus[]).map((s) => (
+                  <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
+                    {TICKET_STATUS_META[s].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[12px] text-neutral-400">
+              Chaque billet avec son dernier événement de scan ou de validation.
+            </span>
+          </div>
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+          >
+            <TicketsTable
+              rows={ticketRows}
+              onOpen={openSheet}
+              onOpenEticket={(r, t) => setEticket({ res: r, ticket: t })}
+              emptyLabel={
+                query.trim() !== "" || ticketStatusFilter !== "all"
+                  ? "Aucun billet ne correspond à votre recherche."
+                  : "Aucun billet — ils apparaissent après confirmation du paiement (RG1)."
+              }
+            />
+            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
+              <ScanLine className="h-3.5 w-3.5 text-neutral-300" aria-hidden="true" />
+              <p className="text-[11.5px] text-neutral-400">
+                Liste aplatie de tous les billets de la plateforme — le dernier scan
+                (embarquement, contrôle, annulation…) est dérivé de
+                l&apos;historique de la réservation liée.
+              </p>
+            </div>
+          </motion.section>
+        </TabsContent>
+      </Tabs>
 
       {/* ---- Fiche réservation ---- */}
       <ReservationSheet
@@ -1198,7 +1549,7 @@ export function ReservationsPage() {
             : ""
         }
         settings={settings}
-        onClose={() => setSelectedResId(null)}
+        onClose={closeSheet}
         onOpenTicket={(ticket) => {
           if (selectedRes) setEticket({ res: selectedRes, ticket });
         }}

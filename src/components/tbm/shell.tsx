@@ -26,21 +26,32 @@ import { UsersPage } from "@/components/tbm/pages/users";
 import { AuditLogPage } from "@/components/tbm/pages/audit-log";
 import { SettingsPage } from "@/components/tbm/pages/settings";
 import { useAuthStore } from "@/lib/auth-store";
+import {
+  clearSecondaryParams,
+  useParamState,
+} from "@/lib/use-param-state";
 
 /**
  * Shell du back-office TBM — plein écran, sans arrière-plan :
  * sidebar épinglée à gauche, top-bar épinglée en haut, contenu scrollable.
+ * La page active est synchronisée avec le paramètre URL ?page= (deep-linking),
+ * les onglets et sélections de chaque page avec ?tab= et ?sel=.
  */
 export function TbmShell() {
   const user = useAuthStore((s) => s.user);
   const role = user?.role ?? "admin";
   const allowed = sectionsForRole(role);
-  const [active, setActive] = useState<SectionId>(allowed[0]?.id ?? "dashboard");
+  const fallbackPage = allowed[0]?.id ?? "dashboard";
+  const [pageParam, setPageParam] = useParamState("page", fallbackPage);
+  const active: SectionId = allowed.some((s) => s.id === pageParam)
+    ? (pageParam as SectionId)
+    : fallbackPage;
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const goTo = (id: SectionId) => {
-    setActive(id);
+    setPageParam(id);
+    clearSecondaryParams(); // les tab/sel de la page précédente ne doivent pas fuiter
     setMobileOpen(false);
   };
 

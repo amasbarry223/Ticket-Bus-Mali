@@ -1,0 +1,695 @@
+    18→  1001→  1001→          icon={CheckCircle2}
+    19→  1002→  1002→          label="Reversements payés"
+    20→  1003→  1003→          value={formatFcfa(kpi.payeTotal)}
+    21→  1004→  1004→          hint={`${kpi.payes.length} reversement${kpi.payes.length > 1 ? "s" : ""} exécuté${kpi.payes.length > 1 ? "s" : ""}`}
+    22→  1005→  1005→          tone="bg-emerald-100 text-emerald-600"
+    23→  1006→  1006→        />
+    24→  1007→  1007→      </div>
+    25→  1008→  1008→
+    26→  1009→  1009→      {/* Onglets */}
+    27→  1010→  1010→      <Tabs defaultValue="cycle" className="mt-5">
+    28→  1011→  1011→        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+    29→  1012→  1012→          <TabsTrigger
+    30→  1013→  1013→            value="cycle"
+    31→  1014→  1014→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+    32→  1015→  1015→          >
+    33→  1016→  1016→            <Calculator className="h-3.5 w-3.5" />
+    34→  1017→  1017→            Cycle de reversement
+    35→  1018→  1018→            {aTraiter.length > 0 && (
+    36→  1019→  1019→              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 text-[9.5px] font-bold text-white">
+    37→  1020→  1020→                {aTraiter.length}
+    38→  1021→  1021→              </span>
+    39→  1022→  1022→            )}
+    40→  1023→  1023→          </TabsTrigger>
+    41→  1024→  1024→          <TabsTrigger
+    42→  1025→  1025→            value="paiements"
+    43→  1026→  1026→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+    44→  1027→  1027→          >
+    45→  1028→  1028→            <Banknote className="h-3.5 w-3.5" />
+    46→  1029→  1029→            Historique des paiements
+    47→  1030→  1030→          </TabsTrigger>
+    48→  1031→  1031→          <TabsTrigger
+    49→  1032→  1032→            value="compagnies"
+    50→  1033→  1033→            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+    51→  1034→  1034→          >
+    52→  1035→  1035→            <Wallet className="h-3.5 w-3.5" />
+    53→  1036→  1036→            Par compagnie
+    54→  1037→  1037→          </TabsTrigger>
+    55→  1038→  1038→        </TabsList>
+    56→  1039→  1039→
+    57→  1040→  1040→        {/* ---------------------- Cycle de reversement ---------------------- */}
+    58→  1041→  1041→        <TabsContent value="cycle" className="mt-4">
+    59→  1042→  1042→          {/* Filtres */}
+    60→  1043→  1043→          <div className="flex flex-wrap items-center gap-2.5">
+    61→  1044→  1044→            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
+    62→  1045→  1045→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+    63→  1046→  1046→              <Input
+    64→  1047→  1047→                value={query}
+    65→  1048→  1048→                onChange={(e) => setQuery(e.target.value)}
+    66→  1049→  1049→                placeholder="Réf. (REV-…), compagnie, période, réf. paiement…"
+    67→  1050→  1050→                aria-label="Rechercher un reversement"
+    68→  1051→  1051→                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+    69→  1052→  1052→              />
+    70→  1053→  1053→            </div>
+    71→  1054→  1054→            <Select value={statut} onValueChange={setStatut}>
+    72→  1055→  1055→              <SelectTrigger
+    73→  1056→  1056→                aria-label="Filtrer par statut"
+    74→  1057→  1057→                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+    75→  1058→  1058→              >
+    76→  1059→  1059→                <SelectValue />
+    77→  1060→  1060→              </SelectTrigger>
+    78→  1061→  1061→              <SelectContent className="rounded-xl border-neutral-100">
+    79→  1062→  1062→                <SelectItem value="all" className="rounded-lg text-[13px]">
+    80→  1063→  1063→                  Tous statuts
+    81→  1064→  1064→                </SelectItem>
+    82→  1065→  1065→                {Object.entries(SETTLEMENT_STATUS_META).map(([key, meta]) => (
+    83→  1066→  1066→                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+    84→  1067→  1067→                    {meta.label}
+    85→  1068→  1068→                  </SelectItem>
+    86→  1069→  1069→                ))}
+    87→  1070→  1070→              </SelectContent>
+    88→  1071→  1071→            </Select>
+    89→  1072→  1072→            <Select value={compagnie} onValueChange={setCompagnie}>
+    90→  1073→  1073→              <SelectTrigger
+    91→  1074→  1074→                aria-label="Filtrer par compagnie"
+    92→  1075→  1075→                className="h-9 w-[180px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+    93→  1076→  1076→              >
+    94→  1077→  1077→                <SelectValue />
+    95→  1078→  1078→              </SelectTrigger>
+    96→  1079→  1079→              <SelectContent className="rounded-xl border-neutral-100">
+    97→  1080→  1080→                <SelectItem value="all" className="rounded-lg text-[13px]">
+    98→  1081→  1081→                  Toutes compagnies
+    99→  1082→  1082→                </SelectItem>
+   100→  1083→  1083→                {compagniesList.map((nom) => (
+   101→  1084→  1084→                  <SelectItem key={nom} value={nom} className="rounded-lg text-[13px]">
+   102→  1085→  1085→                    {nom}
+   103→  1086→  1086→                  </SelectItem>
+   104→  1087→  1087→                ))}
+   105→  1088→  1088→              </SelectContent>
+   106→  1089→  1089→            </Select>
+   107→  1090→  1090→          </div>
+   108→  1091→  1091→
+   109→  1092→  1092→          {/* Tableau */}
+   110→  1093→  1093→          <motion.section
+   111→  1094→  1094→            initial={{ opacity: 0, y: 12 }}
+   112→  1095→  1095→            animate={{ opacity: 1, y: 0 }}
+   113→  1096→  1096→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   114→  1097→  1097→            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   115→  1098→  1098→          >
+   116→  1099→  1099→            <div className="ff-scrollbar overflow-x-auto">
+   117→  1100→  1100→              <Table>
+   118→  1101→  1101→                <TableHeader>
+   119→  1102→  1102→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   120→  1103→  1103→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+   121→  1104→  1104→                      Réf. &amp; période
+   122→  1105→  1105→                    </TableHead>
+   123→  1106→  1106→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   124→  1107→  1107→                      Compagnie
+   125→  1108→  1108→                    </TableHead>
+   126→  1109→  1109→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   127→  1110→  1110→                      Collecté
+   128→  1111→  1111→                    </TableHead>
+   129→  1112→  1112→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   130→  1113→  1113→                      Commission
+   131→  1114→  1114→                    </TableHead>
+   132→  1115→  1115→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   133→  1116→  1116→                      Net à reverser
+   134→  1117→  1117→                    </TableHead>
+   135→  1118→  1118→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   136→  1119→  1119→                      Statut
+   137→  1120→  1120→                    </TableHead>
+   138→  1121→  1121→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   139→  1122→  1122→                      Justificatifs
+   140→  1123→  1123→                    </TableHead>
+   141→  1124→  1124→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+   142→  1125→  1125→                      <span className="sr-only">Actions</span>
+   143→  1126→  1126→                    </TableHead>
+   144→  1127→  1127→                  </TableRow>
+   145→  1128→  1128→                </TableHeader>
+   146→  1129→  1129→                <TableBody>
+   147→  1130→  1130→                  {filtered.map((s) => (
+   148→  1131→  1131→                    <TableRow
+   149→  1132→  1132→                      key={s.id}
+   150→  1133→  1133→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+   151→  1134→  1134→                      onClick={() => setSelectedId(s.id)}
+   152→  1135→  1135→                    >
+   153→  1136→  1136→                      <TableCell className="py-3.5 pl-5">
+   154→  1137→  1137→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
+   155→  1138→  1138→                          {s.id}
+   156→  1139→  1139→                        </span>
+   157→  1140→  1140→                        <span className="block text-[11px] text-neutral-400">
+   158→  1141→  1141→                          {s.periode}
+   159→  1142→  1142→                        </span>
+   160→  1143→  1143→                      </TableCell>
+   161→  1144→  1144→                      <TableCell className="pt-3.5">
+   162→  1145→  1145→                        <span className="flex items-center gap-2.5">
+   163→  1146→  1146→                          <CompanyAvatar nom={s.compagnie} />
+   164→  1147→  1147→                          <span className="min-w-0">
+   165→  1148→  1148→                            <span className="block truncate text-[12.5px] font-medium text-neutral-700">
+   166→  1149→  1149→                              {s.compagnie}
+   167→  1150→  1150→                            </span>
+   168→  1151→  1151→                            <span className="block text-[11px] text-neutral-400">
+   169→  1152→  1152→                              taux {s.commissionTaux} %
+   170→  1153→  1153→                            </span>
+   171→  1154→  1154→                          </span>
+   172→  1155→  1155→                        </span>
+   173→  1156→  1156→                      </TableCell>
+   174→  1157→  1157→                      <TableCell className="pt-3.5">
+   175→  1158→  1158→                        {s.statut === "a_calculer" ? (
+   176→  1159→  1159→                          <span className="block text-[12.5px] italic text-neutral-400">
+   177→  1160→  1160→                            ≈ {formatNumber(s.estimation?.brut ?? 0)} FCFA
+   178→  1161→  1161→                            <span className="ml-1 text-[10.5px] not-italic">
+   179→  1162→  1162→                              (provisoire)
+   180→  1163→  1163→                            </span>
+   181→  1164→  1164→                          </span>
+   182→  1165→  1165→                        ) : (
+   183→  1166→  1166→                          <>
+   184→  1167→  1167→                            <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+   185→  1168→  1168→                              {formatNumber(s.brutCollecte)}
+   186→  1169→  1169→                            </span>
+   187→  1170→  1170→                            <span className="block text-[11px] tabular-nums text-neutral-400">
+   188→  1171→  1171→                              − {formatNumber(s.remboursements)} remb. · net{" "}
+   189→  1172→  1172→                              {formatNumber(settlementNetCollecte(s))}
+   190→  1173→  1173→                            </span>
+   191→  1174→  1174→                          </>
+   192→  1175→  1175→                        )}
+   193→  1176→  1176→                      </TableCell>
+   194→  1177→  1177→                      <TableCell className="pt-3.5">
+   195→  1178→  1178→                        {s.statut === "a_calculer" ? (
+   196→  1179→  1179→                          <span className="text-[12.5px] text-neutral-300">—</span>
+   197→  1180→  1180→                        ) : (
+   198→  1181→  1181→                          <>
+   199→  1182→  1182→                            <TauxBadge taux={s.commissionTaux} />
+   200→  1183→  1183→                            <span className="mt-1 block text-[11.5px] font-semibold tabular-nums text-neutral-600">
+   201→  1184→  1184→                              {formatNumber(s.commissionMontant)} FCFA
+   202→  1185→  1185→                            </span>
+   203→  1186→  1186→                          </>
+   204→  1187→  1187→                        )}
+   205→  1188→  1188→                      </TableCell>
+   206→  1189→  1189→                      <TableCell className="pt-3.5">
+   207→  1190→  1190→                        {s.statut === "a_calculer" ? (
+   208→  1191→  1191→                          <span className="text-[12.5px] text-neutral-300">— au calcul</span>
+   209→  1192→  1192→                        ) : (
+   210→  1193→  1193→                          <span className="block text-[13.5px] font-bold tabular-nums text-neutral-900">
+   211→  1194→  1194→                            {formatFcfa(s.netAReverser)}
+   212→  1195→  1195→                          </span>
+   213→  1196→  1196→                        )}
+   214→  1197→  1197→                      </TableCell>
+   215→  1198→  1198→                      <TableCell className="pt-3.5">
+   216→  1199→  1199→                        <StatusBadge statut={s.statut} />
+   217→  1200→  1200→                        <span className="mt-1 block max-w-[150px] truncate text-[11px] text-neutral-400">
+   218→  1201→  1201→                          {s.statut === "paye"
+   219→  1202→  1202→                            ? `payé ${s.payeLe}`
+   220→  1203→  1203→                            : s.statut === "en_cours"
+   221→  1204→  1204→                              ? `validé ${s.valideLe}`
+   222→  1205→  1205→                              : s.statut === "a_valider"
+   223→  1206→  1206→                                ? `calculé ${s.calculeLe}`
+   224→  1207→  1207→                                : "calcul à lancer"}
+   225→  1208→  1208→                        </span>
+   226→  1209→  1209→                      </TableCell>
+   227→  1210→  1210→                      <TableCell className="pt-3.5">
+   228→  1211→  1211→                        {s.docs.length === 0 ? (
+   229→  1212→  1212→                          <span className="text-[11.5px] text-neutral-300">
+   230→  1213→  1213→                            au calcul
+   231→  1214→  1214→                          </span>
+   232→  1215→  1215→                        ) : (
+   233→  1216→  1216→                          <div className="flex items-center gap-1">
+   234→  1217→  1217→                            {s.docs.map((d) => (
+   235→  1218→  1218→                              <DocButton
+   236→  1219→  1219→                                key={d.id}
+   237→  1220→  1220→                                doc={d}
+   238→  1221→  1221→                                revId={s.id}
+   239→  1222→  1222→                                onDownload={downloadDoc}
+   240→  1223→  1223→                                compact
+   241→  1224→  1224→                              />
+   242→  1225→  1225→                            ))}
+   243→  1226→  1226→                          </div>
+   244→  1227→  1227→                        )}
+   245→  1228→  1228→                      </TableCell>
+   246→  1229→  1229→                      <TableCell className="pr-5 pt-3 text-right">
+   247→  1230→  1230→                        {s.statut === "a_calculer" ? (
+   248→  1231→  1231→                          <Button
+   249→  1232→  1232→                            size="sm"
+   250→  1233→  1233→                            onClick={(e) => {
+   251→  1234→  1234→                              e.stopPropagation();
+   252→  1235→  1235→                              calculate(s);
+   253→  1236→  1236→                            }}
+   254→  1237→  1237→                            className="h-8 rounded-lg bg-sky-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-sky-600"
+   255→  1238→  1238→                          >
+   256→  1239→  1239→                            <Calculator className="h-3.5 w-3.5" />
+   257→  1240→  1240→                            Calculer
+   258→  1241→  1241→                          </Button>
+   259→  1242→  1242→                        ) : s.statut === "a_valider" ? (
+   260→  1243→  1243→                          isAdmin ? (
+   261→  1244→  1244→                            <Button
+   262→  1245→  1245→                              size="sm"
+   263→  1246→  1246→                              onClick={(e) => {
+   264→  1247→  1247→                                e.stopPropagation();
+   265→  1248→  1248→                                openValidate(s);
+   266→  1249→  1249→                              }}
+   267→  1250→  1250→                              className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
+   268→  1251→  1251→                            >
+   269→  1252→  1252→                              Valider
+   270→  1253→  1253→                            </Button>
+   271→  1254→  1254→                          ) : (
+   272→  1255→  1255→                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+   273→  1256→  1256→                              <Lock className="h-3 w-3" />
+   274→  1257→  1257→                              Admin requis
+   275→  1258→  1258→                            </span>
+   276→  1259→  1259→                          )
+   277→  1260→  1260→                        ) : s.statut === "en_cours" ? (
+   278→  1261→  1261→                          isAdmin ? (
+   279→  1262→  1262→                            <Button
+   280→  1263→  1263→                              size="sm"
+   281→  1264→  1264→                              variant="outline"
+   282→  1265→  1265→                              onClick={(e) => {
+   283→  1266→  1266→                                e.stopPropagation();
+   284→  1267→  1267→                                openPay(s);
+   285→  1268→  1268→                              }}
+   286→  1269→  1269→                              className="h-8 rounded-lg border-coral-200 bg-coral-50 px-2.5 text-[12px] font-semibold text-coral-600 shadow-none hover:bg-coral-100"
+   287→  1270→  1270→                            >
+   288→  1271→  1271→                              <Banknote className="h-3.5 w-3.5" />
+   289→  1272→  1272→                              Reversement
+   290→  1273→  1273→                            </Button>
+   291→  1274→  1274→                          ) : (
+   292→  1275→  1275→                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+   293→  1276→  1276→                              <Lock className="h-3 w-3" />
+   294→  1277→  1277→                              Admin requis
+   295→  1278→  1278→                            </span>
+   296→  1279→  1279→                          )
+   297→  1280→  1280→                        ) : (
+   298→  1281→  1281→                          <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-emerald-500">
+   299→  1282→  1282→                            <CheckCircle2 className="h-3.5 w-3.5" />
+   300→  1283→  1283→                            Payé
+   301→  1284→  1284→                          </span>
+   302→  1285→  1285→                        )}
+   303→  1286→  1286→                      </TableCell>
+   304→  1287→  1287→                    </TableRow>
+   305→  1288→  1288→                  ))}
+   306→  1289→  1289→                  {filtered.length === 0 && (
+   307→  1290→  1290→                    <TableRow>
+   308→  1291→  1291→                      <TableCell
+   309→  1292→  1292→                        colSpan={8}
+   310→  1293→  1293→                        className="py-10 text-center text-[13px] text-neutral-400"
+   311→  1294→  1294→                      >
+   312→  1295→  1295→                        Aucun reversement ne correspond à ces filtres.
+   313→  1296→  1296→                      </TableCell>
+   314→  1297→  1297→                    </TableRow>
+   315→  1298→  1298→                  )}
+   316→  1299→  1299→                </TableBody>
+   317→  1300→  1300→              </Table>
+   318→  1301→  1301→            </div>
+   319→  1302→  1302→          </motion.section>
+   320→  1303→  1303→        </TabsContent>
+   321→  1304→  1304→
+   322→  1305→  1305→        {/* --------------------- Historique des paiements --------------------- */}
+   323→  1306→  1306→        <TabsContent value="paiements" className="mt-4">
+   324→  1307→  1307→          <motion.section
+   325→  1308→  1308→            initial={{ opacity: 0, y: 12 }}
+   326→  1309→  1309→            animate={{ opacity: 1, y: 0 }}
+   327→  1310→  1310→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   328→  1311→  1311→            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   329→  1312→  1312→          >
+   330→  1313→  1313→            <div className="ff-scrollbar overflow-x-auto">
+   331→  1314→  1314→              <Table>
+   332→  1315→  1315→                <TableHeader>
+   333→  1316→  1316→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   334→  1317→  1317→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+   335→  1318→  1318→                      Reversement
+   336→  1319→  1319→                    </TableHead>
+   337→  1320→  1320→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   338→  1321→  1321→                      Compagnie
+   339→  1322→  1322→                    </TableHead>
+   340→  1323→  1323→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   341→  1324→  1324→                      Net reversé
+   342→  1325→  1325→                    </TableHead>
+   343→  1326→  1326→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   344→  1327→  1327→                      Moyen
+   345→  1328→  1328→                    </TableHead>
+   346→  1329→  1329→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   347→  1330→  1330→                      Référence du paiement
+   348→  1331→  1331→                    </TableHead>
+   349→  1332→  1332→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+   350→  1333→  1333→                      Preuve
+   351→  1334→  1334→                    </TableHead>
+   352→  1335→  1335→                  </TableRow>
+   353→  1336→  1336→                </TableHeader>
+   354→  1337→  1337→                <TableBody>
+   355→  1338→  1338→                  {payesSorted.map((s) => (
+   356→  1339→  1339→                    <TableRow
+   357→  1340→  1340→                      key={s.id}
+   358→  1341→  1341→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+   359→  1342→  1342→                      onClick={() => setSelectedId(s.id)}
+   360→  1343→  1343→                    >
+   361→  1344→  1344→                      <TableCell className="py-3.5 pl-5">
+   362→  1345→  1345→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
+   363→  1346→  1346→                          {s.id}
+   364→  1347→  1347→                        </span>
+   365→  1348→  1348→                        <span className="block text-[11px] text-neutral-400">
+   366→  1349→  1349→                          payé le {s.payeLe} · {s.payePar}
+   367→  1350→  1350→                        </span>
+   368→  1351→  1351→                      </TableCell>
+   369→  1352→  1352→                      <TableCell className="pt-3.5">
+   370→  1353→  1353→                        <span className="flex items-center gap-2.5">
+   371→  1354→  1354→                          <CompanyAvatar nom={s.compagnie} />
+   372→  1355→  1355→                          <span className="min-w-0">
+   373→  1356→  1356→                            <span className="block truncate text-[12.5px] font-medium text-neutral-700">
+   374→  1357→  1357→                              {s.compagnie}
+   375→  1358→  1358→                            </span>
+   376→  1359→  1359→                            <span className="block text-[11px] text-neutral-400">
+   377→  1360→  1360→                              {s.periode}
+   378→  1361→  1361→                            </span>
+   379→  1362→  1362→                          </span>
+   380→  1363→  1363→                        </span>
+   381→  1364→  1364→                      </TableCell>
+   382→  1365→  1365→                      <TableCell className="pt-3.5">
+   383→  1366→  1366→                        <span className="block text-[13px] font-bold tabular-nums text-neutral-900">
+   384→  1367→  1367→                          {formatFcfa(s.netAReverser)}
+   385→  1368→  1368→                        </span>
+   386→  1369→  1369→                        <span className="block text-[11px] text-neutral-400">
+   387→  1370→  1370→                          commission {formatNumber(s.commissionMontant)} FCFA
+   388→  1371→  1371→                        </span>
+   389→  1372→  1372→                      </TableCell>
+   390→  1373→  1373→                      <TableCell className="pt-3.5">
+   391→  1374→  1374→                        {s.moyen && <MoyenBadge moyen={s.moyen} />}
+   392→  1375→  1375→                      </TableCell>
+   393→  1376→  1376→                      <TableCell className="pt-3.5">
+   394→  1377→  1377→                        <span className="inline-flex items-center gap-0.5 rounded-lg bg-neutral-50 px-2 py-1 font-mono text-[11.5px] font-semibold text-neutral-600 ring-1 ring-neutral-200/70">
+   395→  1378→  1378→                          {s.refPaiement}
+   396→  1379→  1379→                          <CopyRef value={s.refPaiement ?? ""} />
+   397→  1380→  1380→                        </span>
+   398→  1381→  1381→                      </TableCell>
+   399→  1382→  1382→                      <TableCell className="pr-5 pt-3.5">
+   400→  1383→  1383→                        {s.docs
+   401→  1384→  1384→                          .filter((d) => d.kind === "preuve_paiement")
+   402→  1385→  1385→                          .map((d) => (
+   403→  1386→  1386→                            <DocButton
+   404→  1387→  1387→                              key={d.id}
+   405→  1388→  1388→                              doc={d}
+   406→  1389→  1389→                              revId={s.id}
+   407→  1390→  1390→                              onDownload={downloadDoc}
+   408→  1391→  1391→                              compact
+   409→  1392→  1392→                            />
+   410→  1393→  1393→                          ))}
+   411→  1394→  1394→                      </TableCell>
+   412→  1395→  1395→                    </TableRow>
+   413→  1396→  1396→                  ))}
+   414→  1397→  1397→                  {payesSorted.length === 0 && (
+   415→  1398→  1398→                    <TableRow>
+   416→  1399→  1399→                      <TableCell
+   417→  1400→  1400→                        colSpan={6}
+   418→  1401→  1401→                        className="py-10 text-center text-[13px] text-neutral-400"
+   419→  1402→  1402→                      >
+   420→  1403→  1403→                        Aucun reversement payé pour le moment.
+   421→  1404→  1404→                      </TableCell>
+   422→  1405→  1405→                    </TableRow>
+   423→  1406→  1406→                  )}
+   424→  1407→  1407→                </TableBody>
+   425→  1408→  1408→              </Table>
+   426→  1409→  1409→            </div>
+   427→  1410→  1410→            {payesSorted.length > 0 && (
+   428→  1411→  1411→              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+   429→  1412→  1412→                <span className="text-[12px] font-medium text-neutral-500">
+   430→  1413→  1413→                  Total reversé aux compagnies (démonstration)
+   431→  1414→  1414→                </span>
+   432→  1415→  1415→                <span className="text-[13px] font-bold tabular-nums text-emerald-600">
+   433→  1416→  1416→                  {formatFcfa(kpi.payeTotal)}
+   434→  1417→  1417→                </span>
+   435→  1418→  1418→              </div>
+   436→  1419→  1419→            )}
+   437→  1420→  1420→          </motion.section>
+   438→  1421→  1421→        </TabsContent>
+   439→  1422→  1422→
+   440→  1423→  1423→        {/* ------------------------- Par compagnie ------------------------- */}
+   441→  1424→  1424→        <TabsContent value="compagnies" className="mt-4">
+   442→  1425→  1425→          <motion.section
+   443→  1426→  1426→            initial={{ opacity: 0, y: 12 }}
+   444→  1427→  1427→            animate={{ opacity: 1, y: 0 }}
+   445→  1428→  1428→            transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   446→  1429→  1429→            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   447→  1430→  1430→          >
+   448→  1431→  1431→            <div className="ff-scrollbar overflow-x-auto">
+   449→  1432→  1432→              <Table>
+   450→  1433→  1433→                <TableHeader>
+   451→  1434→  1434→                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   452→  1435→  1435→                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+   453→  1436→  1436→                      Compagnie
+   454→  1437→  1437→                    </TableHead>
+   455→  1438→  1438→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   456→  1439→  1439→                      Collecté cumulé
+   457→  1440→  1440→                    </TableHead>
+   458→  1441→  1441→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   459→  1442→  1442→                      Commissions TBM
+   460→  1443→  1443→                    </TableHead>
+   461→  1444→  1444→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   462→  1445→  1445→                      Net reversé
+   463→  1446→  1446→                    </TableHead>
+   464→  1447→  1447→                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+   465→  1448→  1448→                      En attente
+   466→  1449→  1449→                    </TableHead>
+   467→  1450→  1450→                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+   468→  1451→  1451→                      Dernier reversement
+   469→  1452→  1452→                    </TableHead>
+   470→  1453→  1453→                  </TableRow>
+   471→  1454→  1454→                </TableHeader>
+   472→  1455→  1455→                <TableBody>
+   473→  1456→  1456→                  {perCompany.map((c) => (
+   474→  1457→  1457→                    <TableRow
+   475→  1458→  1458→                      key={c.nom}
+   476→  1459→  1459→                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+   477→  1460→  1460→                      onClick={() => c.last && setSelectedId(c.last.id)}
+   478→  1461→  1461→                    >
+   479→  1462→  1462→                      <TableCell className="py-3.5 pl-5">
+   480→  1463→  1463→                        <span className="flex items-center gap-2.5">
+   481→  1464→  1464→                          <CompanyAvatar nom={c.nom} />
+   482→  1465→  1465→                          <span className="min-w-0">
+   483→  1466→  1466→                            <span className="block truncate text-[13px] font-semibold text-neutral-800">
+   484→  1467→  1467→                              {c.nom}
+   485→  1468→  1468→                            </span>
+   486→  1469→  1469→                            <span className="block text-[11px] text-neutral-400">
+   487→  1470→  1470→                              {c.nb} reversement{c.nb > 1 ? "s" : ""} · taux {c.taux} %
+   488→  1471→  1471→                            </span>
+   489→  1472→  1472→                          </span>
+   490→  1473→  1473→                        </span>
+   491→  1474→  1474→                      </TableCell>
+   492→  1475→  1475→                      <TableCell className="pt-3.5">
+   493→  1476→  1476→                        <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+   494→  1477→  1477→                          {formatFcfa(c.collecte)}
+   495→  1478→  1478→                        </span>
+   496→  1479→  1479→                      </TableCell>
+   497→  1480→  1480→                      <TableCell className="pt-3.5">
+   498→  1481→  1481→                        <span className="block text-[13px] font-semibold tabular-nums text-violet-600">
+   499→  1482→  1482→                          {formatFcfa(c.commissions)}
+   500→  1483→  1483→                        </span>
+   501→  1484→  1484→                      </TableCell>
+   502→  1485→  1485→                      <TableCell className="pt-3.5">
+   503→  1486→  1486→                        <span className="block text-[13px] font-semibold tabular-nums text-emerald-600">
+   504→  1487→  1487→                          {formatFcfa(c.reverses)}
+   505→  1488→  1488→                        </span>
+   506→  1489→  1489→                      </TableCell>
+   507→  1490→  1490→                      <TableCell className="pt-3.5">
+   508→  1491→  1491→                        {c.attente > 0 ? (
+   509→  1492→  1492→                          <span className="block text-[13px] font-semibold tabular-nums text-amber-600">
+   510→  1493→  1493→                            {formatFcfa(c.attente)}
+   511→  1494→  1494→                          </span>
+   512→  1495→  1495→                        ) : c.aCalculer > 0 ? (
+   513→  1496→  1496→                          <span className="text-[11.5px] text-neutral-400">
+   514→  1497→  1497→                            {c.aCalculer} au calcul
+   515→  1498→  1498→                          </span>
+   516→  1499→  1499→                        ) : (
+   517→  1500→  1500→                          <span className="text-[11.5px] text-neutral-300">—</span>
+   518→  1501→  1501→                        )}
+   519→  1502→  1502→                      </TableCell>
+   520→  1503→  1503→                      <TableCell className="pr-5 pt-3.5">
+   521→  1504→  1504→                        {c.last && (
+   522→  1505→  1505→                          <>
+   523→  1506→  1506→                            <div className="flex flex-wrap items-center gap-1.5">
+   524→  1507→  1507→                              <StatusBadge statut={c.last.statut} />
+   525→  1508→  1508→                            </div>
+   526→  1509→  1509→                            <span className="mt-1 block text-[11px] text-neutral-400">
+   527→  1510→  1510→                              {c.last.id} · {c.last.periode}
+   528→  1511→  1511→                            </span>
+   529→  1512→  1512→                          </>
+   530→  1513→  1513→                        )}
+   531→  1514→  1514→                      </TableCell>
+   532→  1515→  1515→                    </TableRow>
+   533→  1516→  1516→                  ))}
+   534→  1517→  1517→                </TableBody>
+   535→  1518→  1518→              </Table>
+   536→  1519→  1519→            </div>
+   537→  1520→  1520→          </motion.section>
+   538→  1521→  1521→        </TabsContent>
+   539→  1522→  1522→      </Tabs>
+   540→  1523→  1523→
+   541→  1524→  1524→      {/* Fiche reversement */}
+   542→  1525→  1525→      <SettlementSheet
+   543→  1526→  1526→        settlement={selected}
+   544→  1527→  1527→        open={selected != null}
+   545→  1528→  1528→        onOpenChange={(v) => !v && setSelectedId(null)}
+   546→  1529→  1529→        isAdmin={isAdmin}
+   547→  1530→  1530→        onCalculate={calculate}
+   548→  1531→  1531→        onValidate={openValidate}
+   549→  1532→  1532→        onPay={openPay}
+   550→  1533→  1533→        onDownloadDoc={downloadDoc}
+   551→  1534→  1534→      />
+   552→  1535→  1535→
+   553→  1536→  1536→      {/* Dialog : validation */}
+   554→  1537→  1537→      <Dialog
+   555→  1538→  1538→        open={dialog?.kind === "validate" && selected != null}
+   556→  1539→  1539→        onOpenChange={(open) => !open && closeDialog()}
+   557→  1540→  1540→      >
+   558→  1541→  1541→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+   559→  1542→  1542→          {dialog?.kind === "validate" && selected && (
+   560→  1543→  1543→            <>
+   561→  1544→  1544→              <DialogHeader>
+   562→  1545→  1545→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   563→  1546→  1546→                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   564→  1547→  1547→                  Valider le reversement {selected.id}
+   565→  1548→  1548→                </DialogTitle>
+   566→  1549→  1549→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   567→  1550→  1550→                  {selected.compagnie} · {selected.periode}. La validation engage
+   568→  1551→  1551→                  le reversement du net — l&apos;exécution du paiement reste
+   569→  1552→  1552→                  finalisée manuellement au lancement.
+   570→  1553→  1553→                </DialogDescription>
+   571→  1554→  1554→              </DialogHeader>
+   572→  1555→  1555→              <div className="space-y-1 rounded-xl bg-neutral-50 p-3.5 text-[12.5px]">
+   573→  1556→  1556→                <div className="flex justify-between">
+   574→  1557→  1557→                  <span className="text-neutral-500">Collecté brut</span>
+   575→  1558→  1558→                  <span className="font-semibold tabular-nums text-neutral-800">
+   576→  1559→  1559→                    {formatNumber(selected.brutCollecte)} FCFA
+   577→  1560→  1560→                  </span>
+   578→  1561→  1561→                </div>
+   579→  1562→  1562→                <div className="flex justify-between">
+   580→  1563→  1563→                  <span className="text-neutral-500">− Remboursements</span>
+   581→  1564→  1564→                  <span className="font-semibold tabular-nums text-neutral-800">
+   582→  1565→  1565→                    − {formatNumber(selected.remboursements)} FCFA
+   583→  1566→  1566→                  </span>
+   584→  1567→  1567→                </div>
+   585→  1568→  1568→                <div className="flex justify-between">
+   586→  1569→  1569→                  <span className="text-neutral-500">
+   587→  1570→  1570→                    − Commission TBM ({selected.commissionTaux} %)
+   588→  1571→  1571→                  </span>
+   589→  1572→  1572→                  <span className="font-semibold tabular-nums text-neutral-800">
+   590→  1573→  1573→                    − {formatNumber(selected.commissionMontant)} FCFA
+   591→  1574→  1574→                  </span>
+   592→  1575→  1575→                </div>
+   593→  1576→  1576→                <div className="flex justify-between border-t border-dashed border-neutral-200 pt-1.5">
+   594→  1577→  1577→                  <span className="font-semibold text-coral-700">
+   595→  1578→  1578→                    Net à reverser
+   596→  1579→  1579→                  </span>
+   597→  1580→  1580→                  <span className="font-black tabular-nums text-coral-600">
+   598→  1581→  1581→                    {formatFcfa(selected.netAReverser)}
+   599→  1582→  1582→                  </span>
+   600→  1583→  1583→                </div>
+   601→  1584→  1584→              </div>
+   602→  1585→  1585→              <DialogFooter className="gap-2">
+   603→  1586→  1586→                <Button
+   604→  1587→  1587→                  variant="outline"
+   605→  1588→  1588→                  onClick={closeDialog}
+   606→  1589→  1589→                  className="h-9 rounded-xl border-neutral-200 text-[13px] shadow-none"
+   607→  1590→  1590→                >
+   608→  1591→  1591→                  Annuler
+   609→  1592→  1592→                </Button>
+   610→  1593→  1593→                <Button
+   611→  1594→  1594→                  onClick={confirmValidate}
+   612→  1595→  1595→                  className="h-9 rounded-xl bg-emerald-500 text-[13px] font-semibold text-white hover:bg-emerald-600"
+   613→  1596→  1596→                >
+   614→  1597→  1597→                  <ShieldCheck className="h-4 w-4" />
+   615→  1598→  1598→                  Valider et passer en cours
+   616→  1599→  1599→                </Button>
+   617→  1600→  1600→              </DialogFooter>
+   618→  1601→  1601→            </>
+   619→  1602→  1602→          )}
+   620→  1603→  1603→        </DialogContent>
+   621→  1604→  1604→      </Dialog>
+   622→  1605→  1605→
+   623→  1606→  1606→      {/* Dialog : enregistrement du paiement */}
+   624→  1607→  1607→      <Dialog
+   625→  1608→  1608→        open={dialog?.kind === "pay" && selected != null}
+   626→  1609→  1609→        onOpenChange={(open) => !open && closeDialog()}
+   627→  1610→  1610→      >
+   628→  1611→  1611→        <DialogContent className="rounded-2xl sm:max-w-[500px]">
+   629→  1612→  1612→          {dialog?.kind === "pay" && selected && (
+   630→  1613→  1613→            <>
+   631→  1614→  1614→              <DialogHeader>
+   632→  1615→  1615→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   633→  1616→  1616→                  <Banknote className="h-5 w-5 text-coral-500" />
+   634→  1617→  1617→                  Enregistrer le reversement {selected.id}
+   635→  1618→  1618→                </DialogTitle>
+   636→  1619→  1619→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   637→  1620→  1620→                  {selected.compagnie} — {formatFcfa(selected.netAReverser)} à
+   638→  1621→  1621→                  reverser. Saisissez la référence du virement ou du transfert
+   639→  1622→  1622→                  opérateur : la preuve de reversement sera rattachée au dossier et
+   640→  1623→  1623→                  l&apos;opération tracée au journal d&apos;audit.
+   641→  1624→  1624→                </DialogDescription>
+   642→  1625→  1625→              </DialogHeader>
+   643→  1626→  1626→              <div className="space-y-3.5">
+   644→  1627→  1627→                <div className="space-y-1.5">
+   645→  1628→  1628→                  <Label htmlFor="moyen" className="text-[13px]">
+   646→  1629→  1629→                    Moyen de reversement
+   647→  1630→  1630→                  </Label>
+   648→  1631→  1631→                  <Select
+   649→  1632→  1632→                    value={payMoyen}
+   650→  1633→  1633→                    onValueChange={(v) => setPayMoyen(v as ReversementMoyen)}
+   651→  1634→  1634→                  >
+   652→  1635→  1635→                    <SelectTrigger
+   653→  1636→  1636→                      id="moyen"
+   654→  1637→  1637→                      className="h-9.5 rounded-xl border-neutral-200 text-[13px] shadow-none"
+   655→  1638→  1638→                    >
+   656→  1639→  1639→                      <SelectValue />
+   657→  1640→  1640→                    </SelectTrigger>
+   658→  1641→  1641→                    <SelectContent className="rounded-xl border-neutral-100">
+   659→  1642→  1642→                      {Object.entries(REVERSEMENT_MOYEN_META).map(([key, meta]) => (
+   660→  1643→  1643→                        <SelectItem
+   661→  1644→  1644→                          key={key}
+   662→  1645→  1645→                          value={key}
+   663→  1646→  1646→                          className="rounded-lg text-[13px]"
+   664→  1647→  1647→                        >
+   665→  1648→  1648→                          {meta.label}
+   666→  1649→  1649→                        </SelectItem>
+   667→  1650→  1650→                      ))}
+   668→  1651→  1651→                    </SelectContent>
+   669→  1652→  1652→                  </Select>
+   670→  1653→  1653→                </div>
+   671→  1654→  1654→                <div className="space-y-1.5">
+   672→  1655→  1655→                  <Label htmlFor="ref-paiement" className="text-[13px]">
+   673→  1656→  1656→                    Référence du paiement <span className="text-rose-500">*</span>
+   674→  1657→  1657→                  </Label>
+   675→  1658→  1658→                  <Input
+   676→  1659→  1659→                    id="ref-paiement"
+   677→  1660→  1660→                    value={payRef}
+   678→  1661→  1661→                    onChange={(e) => setPayRef(e.target.value)}
+   679→  1662→  1662→                    placeholder="Ex. BCEAO-88402-TBM, OM-REV-88012…"
+   680→  1663→  1663→                    className="h-9.5 rounded-xl border-neutral-200 font-mono text-[13px]"
+   681→  1664→  1664→                  />
+   682→  1665→  1665→                </div>
+   683→  1666→  1666→                {error && (
+   684→  1667→  1667→                  <p className="rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-medium text-rose-600">
+   685→  1668→  1668→                    {error}
+   686→  1669→  1669→                  </p>
+   687→  1670→  1670→                )}
+   688→  1671→  1671→              </div>
+   689→  1672→  1672→              <DialogFooter className="gap-2">
+   690→  1673→  1673→                <Button
+   691→  1674→  1674→                  variant="outline"
+   692→  1675→  1675→                  onClick={closeDialog}
+   693→  1676→  1676→                  className="h-9 rounded-xl border-neutral-200 text-[13px] shadow-none"
+   694→  1677→  1677→                >
+   695→  1678→  1678→                  Annuler
+   696→  1679→  1679→                </Button>
+   697→  1680→  1680→                <Button
+   698→  1681→  1681→                  onClick={confirmPay}
+   699→  1682→  1682→                  className="h-9 rounded-xl bg-coral-500 text-[13px] font-semibold text-white hover:bg-coral-600"
+   700→  1683→  1683→                >
+   701→  1684→  1684→                  <Check className="h-4 w-4" />
+   702→  1685→  1685→                  Enregistrer le reversement
+   703→  1686→  1686→                </Button>
+   704→  1687→  1687→              </DialogFooter>
+   705→  1688→  1688→            </>
+   706→  1689→  1689→          )}
+   707→  1690→  1690→        </DialogContent>
+   708→  1691→  1691→      </Dialog>
+   709→  1692→  1692→    </div>
+   710→  1693→  1693→  );
+   711→  1694→  1694→}
+   712→  1695→  1695→

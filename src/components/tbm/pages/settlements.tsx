@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  Eye,
   FileText,
   Hourglass,
   Info,
@@ -69,7 +70,6 @@ import {
   SETTLEMENT_EVENT_META,
   SETTLEMENT_STATUS_META,
   settlementNetCollecte,
-  TBM_ENCAISSEMENT_MODE,
   type ReversementMoyen,
   type Settlement,
   type SettlementDoc,
@@ -78,6 +78,8 @@ import {
   type SettlementStatus,
 } from "@/components/tbm/data";
 import { cn } from "@/lib/utils";
+import { ActionIconButton } from "@/components/tbm/action-icon";
+import { useParamState, validParam } from "@/lib/use-param-state";
 
 /* ============================ Helpers ============================ */
 
@@ -91,6 +93,9 @@ function normalizeKey(s: string): string {
 }
 
 type DialogState = { kind: "validate" } | { kind: "pay" } | null;
+
+/** Onglets de la page — synchronisés au paramètre d'URL ?tab=… */
+const SETTLEMENT_TABS = ["cycle", "paiements", "compagnies"] as const;
 
 /* ======================= Petits composants ======================= */
 
@@ -407,6 +412,7 @@ function SettlementSheet({
   onPay: (s: Settlement) => void;
   onDownloadDoc: (doc: SettlementDoc, revId: string) => void;
 }) {
+  const encaissementMode = useTbmStore((s) => s.settings.encaissementMode);
   if (!settlement) return null;
   const s = settlement;
   const netCollecte = settlementNetCollecte(s);
@@ -523,7 +529,7 @@ function SettlementSheet({
               <p className="mt-1.5 text-[12.5px] leading-relaxed text-amber-700/90">
                 Le reversement effectif dépend du modèle d&apos;encaissement retenu
                 par TBM (
-                {ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label.toLowerCase()}).
+                {ENCAISSEMENT_MODE_META[encaissementMode].label.toLowerCase()}).
                 Exécutez le virement ou le transfert opérateur, puis enregistrez sa
                 référence ici : la preuve de reversement sera rattachée au dossier.
               </p>
@@ -607,7 +613,7 @@ function SettlementSheet({
               />
               <InfoLine
                 label="Modèle d'encaissement"
-                value={ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label}
+                value={ENCAISSEMENT_MODE_META[encaissementMode].label}
               />
               {s.moyen && (
                 <InfoLine
@@ -715,21 +721,27 @@ export function SettlementsPage() {
 
   const settlements = useTbmStore((s) => s.settlements);
   const companies = useTbmStore((s) => s.companies);
+  const settings = useTbmStore((s) => s.settings);
   const calculateSettlement = useTbmStore((s) => s.calculateSettlement);
   const validateSettlement = useTbmStore((s) => s.validateSettlement);
   const paySettlement = useTbmStore((s) => s.paySettlement);
 
+  /* Onglet + sélection synchronisés aux paramètres d'URL (?tab=…, ?sel=…) */
+  const [tabParam, setTabParam] = useParamState("tab", "cycle");
+  const tab = validParam(tabParam, SETTLEMENT_TABS, "cycle");
+  const [selParam, setSel] = useParamState("sel", "");
+
   const [query, setQuery] = useState("");
   const [statut, setStatut] = useState<string>("all");
   const [compagnie, setCompagnie] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [payMoyen, setPayMoyen] = useState<ReversementMoyen>("virement_bancaire");
   const [payRef, setPayRef] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const selected = selectedId
-    ? settlements.find((s) => s.id === selectedId) ?? null
+  /* La fiche dérive l'item du store par id (live), jamais un snapshot. */
+  const selected = selParam
+    ? settlements.find((s) => s.id === selParam) ?? null
     : null;
 
   const compagniesList = useMemo(
@@ -809,12 +821,12 @@ export function SettlementsPage() {
   }, [compagniesList, settlements]);
 
   const openValidate = (s: Settlement) => {
-    setSelectedId(s.id);
+    setSel(s.id);
     setDialog({ kind: "validate" });
     setError(null);
   };
   const openPay = (s: Settlement) => {
-    setSelectedId(s.id);
+    setSel(s.id);
     setDialog({ kind: "pay" });
     setPayMoyen("virement_bancaire");
     setPayRef("");
@@ -954,7 +966,7 @@ export function SettlementsPage() {
         <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
           <Info className="h-4 w-4 text-coral-500" />
           Modèle d&apos;encaissement retenu :{" "}
-          {ENCAISSEMENT_MODE_META[TBM_ENCAISSEMENT_MODE].label} —
+          {ENCAISSEMENT_MODE_META[settings.encaissementMode].label} —
         </span>
         <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
           <li className="flex items-center gap-1.5">
@@ -1006,8 +1018,8 @@ export function SettlementsPage() {
         />
       </div>
 
-      {/* Onglets */}
-      <Tabs defaultValue="cycle" className="mt-5">
+      {/* Onglets — synchronisés à ?tab=… */}
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
         <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
           <TabsTrigger
             value="cycle"
@@ -1131,7 +1143,7 @@ export function SettlementsPage() {
                     <TableRow
                       key={s.id}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
-                      onClick={() => setSelectedId(s.id)}
+                      onClick={() => setSel(s.id)}
                     >
                       <TableCell className="py-3.5 pl-5">
                         <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
@@ -1227,62 +1239,51 @@ export function SettlementsPage() {
                         )}
                       </TableCell>
                       <TableCell className="pr-5 pt-3 text-right">
-                        {s.statut === "a_calculer" ? (
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              calculate(s);
-                            }}
-                            className="h-8 rounded-lg bg-sky-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-sky-600"
-                          >
-                            <Calculator className="h-3.5 w-3.5" />
-                            Calculer
-                          </Button>
-                        ) : s.statut === "a_valider" ? (
-                          isAdmin ? (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openValidate(s);
-                              }}
-                              className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
-                            >
-                              Valider
-                            </Button>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
-                              <Lock className="h-3 w-3" />
-                              Admin requis
-                            </span>
-                          )
-                        ) : s.statut === "en_cours" ? (
-                          isAdmin ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPay(s);
-                              }}
-                              className="h-8 rounded-lg border-coral-200 bg-coral-50 px-2.5 text-[12px] font-semibold text-coral-600 shadow-none hover:bg-coral-100"
-                            >
-                              <Banknote className="h-3.5 w-3.5" />
-                              Reversement
-                            </Button>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
-                              <Lock className="h-3 w-3" />
-                              Admin requis
-                            </span>
-                          )
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-emerald-500">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Payé
-                          </span>
-                        )}
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {s.statut === "a_calculer" ? (
+                            <ActionIconButton
+                              icon={Calculator}
+                              label="Calculer le reversement"
+                              tone="sky"
+                              onClick={() => calculate(s)}
+                            />
+                          ) : s.statut === "a_valider" ? (
+                            isAdmin ? (
+                              <ActionIconButton
+                                icon={Check}
+                                label="Valider"
+                                tone="emerald"
+                                onClick={() => openValidate(s)}
+                              />
+                            ) : (
+                              <ActionIconButton
+                                icon={Lock}
+                                label="Réservé à l’administration"
+                                disabled
+                              />
+                            )
+                          ) : s.statut === "en_cours" ? (
+                            isAdmin ? (
+                              <ActionIconButton
+                                icon={Banknote}
+                                label="Reversement"
+                                tone="coral"
+                                onClick={() => openPay(s)}
+                              />
+                            ) : (
+                              <ActionIconButton
+                                icon={Lock}
+                                label="Réservé à l’administration"
+                                disabled
+                              />
+                            )
+                          ) : null}
+                          <ActionIconButton
+                            icon={Eye}
+                            label="Voir la fiche"
+                            onClick={() => setSel(s.id)}
+                          />
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1329,8 +1330,11 @@ export function SettlementsPage() {
                     <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Référence du paiement
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Preuve
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1339,7 +1343,7 @@ export function SettlementsPage() {
                     <TableRow
                       key={s.id}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
-                      onClick={() => setSelectedId(s.id)}
+                      onClick={() => setSel(s.id)}
                     >
                       <TableCell className="py-3.5 pl-5">
                         <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">
@@ -1379,7 +1383,7 @@ export function SettlementsPage() {
                           <CopyRef value={s.refPaiement ?? ""} />
                         </span>
                       </TableCell>
-                      <TableCell className="pr-5 pt-3.5">
+                      <TableCell className="pt-3.5">
                         {s.docs
                           .filter((d) => d.kind === "preuve_paiement")
                           .map((d) => (
@@ -1392,12 +1396,19 @@ export function SettlementsPage() {
                             />
                           ))}
                       </TableCell>
+                      <TableCell className="pr-5 pt-3 text-right">
+                        <ActionIconButton
+                          icon={Eye}
+                          label="Voir la fiche"
+                          onClick={() => setSel(s.id)}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                   {payesSorted.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={7}
                         className="py-10 text-center text-[13px] text-neutral-400"
                       >
                         Aucun reversement payé pour le moment.
@@ -1447,8 +1458,11 @@ export function SettlementsPage() {
                     <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       En attente
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
                       Dernier reversement
+                    </TableHead>
+                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1457,7 +1471,7 @@ export function SettlementsPage() {
                     <TableRow
                       key={c.nom}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
-                      onClick={() => c.last && setSelectedId(c.last.id)}
+                      onClick={() => c.last && setSel(c.last.id)}
                     >
                       <TableCell className="py-3.5 pl-5">
                         <span className="flex items-center gap-2.5">
@@ -1500,7 +1514,7 @@ export function SettlementsPage() {
                           <span className="text-[11.5px] text-neutral-300">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="pr-5 pt-3.5">
+                      <TableCell className="pt-3.5">
                         {c.last && (
                           <>
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -1512,8 +1526,30 @@ export function SettlementsPage() {
                           </>
                         )}
                       </TableCell>
+                      <TableCell className="pr-5 pt-3 text-right">
+                        <ActionIconButton
+                          icon={Eye}
+                          label={
+                            c.last
+                              ? "Voir la fiche du dernier reversement"
+                              : "Aucun reversement à afficher"
+                          }
+                          disabled={!c.last}
+                          onClick={() => setSel(c.last?.id ?? "")}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
+                  {perCompany.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="py-10 text-center text-[13px] text-neutral-400"
+                      >
+                        Aucune compagnie avec reversements pour le moment.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -1525,7 +1561,7 @@ export function SettlementsPage() {
       <SettlementSheet
         settlement={selected}
         open={selected != null}
-        onOpenChange={(v) => !v && setSelectedId(null)}
+        onOpenChange={(v) => !v && setSel("")}
         isAdmin={isAdmin}
         onCalculate={calculate}
         onValidate={openValidate}
