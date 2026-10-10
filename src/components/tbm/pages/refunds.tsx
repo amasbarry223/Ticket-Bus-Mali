@@ -64,7 +64,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   formatFcfa,
   formatNumber,
@@ -822,6 +824,13 @@ export function RefundsPage() {
     [refunds]
   );
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  const dossiersPg = useTablePagination(filtered, {
+    resetKey: [query, statut, motif, litige, tab].join("|"),
+  });
+  const versementsPg = useTablePagination(versementsFlat, { resetKey: tab });
+  const litigesPg = useTablePagination(dossiersLitige, { resetKey: tab });
+
   const openDecide = (r: Refund, approuve: boolean) => {
     setSel(r.id);
     setDialog({ kind: "decide", approuve });
@@ -1190,7 +1199,7 @@ export function RefundsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((r) => {
+                  {dossiersPg.pageItems.map((r) => {
                     const gelé = r.litige?.ouvert ?? false;
                     const reste = refundResteDu(r);
                     return (
@@ -1311,6 +1320,17 @@ export function RefundsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={dossiersPg.page}
+              pageCount={dossiersPg.pageCount}
+              onPageChange={dossiersPg.setPage}
+              total={dossiersPg.total}
+              from={dossiersPg.from}
+              to={dossiersPg.to}
+              pageSize={dossiersPg.pageSize}
+              onPageSizeChange={dossiersPg.setPageSize}
+              entity="dossier"
+            />
           </motion.section>
         </TabsContent>
 
@@ -1359,7 +1379,7 @@ export function RefundsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {versementsFlat.map(({ v, r }) => (
+                  {versementsPg.pageItems.map(({ v, r }) => (
                     <TableRow
                       key={v.id}
                       className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
@@ -1410,6 +1430,17 @@ export function RefundsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={versementsPg.page}
+              pageCount={versementsPg.pageCount}
+              onPageChange={versementsPg.setPage}
+              total={versementsPg.total}
+              from={versementsPg.from}
+              to={versementsPg.to}
+              pageSize={versementsPg.pageSize}
+              onPageSizeChange={versementsPg.setPageSize}
+              entity="versement"
+            />
           </motion.section>
         </TabsContent>
 
@@ -1452,7 +1483,7 @@ export function RefundsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dossiersLitige.map((r) => {
+                  {litigesPg.pageItems.map((r) => {
                     const l = r.litige!;
                     const ouvert = l.ouvert;
                     return (
@@ -1531,6 +1562,17 @@ export function RefundsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={litigesPg.page}
+              pageCount={litigesPg.pageCount}
+              onPageChange={litigesPg.setPage}
+              total={litigesPg.total}
+              from={litigesPg.from}
+              to={litigesPg.to}
+              pageSize={litigesPg.pageSize}
+              onPageSizeChange={litigesPg.setPageSize}
+              entity="litige"
+            />
           </motion.section>
         </TabsContent>
       </Tabs>

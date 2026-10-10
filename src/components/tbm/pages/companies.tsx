@@ -77,7 +77,9 @@ import {
 } from "@/components/tbm/data";
 import { cn } from "@/lib/utils";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 
 /* ======================= Formulaire (créer / modifier) ====================== */
 
@@ -534,6 +536,11 @@ export function CompaniesPage() {
     });
   }, [companies, query, statusFilter]);
 
+  /* Pagination de la liste principale — hook partagé (reset à la page 1 quand filtres/onglet changent) */
+  const listPg = useTablePagination(filtered, {
+    resetKey: [query, statusFilter, tab].join("|"),
+  });
+
   const kpis = useMemo(() => {
     const actives = companies.filter((c) => c.statut === "active").length;
     const attente = companies.filter((c) => c.statut === "attente").length;
@@ -920,7 +927,7 @@ export function CompaniesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((c) => (
+                  {listPg.pageItems.map((c) => (
                     <TableRow
                       key={c.id}
                       onClick={() => setSel(c.id)}
@@ -1018,6 +1025,17 @@ export function CompaniesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={listPg.page}
+              pageCount={listPg.pageCount}
+              onPageChange={listPg.setPage}
+              total={listPg.total}
+              from={listPg.from}
+              to={listPg.to}
+              pageSize={listPg.pageSize}
+              onPageSizeChange={listPg.setPageSize}
+              entity="compagnie"
+            />
           </motion.section>
         </TabsContent>
 

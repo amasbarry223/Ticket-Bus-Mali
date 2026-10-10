@@ -70,7 +70,9 @@ import {
   type UserStatus,
 } from "@/components/tbm/data";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
 
 /* ============================ Helpers ============================ */
@@ -1136,6 +1138,15 @@ export function UsersPage() {
     );
   }, [users, query]);
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  const comptesPg = useTablePagination(filtered, {
+    resetKey: [query, kindFilter, roleFilter, statutFilter, compagnieFilter, tab].join("|"),
+  });
+  const aActiverPg = useTablePagination(aActiver, {
+    resetKey: [query, tab].join("|"),
+  });
+  const activitePg = useTablePagination(activite, { resetKey: [query, tab].join("|") });
+
   const searchInput = (
     <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -1561,13 +1572,24 @@ export function UsersPage() {
             className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <UsersTable
-              rows={filtered}
+              rows={comptesPg.pageItems}
               selfEmail={selfEmail}
               onOpen={openSheet}
               onActivate={openActivate}
               onBlock={openBlock}
               onUnblock={openUnblock}
               emptyLabel="Aucun compte ne correspond à ces filtres."
+            />
+            <TablePagination
+              page={comptesPg.page}
+              pageCount={comptesPg.pageCount}
+              onPageChange={comptesPg.setPage}
+              total={comptesPg.total}
+              from={comptesPg.from}
+              to={comptesPg.to}
+              pageSize={comptesPg.pageSize}
+              onPageSizeChange={comptesPg.setPageSize}
+              entity="compte"
             />
           </motion.section>
         </TabsContent>
@@ -1587,7 +1609,7 @@ export function UsersPage() {
             className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <UsersTable
-              rows={aActiver}
+              rows={aActiverPg.pageItems}
               selfEmail={selfEmail}
               onOpen={openSheet}
               onActivate={openActivate}
@@ -1598,6 +1620,17 @@ export function UsersPage() {
                   ? "Aucun compte à activer ne correspond à cette recherche."
                   : "Aucun compte en attente — tous les comptes professionnels ont accès à leur périmètre."
               }
+            />
+            <TablePagination
+              page={aActiverPg.page}
+              pageCount={aActiverPg.pageCount}
+              onPageChange={aActiverPg.setPage}
+              total={aActiverPg.total}
+              from={aActiverPg.from}
+              to={aActiverPg.to}
+              pageSize={aActiverPg.pageSize}
+              onPageSizeChange={aActiverPg.setPageSize}
+              entity="compte"
             />
             <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
               <Hourglass className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden="true" />
@@ -1624,13 +1657,24 @@ export function UsersPage() {
             className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <ActivityTable
-              entries={activite}
+              entries={activitePg.pageItems}
               onOpenCompte={setSel}
               emptyLabel={
                 query.trim() !== ""
                   ? "Aucune activité sensible ne correspond à cette recherche."
                   : "Aucune activité sensible — aucun échec de connexion ni action à forte valeur enregistré."
               }
+            />
+            <TablePagination
+              page={activitePg.page}
+              pageCount={activitePg.pageCount}
+              onPageChange={activitePg.setPage}
+              total={activitePg.total}
+              from={activitePg.from}
+              to={activitePg.to}
+              pageSize={activitePg.pageSize}
+              onPageSizeChange={activitePg.setPageSize}
+              entity="événement"
             />
             <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
               <Activity className="h-3.5 w-3.5 shrink-0 text-neutral-300" aria-hidden="true" />

@@ -437,3 +437,113 @@ Stage Summary:
 - Pages manquantes implémentées : A07 Villes & Gares (KPIs, tabs villes/notifications, fiche ville, envoi notification audité), A06 Journal d'audit (KPIs, 3 tabs, export CSV, fiche entrée), A04 refondu
 - Store assaini : settlements typé dans TbmState, litige spread corrigé — tsc clean
 - Artefacts : src/lib/use-param-state.ts, src/components/tbm/action-icon.tsx, pages/settings.tsx (réécrite), tbm-store.ts, data.ts, shell.tsx + 9 pages revues par les agents 10-b/c/d/e
+
+---
+Task ID: 11-b
+Agent: GLM (sub-agent 11-b)
+Task: Pagination des listes de refunds.tsx (socle 11-a)
+
+Work Log:
+- Lecture du worklog (Task 10 + orchestrateur) et du modèle de référence transactions.tsx (imports 65/67, hooks 892-897, TablePagination 1250/1421/1536), du hook src/lib/use-pagination.ts et du composant src/components/tbm/table-pagination.tsx
+- Cartographie de refunds.tsx : 3 onglets ?tab= (dossiers/versements/litiges), listes identifiées — filtered (useMemo, filtres query/statut/motif/litige), versementsFlat, dossiersLitige ; grep .map( + TabsContent pour cibler les 3 tableaux
+- refunds.tsx : imports TablePagination + useTablePagination ajoutés (lignes 67/69, ordre calqué sur transactions.tsx) ; 3 hooks après dossiersLitige (lignes 827-832) — dossiersPg (resetKey [query, statut, motif, litige, tab].join("|")), versementsPg et litigesPg (resetKey tab)
+- Rendu : {filtered.map( → {dossiersPg.pageItems.map( (ligne 1202), {versementsFlat.map( → {versementsPg.pageItems.map( (1382), {dossiersLitige.map( → {litigesPg.pageItems.map( (1486) ; TablePagination inséré entre le conteneur ff-scrollbar et la fermeture motion.section — dossiers (1323-1333, entity="dossier"), versements (1433-1443, entity="versement"), litiges (1565-1575, entity="litige")
+- Conservé à l'identique : empty states sur les listes complètes (1313 filtered.length, 1422 versementsFlat.length, 1555 dossiersLitige.length), export CSV alimenté par la liste filtrée complète (ligne 958) + toast du compte exporté (990), compteur du bandeau versements (liste complète), fiche/dialogues inchangés ; aucune modification hors refunds.tsx (MultiEdit chirurgical, aucun reformatage)
+- Validation : bun run lint → 0 erreur ; bunx tsc --noEmit → 0 erreur dans src/ (seules erreurs préexistantes hors périmètre : examples/, skills/) ; pas de build ni serveur dev (consignes)
+
+Stage Summary:
+- Les 3 listes de « Remboursements & litiges » sont paginées via le socle partagé 11-a : dossiers (recherche/statut/motif/litige + onglet dans le resetKey), versements et litiges (reset à l'onglet) — 10 lignes/page par défaut, sélecteur 10/20/50, clamp auto de page et retour page 1 au changement de filtre
+- Export CSV, compteur du bandeau versements et empty states toujours alimentés par les listes filtrées complètes ; lint 0 erreur, tsc 0 erreur sur src/
+
+---
+Task ID: 11-d
+Agent: GLM (sub-agent 11-d)
+Task: Pagination des listes de users.tsx et reservations.tsx (socle 11-a)
+
+Work Log:
+- Lecture du worklog (Task 10 notamment) et du socle 11-a : src/lib/use-pagination.ts (useTablePagination : pageItems mémoïsé, clamp auto, resetKey, from/to) et src/components/tbm/table-pagination.tsx (TablePagination) ; modèle de référence reproduit depuis transactions.tsx (imports 65/67, hooks 892-897, footers 1250/1421/1536)
+- pages/users.tsx (~2 076 lignes) — 3 listes paginées :
+  • Imports TablePagination + useTablePagination (lignes 73, 75, ordre transactions.tsx)
+  • Hooks ligne 1141-1148 : comptesPg (filtered, resetKey query+kindFilter+roleFilter+statutFilter+compagnieFilter+tab), aActiverPg (aActiver, resetKey query+tab), activitePg (activite, resetKey query+tab) — déclarés après les mémos dérivés, avant searchInput
+  • Onglet « comptes » : UsersTable rows={comptesPg.pageItems} (ligne 1575) + TablePagination entity="compte" (lignes 1583-1593) après la table, avant la fermeture de la carte (aucun footer de note sur cet onglet)
+  • Onglet « a_activer » : UsersTable rows={aActiverPg.pageItems} (ligne 1612) + TablePagination entity="compte" (lignes 1624-1634) insérée ENTRE la table et le footer de note RG activation/SMS conservé
+  • Onglet « activite » : ActivityTable entries={activitePg.pageItems} (ligne 1660) + TablePagination entity="événement" (lignes 1668-1678) avant le footer de note audit conservé
+  • CSV export (filtered.map ligne ~1320, toast filtered.length) et compteurs bandeaux/badges TabsTrigger (filtered.length, aActiver.length, activite.length) NON touchés — alimentés par les listes filtrées complètes ; empty states des composants extraits inchangés (testent la tranche reçue, non vide ssi liste non vide grâce au clamp du hook)
+- pages/reservations.tsx (~1 593 lignes) — 2 listes paginées :
+  • Imports TablePagination + useTablePagination (lignes 53, 55)
+  • Hooks lignes 1305-1311 : resPg (filtered, resetKey query+statusFilter+companyFilter+dayFilter+tab), ticketsPg (ticketRows, resetKey query+statusFilter+companyFilter+dayFilter+ticketStatusFilter+tab) — déclarés après les mémos filtered/ticketRows
+  • Onglet « reservations » : ReservationsTable rows={resPg.pageItems} (ligne 1479) + TablePagination entity="réservation" (lignes 1487-1497) avant le pied de carte « périmètre support » conservé
+  • Onglet « billets » : TicketsTable rows={ticketsPg.pageItems} (ligne 1543) + TablePagination entity="billet" (lignes 1552-1562) avant le pied de carte « dernier scan dérivé » conservé
+  • Pas d'export CSV sur cette page (rien à préserver) ; KPI (reservations.length, activeTickets…) et compteurs bandeau/badges d'onglet (filtered.length, ticketRows.length) inchangés — calculés sur les listes complètes
+- Aucune modification hors users.tsx et reservations.tsx (data.ts, store, autres pages intacts) ; édits chirurgicaux par ancres uniques (MultiEdit), aucun reformatage ; apostrophes typographiques françaises dans les libellés (« événement »)
+
+Stage Summary:
+- Les 5 listes d'A05 « Utilisateurs & accès » (comptes, à activer, activité sensible) et d'A10 « Réservations & Billets » (réservations, billets) sont paginées via le socle partagé 11-a : 10 lignes/page par défaut, sélecteur 10/20/50, ellipses de pages, clamp auto et retour page 1 au changement de recherche/filtre/onglet (resetKey incluant TOUS les états influençant chaque liste)
+- Tables partagées UsersTable (2 onglets) et ReservationsTable/TicketsTable : le hook vit au niveau où rows sont calculées (UsersPage/ReservationsPage), la tranche paginée est passée en props et le TablePagination est rendu dans la carte appelante, un par site d'appel — sous la table et avant les footers de notes existants
+- Règles préservées : export CSV utilisateurs et compteurs/badges alimentés par les listes FILTRÉES COMPLÈTES, KPI sur listes complètes, empty states inchangés
+- Validation : bun run lint → 0 erreur ; bunx tsc --noEmit | rg "^src/" → 0 erreur dans src/
+
+---
+Task ID: 11-c
+Agent: GLM (sub-agent 11-c)
+Task: Pagination des listes de settlements.tsx et companies.tsx (socle 11-a)
+
+Work Log:
+- Lecture du worklog (dernière entrée Task 10 / 11-b) et du modèle de référence transactions.tsx (imports 65/67, hooks 892-897, TablePagination 1250/1421/1536), du hook src/lib/use-pagination.ts (clamp auto, resetKey déclaratif) et du composant src/components/tbm/table-pagination.tsx (rend null si total=0, navigation masquée si 1 page)
+- Cartographie : grep `.map(` + `TabsContent value=` sur les deux fichiers — settlements.tsx 3 listes principales (filtered cycle l.1142, payesSorted paiements l.1342, perCompany compagnies l.1470 pré-édition) ; companies.tsx liste principale filtered onglet « liste » (l.923 pré-édition) + revue de l’onglet « apercu » (byStatut 3 barres, top-5 slice(0,5), taux par compagnie en mini-rangées compactes dans une carte tiers de grille — mini-panneaux statiques, pas de pagination)
+- settlements.tsx : imports TablePagination + useTablePagination ajoutés (l.82/84, ordre calqué sur transactions.tsx) ; 3 hooks après le useMemo perCompany (l.825-830) — cyclePg (resetKey [query, statut, compagnie, tab].join("|")), payesPg et compagniesPg (resetKey tab, listes dérivées du store seul, comme reconPg/anomalyPg du modèle)
+- settlements.tsx rendu : {filtered.map( → {cyclePg.pageItems.map( (l.1151), {payesSorted.map( → {payesPg.pageItems.map( (l.1362), {perCompany.map( → {compagniesPg.pageItems.map( (l.1501) ; TablePagination inséré juste après le conteneur ff-scrollbar et avant la fermeture motion.section — cycle (l.1312-1322, entity="reversement"), paiements (l.1441-1451, entity="paiement", placé entre conteneur et footer de notes « Total reversé aux compagnies » l.1452), compagnies (l.1587-1597, entity="compagnie")
+- companies.tsx : imports (l.80/82) ; hook listPg après le useMemo filtered (l.539-542, resetKey [query, statusFilter, tab].join("|")) ; {filtered.map( → {listPg.pageItems.map( (l.930) ; TablePagination entre conteneur et fermeture motion.section (l.1028-1038, entity="compagnie")
+- Conservé à l’identique : empty states testés sur les listes complètes (settlements l.1299 filtered.length, l.1428 payesSorted.length, l.1574 perCompany.length ; companies l.1015 filtered.length), export CSV de settlements alimenté par la liste filtrée complète (l.909 const rows = filtered.map + toast du compte exporté), compteur « N compagnies » du bandeau de filtres companies, fiche Sheet/dialogues/validation/paiement inchangés ; aucune modification hors settlements.tsx et companies.tsx (MultiEdit chirurgical sur ancres uniques, aucun reformatage)
+- Validation : bun run lint → 0 erreur (projet complet) ; bunx tsc --noEmit 2>&1 | rg "^src/" → aucune erreur dans src/ ; pas de build, serveur dev non démarré, pas d’Agent Browser (consignes)
+
+Stage Summary:
+- settlements.tsx : les 3 onglets paginés via le socle partagé 11-a — Cycle de reversement (recherche/statut/compagnie + onglet dans le resetKey), Historique des paiements et Par compagnie (reset à l’onglet) — 10 lignes/page par défaut, sélecteur 10/20/50, clamp auto de page et retour page 1 au changement de filtre
+- companies.tsx : liste principale de l’onglet « liste » paginée (recherche/statut/onglet dans le resetKey) ; onglet « apercu » volontairement laissé tel quel (répartition par statut, top-5 tickets et taux par compagnie sont des mini-panneaux statiques dans des cartes — pas des listes tabulaires longues)
+- Export CSV (settlements) et empty states toujours alimentés/testés sur les listes filtrées complètes ; pluriels réguliers (reversements/paiements/compagnies) → entityPlural non nécessaire ; lint 0 erreur, tsc 0 erreur sur src/
+---
+Task ID: 11-e
+Agent: GLM (sub-agent 11-e)
+Task: Pagination des listes de lines.tsx, cities.tsx, audit-log.tsx et settings.tsx (socle 11-a)
+
+Work Log:
+- Modèle reproduit à l'identique de transactions.tsx (imports 64-67, hooks 892-897, footers TablePagination 1250/1421/1536) ; socle relu : src/lib/use-pagination.ts (useTablePagination + resetKey déclaratif + clamp) et src/components/tbm/table-pagination.tsx
+- lines.tsx : imports TablePagination/useTablePagination (l.39-41) ; hooks departsPg (resetKey query|companyFilter|statusFilter|dayFilter|view) et lignesPg (resetKey query|view) après le memo filteredNetwork (l.422-428) ; .map → departsPg.pageItems (l.663) et lignesPg.pageItems (l.803) ; <TablePagination entity="départ"> sous le conteneur scrollable de l'onglet Départs (l.767-777) et entity="ligne" pour Réseau de lignes (l.905-915) ; empty states et compteur « N départs/N lignes » inchangés (listes complètes)
+- cities.tsx : imports (l.54-56) ; hooks villesPg (resetKey query|tab) et notifsPg (resetKey tab) après le memo filteredCities (l.227-231) ; .map → villesPg.pageItems (l.397) et notifsPg.pageItems (l.544) ; <TablePagination entity="ville"> (l.508-518) et entity="notification" (l.609-619), insérés après le conteneur scrollable (max-h-560px) et avant la fermeture de chaque carte ; badge KPI notifications.length et empty states intacts
+- audit-log.tsx : imports (l.41-43) ; hooks journalPg et sensiblesPg (resetKey query|actionFilter|tab) après filteredSensitive, avec rappel en commentaire que l'export CSV reste alimenté par les listes filtrées complètes (l.284-291) ; <AuditTable entries={journalPg.pageItems}> (l.490) et entries={sensiblesPg.pageItems} (l.519) ; <TablePagination entity="entrée d’audit" entityPlural="entrées d’audit"> (l.494-505) et entity="action" (l.523-533) ; onglet « types » volontairement non paginé (petit agrégat statique byType, l.537+)
+- settings.tsx : imports (l.31 et 36) ; hook histPg (resetKey searchHist|tab) après le memo history (l.124-127) ; .map → histPg.pageItems (l.706) ; <TablePagination entity="entrée"> après le conteneur scrollable et avant </section> (l.760-770) ; compteur « N entrées » et empty state inchangés
+- Règles respectées : aucun resetKey incomplet (tous les filtres + recherche + onglet y figurent), aucune modification hors des 4 fichiers, apostrophes typographiques dans les libellés (« entrée d’audit »), édits chirurgicaux MultiEdit sans reformatage
+- Validation : bun run lint → 0 erreur ; bunx tsc --noEmit | rg "^src/" → aucune erreur dans src/ (seuls exemples/skills préexistants hors périmètre)
+
+Stage Summary:
+- 7 listes paginées sur les 4 fichiers : lignes (départs + réseau de lignes), villes (villes + notifications ciblées), audit (journal complet + actions sensibles), paramétrage (historique) — toutes via le socle partagé useTablePagination + TablePagination (10/20/50 par page, ellipses, responsive mobile, reset page 1 au changement de filtre/onglet)
+- Onglets volontairement non paginés : audit « types » (agrégat statique) — conformément à la consigne
+- Export CSV du journal d'audit toujours alimenté par les listes FILTRÉES COMPLÈTES (filtered/filteredSensitive), seules les vues passent par pageItems ; empty states toujours testés sur les listes complètes (pageItems vide ⇔ liste vide grâce au clamp du hook)
+- Pluriels gérés : entrée(s) d'audit via entityPlural, autres entités régulières (départs, lignes, villes, notifications, actions, entrées) → entity seul suffit
+- Lint 0 erreur, tsc 0 erreur sur src/ — prêt pour la validation navigateur de l'orchestrateur
+
+---
+Task ID: 11 (orchestrateur — socle 11-a + référence + dispatch 11-b/c/d/e + validation 11-f)
+Agent: Z.ai Code (main)
+Task: Pagination des listes du back-office — socle réutilisable (hook + composant), application aux 10 pages (21 listes), bonnes pratiques de codage
+
+Work Log:
+- src/lib/use-pagination.ts (nouveau) : useTablePagination<T>(items, { initialPageSize, resetKey }) — générique, DRY ; pageItems mémoïsé (slice), clamp automatique (jamais de page vide quand la liste rétrécit), reset déclaratif page 1 via resetKey (signature des filtres/onglet), setPageSize → page 1, from/to pour l'étiquette de plage ; DEFAULT_PAGE_SIZE=10, PAGE_SIZE_OPTIONS=[10,20,50] ; pageSequence(current, count, window) — numéros avec ellipses (« 1 … 4 5 6 … 12 »), bornes toujours visibles, écart de 2 → page affichée plutôt qu'ellipsée
+- Choix d'implémentation React : ajustements (clamp + reset) faits PENDANT LE RENDU (pattern officiel « updating state during render ») et non dans un effet — la règle eslint react-hooks/set-state-in-effect interdisait le setState synchrone en effet ; aucune fenêtre avec page invalide affichée, pas de rendu en cascade
+- La page n'est PAS synchronisée à l'URL (convention projet : seuls ?page=/?tab=/?sel= sont deep-linkables) ; la pagination est un état d'interface éphémère remis à zéro par resetKey
+- src/components/tbm/table-pagination.tsx (nouveau) : TablePagination — construit sur les primitives shadcn pagination mais en <button> (action ≠ lien, meilleure sémantique clavier) ; étiquette « 1–10 sur 15 transactions » (aria-live=polite, pluriel via entity/entityPlural) ; sélecteur « lignes par page » (Select 10/20/50, aria-label) ; page courante corail avec aria-current=page ; boutons désactivés aux bornes ; rend null si total=0 (empty states des pages conservés) ; masque la navigation si page unique (plage + sélecteur conservés) ; MOBILE (<sm) : nav compacte dédiée précédent / « Page X / Y » / suivant (nav aria-label « Pagination compacte »), numéros masqués
+- Intégrations (modèle transactions.tsx reproduit partout) : hook au niveau où rows sont calculées, {rows.map} → {xxxPg.pageItems.map}, TablePagination inséré entre le conteneur scrollable et la fermeture de carte (footers de notes préservés) ; resetKey = tous les filtres actifs + recherche + onglet ; exports CSV et KPI restent alimentés par les listes filtrées COMPLÈTES (pas la page courante) ; empty states inchangés
+- 21 listes paginées : transactions (transactions, rapprochement, anomalies-cartes), refunds (dossiers, versements, litiges), settlements (cycle, paiements, compagnies), companies (liste), users (comptes, a_activer, activite), reservations (réservations, billets), lines (lignes, départs), cities (villes, notifications), audit-log (journal, sensibles — « types » laissé, petit agrégat statique), settings (historique)
+- Correctif pluriel : entityPlural="lignes de rapprochement" (l'application de « s » en suffixe donnait « ligne de rapprochements ») ; autres pluriels réguliers OK (« entrées d'audit » via entityPlural explicite)
+- Polish mobile : sélecteur 74→102px (« 10 / page » tronqué) ; ajout de la nav compacte mobile (avant : aucun moyen de changer de page <640px)
+- Agents parallèles : 11-b refunds.tsx ; 11-c settlements.tsx + companies.tsx ; 11-d users.tsx + reservations.tsx (via composants extraits UsersTable/ReservationsTable/TicketsTable/ActivityTable — tranche paginée passée en props) ; 11-e lines.tsx + cities.tsx + audit-log.tsx + settings.tsx
+- Validation Agent Browser desktop 1440×900 (admin) : transactions — étiquette « 1–10 sur 15 transactions », clic page 2 → « 11–15 » + aria-current « Page actuelle 2 », recherche « OM- » depuis page 2 → reset page 1 (« 1–9 sur 9 »), 20/page → nav masquée, liste vide → pagination masquée ; les 13 onglets secondaires vérifiés (versements, litiges, a_activer, activite 13 événements, billets 22, rapprochement, anomalies, sensibles, paiements, compagnies, lignes, notifications, historique settings avec entrée créée après enregistrement du plafond 13 000) ; billets desktop : pages 1/2/3, page active corail, note de pied conservée
+- Validation mobile iPhone 16 : pied « 1–10 sur 15 transactions » + nav compacte (précédent désactivé / Page 1 / 2 / suivant), clic suivant → Page 2 / 2 + « 11–15 » ; KPIs empilés, tabs scrollables, aucun débordement
+- Artefact de test (hors app) : fill("") de l'outil ne déclenche pas le onChange React sur les inputs contrôlés (valeurs vides) — vérifié avec de vrais événements clavier (Control+a + Backspace) : l'app est correcte ; 2 Fast Refresh ont aussi produit des refs/DOM obsolètes transitoirement (reload = propre)
+- Qualité : bun run lint → 0 erreur ; tsc --noEmit → 0 erreur dans src/ ; dev.log propre ; Agent Browser errors/console vides sur toutes les navigations
+
+Stage Summary:
+- Toutes les listes du back-office (21 listes / 10 pages) sont paginées via UN SEUL hook (useTablePagination) et UN SEUL composant (TablePagination) — zéro duplication, comportement uniforme
+- Bonnes pratiques : génériques TS stricts, clamp anti-page-vide, reset déclaratif au changement de filtres, page mémoïsée, a11y complète (nav aria-label, aria-current, aria-live, labels FR, focus clavier), responsive (numéros desktop / compact mobile), exports et KPI sur listes complètes, null-safe sur listes vides
+- La pagination n'entre pas en conflit avec le deep-linking existant (?page/?tab/?sel) et suit la charte (corail, ff-card, badges)
+- Fichiers : src/lib/use-pagination.ts, src/components/tbm/table-pagination.tsx (nouveaux) ; pages transactions/refunds/settlements/companies/users/reservations/lines/cities/audit-log/settings modifiées (imports + hooks + footers, rien d'autre)

@@ -50,7 +50,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   companyDepartures,
   companyInitials,
@@ -1300,6 +1302,14 @@ export function ReservationsPage() {
     return rows;
   }, [filtered, ticketStatusFilter, depById, query]);
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  const resPg = useTablePagination(filtered, {
+    resetKey: [query, statusFilter, companyFilter, dayFilter, tab].join("|"),
+  });
+  const ticketsPg = useTablePagination(ticketRows, {
+    resetKey: [query, statusFilter, companyFilter, dayFilter, ticketStatusFilter, tab].join("|"),
+  });
+
   // Fiche dérivée par id (live) — réservations A10 : données de démo en lecture seule.
   const selectedRes = reservations.find((r) => r.id === selParam) ?? null;
   const openSheet = (r: Reservation) => setSel(r.id);
@@ -1466,13 +1476,24 @@ export function ReservationsPage() {
             className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <ReservationsTable
-              rows={filtered}
+              rows={resPg.pageItems}
               depById={depById}
               companyById={companyById}
               settings={settings}
               onOpen={openSheet}
               onOpenEticket={(r, t) => setEticket({ res: r, ticket: t })}
               emptyLabel="Aucune réservation ne correspond à votre recherche."
+            />
+            <TablePagination
+              page={resPg.page}
+              pageCount={resPg.pageCount}
+              onPageChange={resPg.setPage}
+              total={resPg.total}
+              from={resPg.from}
+              to={resPg.to}
+              pageSize={resPg.pageSize}
+              onPageSizeChange={resPg.setPageSize}
+              entity="réservation"
             />
 
             {/* Pied de carte : rappel du périmètre support */}
@@ -1519,7 +1540,7 @@ export function ReservationsPage() {
             className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <TicketsTable
-              rows={ticketRows}
+              rows={ticketsPg.pageItems}
               onOpen={openSheet}
               onOpenEticket={(r, t) => setEticket({ res: r, ticket: t })}
               emptyLabel={
@@ -1527,6 +1548,17 @@ export function ReservationsPage() {
                   ? "Aucun billet ne correspond à votre recherche."
                   : "Aucun billet — ils apparaissent après confirmation du paiement (RG1)."
               }
+            />
+            <TablePagination
+              page={ticketsPg.page}
+              pageCount={ticketsPg.pageCount}
+              onPageChange={ticketsPg.setPage}
+              total={ticketsPg.total}
+              from={ticketsPg.from}
+              to={ticketsPg.to}
+              pageSize={ticketsPg.pageSize}
+              onPageSizeChange={ticketsPg.setPageSize}
+              entity="billet"
             />
             <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
               <ScanLine className="h-3.5 w-3.5 text-neutral-300" aria-hidden="true" />

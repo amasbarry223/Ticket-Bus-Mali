@@ -38,7 +38,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   AUDIT_ACTION_META,
   type AuditAction,
@@ -279,6 +281,15 @@ export function AuditLogPage() {
     [filtered]
   );
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  // NB : l’export CSV reste alimenté par les listes filtrées complètes.
+  const journalPg = useTablePagination(filtered, {
+    resetKey: [query, actionFilter, tab].join("|"),
+  });
+  const sensiblesPg = useTablePagination(filteredSensitive, {
+    resetKey: [query, actionFilter, tab].join("|"),
+  });
+
   /* ---- Agrégat « Par type » ---- */
   const byType = useMemo(() => {
     const map = new Map<
@@ -476,9 +487,21 @@ export function AuditLogPage() {
             className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <AuditTable
-              entries={filtered}
+              entries={journalPg.pageItems}
               onSelect={setSelParam}
               emptyLabel="Aucune entrée du journal ne correspond à ces filtres."
+            />
+            <TablePagination
+              page={journalPg.page}
+              pageCount={journalPg.pageCount}
+              onPageChange={journalPg.setPage}
+              total={journalPg.total}
+              from={journalPg.from}
+              to={journalPg.to}
+              pageSize={journalPg.pageSize}
+              onPageSizeChange={journalPg.setPageSize}
+              entity="entrée d’audit"
+              entityPlural="entrées d’audit"
             />
           </motion.section>
         </TabsContent>
@@ -493,9 +516,20 @@ export function AuditLogPage() {
             className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
           >
             <AuditTable
-              entries={filteredSensitive}
+              entries={sensiblesPg.pageItems}
               onSelect={setSelParam}
               emptyLabel="Aucune action sensible ne correspond à ces filtres."
+            />
+            <TablePagination
+              page={sensiblesPg.page}
+              pageCount={sensiblesPg.pageCount}
+              onPageChange={sensiblesPg.setPage}
+              total={sensiblesPg.total}
+              from={sensiblesPg.from}
+              to={sensiblesPg.to}
+              pageSize={sensiblesPg.pageSize}
+              onPageSizeChange={sensiblesPg.setPageSize}
+              entity="action"
             />
           </motion.section>
         </TabsContent>

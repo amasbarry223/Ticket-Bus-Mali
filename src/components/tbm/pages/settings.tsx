@@ -28,10 +28,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   ENCAISSEMENT_MODE_META,
   SETTINGS_CONSUMERS,
@@ -118,6 +120,11 @@ export function SettingsPage() {
           e.detail.toLowerCase().includes(q)
       );
   }, [audit, searchHist]);
+
+  // Pagination de l’historique — hook partagé (reset à la page 1 quand recherche/onglet change)
+  const histPg = useTablePagination(history, {
+    resetKey: [searchHist, tab].join("|"),
+  });
 
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
@@ -696,7 +703,7 @@ export function SettingsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((e) => (
+                    {histPg.pageItems.map((e) => (
                       <TableRow
                         key={e.id}
                         className="border-neutral-100 transition-colors hover:bg-neutral-50/70"
@@ -750,6 +757,17 @@ export function SettingsPage() {
                   </TableBody>
                 </Table>
               </div>
+              <TablePagination
+                page={histPg.page}
+                pageCount={histPg.pageCount}
+                onPageChange={histPg.setPage}
+                total={histPg.total}
+                from={histPg.from}
+                to={histPg.to}
+                pageSize={histPg.pageSize}
+                onPageSizeChange={histPg.setPageSize}
+                entity="entrée"
+              />
             </section>
           </TabsContent>
         </form>

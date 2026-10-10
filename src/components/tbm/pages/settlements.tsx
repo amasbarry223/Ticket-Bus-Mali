@@ -79,7 +79,9 @@ import {
 } from "@/components/tbm/data";
 import { cn } from "@/lib/utils";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 
 /* ============================ Helpers ============================ */
 
@@ -820,6 +822,13 @@ export function SettlementsPage() {
       .sort((a, b) => b.collecte - a.collecte);
   }, [compagniesList, settlements]);
 
+  /* Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent) */
+  const cyclePg = useTablePagination(filtered, {
+    resetKey: [query, statut, compagnie, tab].join("|"),
+  });
+  const payesPg = useTablePagination(payesSorted, { resetKey: tab });
+  const compagniesPg = useTablePagination(perCompany, { resetKey: tab });
+
   const openValidate = (s: Settlement) => {
     setSel(s.id);
     setDialog({ kind: "validate" });
@@ -1139,7 +1148,7 @@ export function SettlementsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((s) => (
+                  {cyclePg.pageItems.map((s) => (
                     <TableRow
                       key={s.id}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
@@ -1300,6 +1309,17 @@ export function SettlementsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={cyclePg.page}
+              pageCount={cyclePg.pageCount}
+              onPageChange={cyclePg.setPage}
+              total={cyclePg.total}
+              from={cyclePg.from}
+              to={cyclePg.to}
+              pageSize={cyclePg.pageSize}
+              onPageSizeChange={cyclePg.setPageSize}
+              entity="reversement"
+            />
           </motion.section>
         </TabsContent>
 
@@ -1339,7 +1359,7 @@ export function SettlementsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payesSorted.map((s) => (
+                  {payesPg.pageItems.map((s) => (
                     <TableRow
                       key={s.id}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
@@ -1418,6 +1438,17 @@ export function SettlementsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={payesPg.page}
+              pageCount={payesPg.pageCount}
+              onPageChange={payesPg.setPage}
+              total={payesPg.total}
+              from={payesPg.from}
+              to={payesPg.to}
+              pageSize={payesPg.pageSize}
+              onPageSizeChange={payesPg.setPageSize}
+              entity="paiement"
+            />
             {payesSorted.length > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
                 <span className="text-[12px] font-medium text-neutral-500">
@@ -1467,7 +1498,7 @@ export function SettlementsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {perCompany.map((c) => (
+                  {compagniesPg.pageItems.map((c) => (
                     <TableRow
                       key={c.nom}
                       className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
@@ -1553,6 +1584,17 @@ export function SettlementsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={compagniesPg.page}
+              pageCount={compagniesPg.pageCount}
+              onPageChange={compagniesPg.setPage}
+              total={compagniesPg.total}
+              from={compagniesPg.from}
+              to={compagniesPg.to}
+              pageSize={compagniesPg.pageSize}
+              onPageSizeChange={compagniesPg.setPageSize}
+              entity="compagnie"
+            />
           </motion.section>
         </TabsContent>
       </Tabs>

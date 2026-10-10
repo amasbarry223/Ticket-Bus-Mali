@@ -36,7 +36,9 @@ import {
 } from "@/components/ui/table";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   COMPANY_STATUS_META,
   companyDepartures,
@@ -417,6 +419,14 @@ export function LinesPage() {
     );
   }, [network, query, companyById]);
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  const departsPg = useTablePagination(filteredDeparts, {
+    resetKey: [query, companyFilter, statusFilter, dayFilter, view].join("|"),
+  });
+  const lignesPg = useTablePagination(filteredNetwork, {
+    resetKey: [query, view].join("|"),
+  });
+
   /* ---- Sélection des fiches, synchronisée à l’URL (?sel=) ---- */
   const selectedDepId = companyDepartures.some((d) => d.id === selParam)
     ? selParam
@@ -650,7 +660,7 @@ export function LinesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDeparts.map((d) => {
+                  {departsPg.pageItems.map((d) => {
                     const company = companyById.get(d.compagnie);
                     const hasMods = departureModifications.some(
                       (m) => m.departId === d.id
@@ -754,6 +764,17 @@ export function LinesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={departsPg.page}
+              pageCount={departsPg.pageCount}
+              onPageChange={departsPg.setPage}
+              total={departsPg.total}
+              from={departsPg.from}
+              to={departsPg.to}
+              pageSize={departsPg.pageSize}
+              onPageSizeChange={departsPg.setPageSize}
+              entity="départ"
+            />
           </motion.section>
         </TabsContent>
 
@@ -790,7 +811,7 @@ export function LinesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredNetwork.map((n) => {
+                  {lignesPg.pageItems.map((n) => {
                     const prixMin = Math.min(...n.offerings.map((o) => o.prix));
                     const prixMax = Math.max(...n.offerings.map((o) => o.prix));
                     return (
@@ -881,6 +902,17 @@ export function LinesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={lignesPg.page}
+              pageCount={lignesPg.pageCount}
+              onPageChange={lignesPg.setPage}
+              total={lignesPg.total}
+              from={lignesPg.from}
+              to={lignesPg.to}
+              pageSize={lignesPg.pageSize}
+              onPageSizeChange={lignesPg.setPageSize}
+              entity="ligne"
+            />
           </motion.section>
         </TabsContent>
       </Tabs>

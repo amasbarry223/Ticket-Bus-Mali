@@ -51,7 +51,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   cities,
   COMPANY_STATUS_META,
@@ -222,6 +224,12 @@ export function CitiesPage() {
     );
   }, [query]);
 
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtre/onglet change)
+  const villesPg = useTablePagination(filteredCities, {
+    resetKey: [query, tab].join("|"),
+  });
+  const notifsPg = useTablePagination(notifications, { resetKey: tab });
+
   const selectedCity = cities.find((c) => c.id === selParam) ?? null;
   const cityLines = selectedCity ? linesByCity.get(selectedCity.nom) ?? [] : [];
   const cityCompanies = selectedCity
@@ -386,7 +394,7 @@ export function CitiesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCities.map((c) => {
+                  {villesPg.pageItems.map((c) => {
                     const lignes = linesByCity.get(c.nom) ?? [];
                     const comps = companiesByCity.get(c.nom) ?? [];
                     return (
@@ -497,6 +505,17 @@ export function CitiesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={villesPg.page}
+              pageCount={villesPg.pageCount}
+              onPageChange={villesPg.setPage}
+              total={villesPg.total}
+              from={villesPg.from}
+              to={villesPg.to}
+              pageSize={villesPg.pageSize}
+              onPageSizeChange={villesPg.setPageSize}
+              entity="ville"
+            />
           </motion.section>
         </TabsContent>
 
@@ -533,7 +552,7 @@ export function CitiesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {notifications.map((n) => (
+                  {notifsPg.pageItems.map((n) => (
                     <TableRow
                       key={n.id}
                       className="border-neutral-100 transition-colors hover:bg-neutral-50/70"
@@ -587,6 +606,17 @@ export function CitiesPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={notifsPg.page}
+              pageCount={notifsPg.pageCount}
+              onPageChange={notifsPg.setPage}
+              total={notifsPg.total}
+              from={notifsPg.from}
+              to={notifsPg.to}
+              pageSize={notifsPg.pageSize}
+              onPageSizeChange={notifsPg.setPageSize}
+              entity="notification"
+            />
           </motion.section>
         </TabsContent>
       </Tabs>

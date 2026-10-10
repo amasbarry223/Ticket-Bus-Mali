@@ -62,7 +62,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/lib/auth-store";
 import { useTbmStore } from "@/lib/tbm-store";
 import { ActionIconButton } from "@/components/tbm/action-icon";
+import { TablePagination } from "@/components/tbm/table-pagination";
 import { useParamState, validParam } from "@/lib/use-param-state";
+import { useTablePagination } from "@/lib/use-pagination";
 import {
   formatFcfa,
   operatorStatements,
@@ -840,6 +842,11 @@ export function TransactionsPage() {
     (t) => t.anomalie?.statut === "detectee"
   ).length;
 
+  const anomalyRows = useMemo(
+    () => transactions.filter((t) => t.anomalie),
+    [transactions]
+  );
+
   const reconciliationRows = useMemo(() => {
     return operatorStatements.map((st) => {
       const side = transactions.filter(
@@ -881,6 +888,13 @@ export function TransactionsPage() {
 
   const ecartsRestants = reconciliationRows.filter((r) => r.statut === "ecart").length;
   const nbClotures = closedReconciliations.length;
+
+  // Pagination des listes — hook partagé (reset à la page 1 quand filtres/onglet changent)
+  const listPg = useTablePagination(filtered, {
+    resetKey: [query, operator, status, jour, tab].join("|"),
+  });
+  const reconPg = useTablePagination(reconciliationRows, { resetKey: tab });
+  const anomalyPg = useTablePagination(anomalyRows, { resetKey: tab });
 
   const openTxn = (t: Transaction) => setSel(t.id);
 
@@ -1137,7 +1151,7 @@ export function TransactionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((t) => (
+                  {listPg.pageItems.map((t) => (
                     <TableRow
                       key={t.id}
                       className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
@@ -1233,6 +1247,17 @@ export function TransactionsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={listPg.page}
+              pageCount={listPg.pageCount}
+              onPageChange={listPg.setPage}
+              total={listPg.total}
+              from={listPg.from}
+              to={listPg.to}
+              pageSize={listPg.pageSize}
+              onPageSizeChange={listPg.setPageSize}
+              entity="transaction"
+            />
           </motion.section>
         </TabsContent>
 
@@ -1278,7 +1303,7 @@ export function TransactionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reconciliationRows.map((r) => (
+                  {reconPg.pageItems.map((r) => (
                     <TableRow key={r.key} className="border-neutral-100 hover:bg-transparent">
                       <TableCell className="py-3.5 pl-5">
                         <p className="text-[13px] font-semibold text-neutral-800">{r.st.jour}</p>
@@ -1393,6 +1418,18 @@ export function TransactionsPage() {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              page={reconPg.page}
+              pageCount={reconPg.pageCount}
+              onPageChange={reconPg.setPage}
+              total={reconPg.total}
+              from={reconPg.from}
+              to={reconPg.to}
+              pageSize={reconPg.pageSize}
+              onPageSizeChange={reconPg.setPageSize}
+              entity="ligne"
+              entityPlural="lignes de rapprochement"
+            />
           </motion.section>
         </TabsContent>
 
@@ -1408,7 +1445,7 @@ export function TransactionsPage() {
           </div>
 
           <div className="mt-3 space-y-3">
-            {transactions.filter((t) => t.anomalie).length === 0 && (
+            {anomalyRows.length === 0 && (
               <div className="ff-card flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-white p-6">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                   <ShieldCheck className="h-5 w-5" />
@@ -1423,9 +1460,7 @@ export function TransactionsPage() {
                 </div>
               </div>
             )}
-            {transactions
-              .filter((t) => t.anomalie)
-              .map((t) => (
+            {anomalyPg.pageItems.map((t) => (
                 <motion.div
                   key={t.id}
                   initial={{ opacity: 0, y: 12 }}
@@ -1499,6 +1534,18 @@ export function TransactionsPage() {
                   </div>
                 </motion.div>
               ))}
+            <TablePagination
+              page={anomalyPg.page}
+              pageCount={anomalyPg.pageCount}
+              onPageChange={anomalyPg.setPage}
+              total={anomalyPg.total}
+              from={anomalyPg.from}
+              to={anomalyPg.to}
+              pageSize={anomalyPg.pageSize}
+              onPageSizeChange={anomalyPg.setPageSize}
+              entity="anomalie"
+              entityPlural="anomalies"
+            />
           </div>
         </TabsContent>
       </Tabs>
