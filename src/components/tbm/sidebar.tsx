@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ComponentType } from "react";
+import { type ComponentType } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   ArrowLeftRight,
@@ -13,7 +13,6 @@ import {
   PanelRightClose,
   PanelRightOpen,
   ScrollText,
-  Search,
   Settings,
   Undo2,
   Users,
@@ -168,19 +167,11 @@ export function SidebarContent({
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const role: StaffRole = user?.role ?? "admin";
-  const [query, setQuery] = useState("");
 
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return SECTION_GROUPS.map((g) => ({
-      ...g,
-      sections: g.sections.filter(
-        (s) =>
-          s.roles.includes(role) &&
-          (q === "" || s.label.toLowerCase().includes(q))
-      ),
-    })).filter((g) => g.sections.length > 0);
-  }, [role, query]);
+  const groups = SECTION_GROUPS.map((g) => ({
+    ...g,
+    sections: g.sections.filter((s) => s.roles.includes(role)),
+  })).filter((g) => g.sections.length > 0);
 
   const initials =
     (user?.name ?? "TB")
@@ -214,45 +205,21 @@ export function SidebarContent({
             )}
           </AnimatePresence>
         </div>
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label="Replier le menu"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-          >
-            <PanelRightClose className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* ---- Recherche (filtre le menu) ---- */}
-      <div className={cn("px-4 pb-3", collapsed && "px-2.5")}>
-        {collapsed ? (
-          <button
-            type="button"
-            aria-label="Rechercher dans le menu"
-            onClick={onToggleCollapse}
-            className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
-          >
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600",
+            collapsed && "mt-1"
+          )}
+        >
+          {collapsed ? (
             <PanelRightOpen className="h-4 w-4" />
-          </button>
-        ) : (
-          <div className="flex h-9 items-center gap-2.5 rounded-xl border border-neutral-200 bg-white px-3 transition-all focus-within:border-coral-300 focus-within:ring-4 focus-within:ring-coral-100/60">
-            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher une section…"
-              aria-label="Rechercher une section"
-              className="h-full w-full bg-transparent text-[13px] text-neutral-700 outline-none placeholder:text-neutral-400"
-            />
-            <kbd className="shrink-0 rounded-md border border-neutral-200 bg-neutral-50 px-1.5 py-0.5 text-[10px] font-medium text-neutral-400">
-              ⌘K
-            </kbd>
-          </div>
-        )}
+          ) : (
+            <PanelRightClose className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* ---- Navigation ---- */}
@@ -340,12 +307,6 @@ export function SidebarContent({
             </motion.ul>
           </div>
         ))}
-
-        {groups.length === 0 && !collapsed && (
-          <p className="px-2.5 py-6 text-center text-[12.5px] text-neutral-400">
-            Aucune section ne correspond à « {query} ».
-          </p>
-        )}
       </nav>
 
       {/* ---- Carte utilisateur + déconnexion ---- */}

@@ -67,3 +67,20 @@ Stage Summary:
 - Back-office TBM complet et cohérent avec le cahier des charges (A01→A08, RG, P03, RBAC §2), 100% frontend (mock data + état local zustand), même interface plein écran sans arrière-plan
 - Le journal d’audit est alimenté automatiquement par toutes les actions sensibles (compagnies, remboursements, utilisateurs, paramétrage, notifications) — démonstration A06 en conditions réelles
 - Artefacts : src/components/tbm/** (logo, login-screen, sidebar, topbar, shell, pages/*, data.ts), src/lib/auth-store.ts, src/lib/tbm-store.ts, src/app/page.tsx, src/app/layout.tsx
+
+---
+Task ID: 2
+Agent: Z.ai Code (main)
+Task: Supprimer la barre de recherche du sidebar (back-office TBM)
+
+Work Log:
+- Repéré le bloc « Recherche (filtre le menu) » dans src/components/tbm/sidebar.tsx (input + kbd ⌘K + bouton d'expansion en mode replié)
+- Supprimé le bloc de recherche ainsi que l'état `query`, le filtrage du menu par texte et le message « Aucune section ne correspond… »
+- Nettoyé les imports devenus inutiles (Search, useState, useMemo) ; le filtrage RBAC par rôle est conservé
+- Déplacé le bouton déplier/replier dans l'en-tête de marque (PanelRightOpen/PanelRightClose) pour garder le toggle accessible en mode replié
+- Vérifié avec `bun run lint` (0 erreur) puis Agent Browser : login RBA → sidebar sans recherche, repli/dépliage OK, aucun erreur console/serveur
+
+Stage Summary:
+- Sidebar épuré : logo + navigation (groupes Pilotage/Opérations/Administration) + carte utilisateur, sans barre de recherche
+- Toggle de repli toujours disponible en mode icônes
+- Aucune régression : RBAC par rôle, badges, animations conservés
