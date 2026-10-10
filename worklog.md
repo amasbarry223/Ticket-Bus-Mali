@@ -29,3 +29,21 @@ Stage Summary:
 - Stack : Next.js 16 App Router, TypeScript, Tailwind 4, shadcn/ui, recharts 2.15, framer-motion 12
 - Design fidèle à la maquette + modernisation : animations d'entrée en stagger, hover lift sur les cartes, états interactifs partout (chart, donut, selects), sidebar collapsible, menu mobile Sheet, toasts
 - Note : la faute de frappe de la maquette "Financial Statment" a été corrigée en "Financial Statement"
+
+---
+Task ID: 1
+Agent: Z.ai Code (main)
+Task: Dashboard FiscalFlow full-screen — sidebar, header et layout uniquement, sans arrière-plan (frontend only)
+
+Work Log:
+- Lu la structure existante : page.tsx (ancienne version avec fond gris bg-neutral-100 + conteneur max-w-[1500px] centré), sidebar.tsx, header.tsx, 4 widgets, data.ts, globals.css (thème coral)
+- Réécrit src/app/page.tsx en shell full-viewport : h-dvh flex overflow-hidden, fond blanc pur (aucun fond gris), sidebar épinglée pleine hauteur avec border-r, top-bar épinglée (shrink-0 + border-b), zone de contenu scrollable (flex-1 overflow-y-auto + ff-scrollbar), suppression de tous les conteneurs max-width
+- Adapté src/components/dashboard/header.tsx en top-bar compacte une seule rangée sur desktop (breadcrumb + onglets + actions), breadcrumb masqué sur très petit écran (remplacé par logo), onglets sur rangée dédiée scrollable en mobile, bouton Download raccourci en "Export" sur mobile
+- Ajouté h1 sr-only "FiscalFlow — Dashboard" pour l'accessibilité
+- Vérifié avec Agent Browser : desktop 1440x900 (rendu, sidebar collapse, onglets, toast Download, scroll contenu avec top-bar épinglée), mobile iPhone 16 (menu hamburger, Sheet sidebar, cartes empilées)
+- Lint OK, aucun erreur console/page, dev.log propre (GET / 200)
+
+Stage Summary:
+- Le dashboard occupe désormais 100% du viewport, bord à bord : sidebar (pleine hauteur, repliable 88↔264px), top-bar épinglée, contenu scrollable sur fond blanc sans aucun arrière-plan
+- Aucune modification backend — 100% frontend avec données mock (data.ts)
+- Artefacts : src/app/page.tsx (shell), src/components/dashboard/header.tsx (top-bar)

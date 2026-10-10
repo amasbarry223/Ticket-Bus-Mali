@@ -19,30 +19,42 @@ import { FinancialBalance } from "@/components/dashboard/financial-balance";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { TaxLiabilities } from "@/components/dashboard/tax-liabilities";
 
+/**
+ * FiscalFlow — Full-screen dashboard shell.
+ *
+ * Layout (edge-to-edge, no page background):
+ * ┌──────────┬────────────────────────────────┐
+ * │          │  Top bar (pinned)              │
+ * │ Sidebar  ├────────────────────────────────┤
+ * │ (pinned) │  Scrollable content area       │
+ * │          │                                │
+ * └──────────┴────────────────────────────────┘
+ */
 export default function DashboardPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900 antialiased">
-      <div className="mx-auto flex w-full max-w-[1500px]">
-        {/* Desktop sidebar */}
-        <motion.aside
-          initial={false}
-          animate={{ width: collapsed ? 88 : 264 }}
-          transition={{ type: "spring", stiffness: 320, damping: 34 }}
-          className="sticky top-0 z-30 hidden h-screen shrink-0 overflow-hidden lg:block"
-        >
-          <SidebarContent
-            collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((v) => !v)}
-          />
-        </motion.aside>
+    <div className="flex h-dvh w-full overflow-hidden bg-white text-neutral-900 antialiased">
+      {/* ---- Desktop sidebar : pinned, full height ---- */}
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 88 : 264 }}
+        transition={{ type: "spring", stiffness: 320, damping: 34 }}
+        className="z-30 hidden h-full shrink-0 overflow-hidden border-r border-neutral-200/80 lg:block"
+      >
+        <SidebarContent
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((v) => !v)}
+        />
+      </motion.aside>
 
-        {/* Main column */}
-        <div className="min-w-0 flex-1">
-          {/* Mobile top bar */}
-          <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-neutral-200/70 bg-white/90 px-4 py-3 backdrop-blur-md lg:hidden">
+      {/* ---- Main column ---- */}
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        {/* Top bar : pinned, always visible */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-neutral-200/80 bg-white px-4 py-3 sm:px-6">
+          {/* Mobile-only controls */}
+          <div className="flex items-center gap-2.5 lg:hidden">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button
@@ -63,15 +75,16 @@ export default function DashboardPage() {
               </SheetContent>
             </Sheet>
             <LogoMark className="h-8 w-8" />
-            <span className="text-[17px] font-bold tracking-tight">
-              FiscalFlow
-            </span>
           </div>
 
-          {/* Content */}
-          <main className="mx-auto w-full max-w-[1320px] px-4 pb-10 pt-4 sm:px-6 lg:px-7 lg:pt-6">
-            <DashboardHeader />
-            <StatsCards className="mt-4" />
+          <DashboardHeader className="min-w-0 flex-1" />
+        </div>
+
+        {/* Scrollable content : full width, pure white, no background */}
+        <main className="ff-scrollbar min-h-0 flex-1 overflow-y-auto">
+          <h1 className="sr-only">FiscalFlow — Dashboard</h1>
+          <div className="px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+            <StatsCards />
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
               <CashFlowChart className="xl:col-span-8" />
               <FinancialBalance className="xl:col-span-4" />
@@ -80,8 +93,8 @@ export default function DashboardPage() {
               <RecentTransactions className="xl:col-span-5" />
               <TaxLiabilities className="xl:col-span-7" />
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );
