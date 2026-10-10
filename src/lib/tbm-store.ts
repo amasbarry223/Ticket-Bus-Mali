@@ -33,6 +33,11 @@ interface TbmState {
 
   setCompanyStatus: (id: string, statut: CompanyStatus, auteur: string) => void;
   addCompany: (company: Company, auteur: string) => void;
+  updateCompany: (
+    id: string,
+    patch: Partial<Omit<Company, "id" | "statut" | "ticketsMois">>,
+    auteur: string
+  ) => void;
   toggleUserBlock: (id: string, auteur: string) => void;
   processRefund: (
     id: string,
@@ -95,6 +100,56 @@ export const useTbmStore = create<TbmState>()((set) => ({
         ...state.audit,
       ],
     })),
+
+  updateCompany: (id, patch, auteur) =>
+    set((state) => {
+      const company = state.companies.find((c) => c.id === id);
+      if (!company) return state;
+      const changes: string[] = [];
+      if (patch.nom && patch.nom !== company.nom)
+        changes.push(`nom → « ${patch.nom} »`);
+      if (patch.contact && patch.contact !== company.contact)
+        changes.push(`e-mail → ${patch.contact}`);
+      if (patch.telephone && patch.telephone !== company.telephone)
+        changes.push(`téléphone → ${patch.telephone}`);
+      if (patch.adresse && patch.adresse !== company.adresse)
+        changes.push(`adresse → ${patch.adresse}`);
+      if (patch.ville && patch.ville !== company.ville)
+        changes.push(`ville → ${patch.ville}`);
+      if (patch.commission !== undefined && patch.commission !== company.commission)
+        changes.push(`commission ${company.commission} % → ${patch.commission} %`);
+      if (patch.params) {
+        const p = patch.params;
+        const o = company.params;
+        if (p.venteEnLigne !== o.venteEnLigne)
+          changes.push(`vente en ligne ${p.venteEnLigne ? "activée" : "désactivée"}`);
+        if (p.venteGuichet !== o.venteGuichet)
+          changes.push(`vente au guichet ${p.venteGuichet ? "activée" : "désactivée"}`);
+        if (p.reservationJours !== o.reservationJours)
+          changes.push(`réservation ${o.reservationJours} → ${p.reservationJours} j`);
+        if (p.annulationGratuite !== o.annulationGratuite)
+          changes.push(`annulation gratuite ${o.annulationGratuite} → ${p.annulationGratuite} h`);
+      }
+      return {
+        companies: state.companies.map((c) =>
+          c.id === id ? { ...c, ...patch } : c
+        ),
+        audit: [
+          makeAudit({
+            date: "À l’instant",
+            auteur,
+            role: "Session en cours",
+            action: "Compagnie" as AuditAction,
+            objet: company.nom,
+            detail:
+              changes.length > 0
+                ? `Fiche modifiée : ${changes.join(" · ")}.`
+                : "Fiche enregistrée sans modification.",
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
 
   toggleUserBlock: (id, auteur) =>
     set((state) => {

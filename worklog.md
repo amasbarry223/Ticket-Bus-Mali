@@ -84,3 +84,25 @@ Stage Summary:
 - Sidebar épuré : logo + navigation (groupes Pilotage/Opérations/Administration) + carte utilisateur, sans barre de recherche
 - Toggle de repli toujours disponible en mode icônes
 - Aucune régression : RBAC par rôle, badges, animations conservés
+
+---
+Task ID: 3
+Agent: Z.ai Code (main)
+Task: Refonte de la page « Compagnies de transport » (A01) selon le cahier des charges
+
+Work Log:
+- data.ts : étendu Company (téléphone, adresse, params: CompanySalesParams — vente en ligne/guichet, réservation J, annulation gratuite h), helpers companyInitials/companyLogoColor (avatars-logo), types + mocks Bus/Ligne/Départ/CompanyEvent (flotte 9 bus, 10 lignes, 8 départs, 11 événements activité/incident) + metas de statut
+- tbm-store.ts : ajouté updateCompany(id, patch, auteur) avec traçage d'audit détaillé des changements (nom, contact, tél, adresse, ville, commission, chaque paramètre de vente)
+- pages/companies.tsx : réécriture complète —
+  • En-tête « Compagnies de transport » + bouton Nouvelle compagnie
+  • Bandeau 4 KPI (actifs x/total, en attente, commission moyenne, tickets du mois)
+  • Recherche étendue (nom/contact/téléphone/ville) + filtre statut
+  • Tableau enrichi : avatar-logo initiales colorées, e-mail + téléphone, commission, tickets, statut, menu actions (Voir la fiche / Modifier / Activer / Suspendre / Remettre en attente), lignes cliquables
+  • Fiche détail (Sheet droite 620px) : logo, badge statut, actions rapides, 3 onglets — Aperçu (coordonnées, infos commerciales, paramètres de vente), Flotte & lignes (bus avec statuts/chauffeurs/places, lignes avec prix FCFA, prochains départs avec places libres), Activité (timeline activités + incidents)
+  • Dialog Modification complet (nom, ville, commission, e-mail, tél, adresse, switches vente en ligne/guichet, réservation, annulation) — états vides gérés pour les nouvelles compagnies
+- Tests Agent Browser : navigation, onglets, édition commission 10→12 + adresse (toast + audit « Fiche modifiée : … »), suspension/réactivation (badges + KPI temps réel), création CPG-006 Koutiala Express (statut attente, états vides OK), journal d'audit alimenté, mobile iPhone 16 (KPI 2×2, tableau scrollable, sheet pleine largeur), 0 erreur console/serveur sur chargement à neuf
+
+Stage Summary:
+- Page A01 conforme au cahier des charges : liste, ajouter/modifier/activer/suspendre, coordonnées+logo, commission & paramètres de vente, historique activités/incidents, consultation bus/lignes/départs
+- Store étendu avec updateCompany tracée au journal d'audit
+- Données de démo riches (flotte, lignes, départs, événements) sans backend
