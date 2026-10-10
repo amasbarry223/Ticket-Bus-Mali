@@ -129,3 +129,26 @@ Stage Summary:
 - Onglet A09 conforme au MVP : lignes interrégionales (départ/destination/arrêts), date/heure/tarif/capacité, 5 statuts de départ, suivi des modifications de programme, places vendues/disponibles
 - Supervision toutes compagnies sans outil d'édition (recommandation respectée)
 - Données partagées avec la fiche compagnie (une seule source : data.ts)
+
+---
+Task ID: 5
+Agent: Z.ai Code (main)
+Task: Refonte « Réservations & Billets » (A10) — onglet support (MVP cahier des charges)
+
+Work Log:
+- data.ts : nouveau modèle réservations — Reservation (référence RES-xxxx, téléphone, canal en_ligne/guichet, opérateur, departId → companyDepartures, statut, tickets, historique, motif), Passenger (nom, adulte/enfant, siège), Ticket (n° TKT-xxxx, tarif RG11, statut), ScanEvent (paiement/émission/scan_embarquement/contrôle/annulation/expiration) + 3 META maps ; 15 réservations de démo couvrant tous les statuts, canaux et compagnies (22 billets : 8 émis, 7 utilisés, 7 annulés) avec historiques réalistes (RG1 blocage 10 min, RG5 paliers d'annulation)
+- sidebar.tsx / shell.tsx : section « Réservations » (icône Ticket, badge 2, admin+support, A10) dans le groupe Opérations + routage
+- pages/reservations.tsx (nouveau) :
+  • 4 KPI (réservations 10 en ligne · 5 guichet, en attente RG1, billets actifs + validés au scan, annulées/expirées)
+  • Recherche support normalisée (espaces/tirets ignorés) : référence, téléphone, n° de billet, nom de passager, trajet + filtres statut/compagnie/jour
+  • Tableau : référence + canal (Smartphone/Store), pile d'avatars passagers, départ associé (trajet + jour/heure), compagnie (avatar), décompte billets par statut, montant TTC (frais de service A04 : 250 FCFA/billet), badge statut
+  • Fiche réservation (Sheet 620px) : copier la référence, téléphone cliquable (tel:), alertes contextuelles (annulée/expirée/en attente/retard du départ), infos (canal, paiement, bus, compagnie), liste passagers & billets (siège, n°, tarif, badge, bouton QR), montant détaillé (billets + frais + total), timeline « Historique des scans & validations »
+  • Billet électronique (Dialog) : en-tête corail, QR code SVG déterministe (grille 21×21 avec motifs de repérage, seed = n° de billet), tampon diagonal VALIDÉ/ANNULÉ, siège/tarif/bus, perforation, n° de billet + note d'usage
+  • Lecture seule : aucune action d'édition (l'émission reste dans l'outil des compagnies)
+- Corrections lint : QR grid déplacé en fonction pure module-level (react-hooks/immutability) ; pluralisations « émis/utilisé/annulé »
+- Vérifié Agent Browser : desktop 1440 (liste, filtre Annulée → RES-2044/2048/2053, fiche confirmée + QR VALIDÉ, fiche annulée + motif + QR ANNULÉ), recherches validées (téléphone « 76421805 », billet « 40812 », référence « RES-2053 », passager « Mariam Traoré »), mobile iPhone 16 (KPI 2×2, fiche en attente avec alerte RG1, scroll tableau), RBAC Support (Réservations visible, admin-only masquées), 0 erreur console/serveur sur rechargement à neuf
+
+Stage Summary:
+- Onglet A10 conforme au MVP : toutes les réservations, recherche rapide multi-critères pour le support, passagers + départ associé, 4 statuts de réservation, billet électronique avec QR code, 3 statuts de billet, historique des scans et validations
+- Périmètre respecté : le support consulte et retrouve un billet ; l'émission/reporting restent chez les compagnies
+- Données liées au reste du back-office : départs partagés (companyDepartures), frais de service et blocage RG1 issus du Paramétrage (A04)

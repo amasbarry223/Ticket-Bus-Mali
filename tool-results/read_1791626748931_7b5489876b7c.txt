@@ -1,0 +1,619 @@
+     1→     1→/* ============================================================
+     2→     2→ *  TBM — Ticket Bus Mali · Back-office
+     3→     3→ *  Données de démonstration (frontend only, aucun backend)
+     4→     4→ *  Règle RG11 : montants en francs CFA, sans décimales.
+     5→     5→ * ============================================================ */
+     6→     6→
+     7→     7→/* ------------------------- Formats ------------------------- */
+     8→     8→
+     9→     9→export function formatFcfa(n: number): string {
+    10→    10→  return `${new Intl.NumberFormat("fr-FR").format(n)} FCFA`;
+    11→    11→}
+    12→    12→
+    13→    13→export function formatNumber(n: number): string {
+    14→    14→  return new Intl.NumberFormat("fr-FR").format(n);
+    15→    15→}
+    16→    16→
+    17→    17→/* ------------------------- Rôles ---------------------------- */
+    18→    18→
+    19→    19→export type StaffRole = "admin" | "support";
+    20→    20→
+    21→    21→export interface StaffUser {
+    22→    22→  name: string;
+    23→    23→  email: string;
+    24→    24→  role: StaffRole;
+    25→    25→}
+    26→    26→
+    27→    27→export const ROLE_LABEL: Record<StaffRole, string> = {
+    28→    28→  admin: "Administrateur TBM",
+    29→    29→  support: "Support TBM",
+    30→    30→};
+    31→    31→
+    32→    32→export const DEMO_ACCOUNTS: Record<
+    33→    33→  StaffRole,
+    34→    34→  { email: string; password: string; name: string }
+    35→    35→> = {
+    36→    36→  admin: {
+    37→    37→    email: "admin@tbm.ml",
+    38→    38→    password: "tbm2026",
+    39→    39→    name: "Daouda FOMBA",
+    40→    40→  },
+    41→    41→  support: {
+    42→    42→    email: "support@tbm.ml",
+    43→    43→    password: "tbm2026",
+    44→    44→    name: "Mody BARRY",
+    45→    45→  },
+    46→    46→};
+    47→    47→
+    48→    48→/* ------------------------ Compagnies (A01) ------------------ */
+    49→    49→
+    50→    50→export type CompanyStatus = "active" | "suspendue" | "attente";
+    51→    51→
+    52→    52→/** Paramètres de vente propres à chaque compagnie. */
+    53→    53→export interface CompanySalesParams {
+    54→    54→  venteEnLigne: boolean;
+    55→    55→  venteGuichet: boolean;
+    56→    56→  reservationJours: number; // délai max de réservation à l'avance
+    57→    57→  annulationGratuite: number; // heures avant départ sans frais
+    58→    58→}
+    59→    59→
+    60→    60→export interface Company {
+    61→    61→  id: string;
+    62→    62→  nom: string;
+    63→    63→  contact: string; // e-mail
+    64→    64→  telephone: string;
+    65→    65→  adresse: string;
+    66→    66→  ville: string;
+    67→    67→  commission: number; // %
+    68→    68→  ticketsMois: number;
+    69→    69→  statut: CompanyStatus;
+    70→    70→  params: CompanySalesParams;
+    71→    71→}
+    72→    72→
+    73→    73→/** Initiales pour l'avatar-logo d'une compagnie (ex. "Bamako Express" → BE). */
+    74→    74→export function companyInitials(nom: string): string {
+    75→    75→  return (
+    76→    76→    nom
+    77→    77→      .split(/\s+/)
+    78→    78→      .map((p) => p[0])
+    79→    79→      .slice(0, 2)
+    80→    80→      .join("")
+    81→    81→      .toUpperCase() || "CP"
+    82→    82→  );
+    83→    83→}
+    84→    84→
+    85→    85→/** Palette de logos (tons chauds, cohérents avec la charte coral). */
+    86→    86→export const COMPANY_LOGO_COLORS: Record<string, string> = {
+    87→    87→  "CPG-001": "bg-coral-50 text-coral-600 ring-coral-200",
+    88→    88→  "CPG-002": "bg-emerald-50 text-emerald-600 ring-emerald-200",
+    89→    89→  "CPG-003": "bg-amber-50 text-amber-600 ring-amber-200",
+    90→    90→  "CPG-004": "bg-violet-100 text-violet-600 ring-violet-200",
+    91→    91→  "CPG-005": "bg-neutral-100 text-neutral-600 ring-neutral-200",
+    92→    92→};
+    93→    93→
+    94→    94→export function companyLogoColor(id: string): string {
+    95→    95→  return (
+    96→    96→    COMPANY_LOGO_COLORS[id] ??
+    97→    97→    "bg-coral-50 text-coral-600 ring-coral-200"
+    98→    98→  );
+    99→    99→}
+   100→   100→
+   101→   101→export const DEFAULT_SALES_PARAMS: CompanySalesParams = {
+   102→   102→  venteEnLigne: true,
+   103→   103→  venteGuichet: true,
+   104→   104→  reservationJours: 30,
+   105→   105→  annulationGratuite: 24,
+   106→   106→};
+   107→   107→
+   108→   108→export const initialCompanies: Company[] = [
+   109→   109→  {
+   110→   110→    id: "CPG-001",
+   111→   111→    nom: "Bamako Express",
+   112→   112→    contact: "contact@bamakoexpress.ml",
+   113→   113→    telephone: "+223 76 12 34 56",
+   114→   114→    adresse: "Rue 224, Hamdallaye ACI 2000",
+   115→   115→    ville: "Bamako",
+   116→   116→    commission: 10,
+   117→   117→    ticketsMois: 1284,
+   118→   118→    statut: "active",
+   119→   119→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 30, annulationGratuite: 24 },
+   120→   120→  },
+   121→   121→  {
+   122→   122→    id: "CPG-002",
+   123→   123→    nom: "Djoliba Transport",
+   124→   124→    contact: "ventes@djoliba.ml",
+   125→   125→    telephone: "+223 66 45 78 90",
+   126→   126→    adresse: "Avenue de l'OUA, Badalabougou",
+   127→   127→    ville: "Bamako",
+   128→   128→    commission: 8,
+   129→   129→    ticketsMois: 967,
+   130→   130→    statut: "active",
+   131→   131→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 21, annulationGratuite: 24 },
+   132→   132→  },
+   133→   133→  {
+   134→   134→    id: "CPG-003",
+   135→   135→    nom: "Sahel Bus",
+   136→   136→    contact: "sahelbus@gmail.com",
+   137→   137→    telephone: "+223 79 20 11 44",
+   138→   138→    adresse: "Quai de Sébougou",
+   139→   139→    ville: "Ségou",
+   140→   140→    commission: 12,
+   141→   141→    ticketsMois: 645,
+   142→   142→    statut: "active",
+   143→   143→    params: { venteEnLigne: true, venteGuichet: false, reservationJours: 14, annulationGratuite: 12 },
+   144→   144→  },
+   145→   145→  {
+   146→   146→    id: "CPG-004",
+   147→   147→    nom: "Sikasso Voyage",
+   148→   148→    contact: "info@sikassovoyage.ml",
+   149→   149→    telephone: "+223 74 88 32 10",
+   150→   150→    adresse: "Gare de Wayerma, sortie nord",
+   151→   151→    ville: "Sikasso",
+   152→   152→    commission: 10,
+   153→   153→    ticketsMois: 516,
+   154→   154→    statut: "attente",
+   155→   155→    params: { venteEnLigne: false, venteGuichet: true, reservationJours: 7, annulationGratuite: 24 },
+   156→   156→  },
+   157→   157→  {
+   158→   158→    id: "CPG-005",
+   159→   159→    nom: "Kayes Lines",
+   160→   160→    contact: "klines@gmail.com",
+   161→   161→    telephone: "+223 70 55 41 23",
+   162→   162→    adresse: "Gare de Kayes N'Di",
+   163→   163→    ville: "Kayes",
+   164→   164→    commission: 11,
+   165→   165→    ticketsMois: 0,
+   166→   166→    statut: "suspendue",
+   167→   167→    params: { venteEnLigne: true, venteGuichet: true, reservationJours: 30, annulationGratuite: 24 },
+   168→   168→  },
+   169→   169→];
+   170→   170→
+   171→   171→/* ------- Flotte, lignes, départs & historique compagnies ----- */
+   172→   172→
+   173→   173→export type BusStatus = "en_service" | "au_depot" | "maintenance";
+   174→   174→
+   175→   175→export interface Bus {
+   176→   176→  id: string;
+   177→   177→  compagnie: string; // Company id
+   178→   178→  immatriculation: string;
+   179→   179→  modele: string;
+   180→   180→  places: number;
+   181→   181→  chauffeur: string;
+   182→   182→  statut: BusStatus;
+   183→   183→}
+   184→   184→
+   185→   185→export const BUS_STATUS_META: Record<BusStatus, { label: string; className: string }> = {
+   186→   186→  en_service: { label: "En service", className: "bg-emerald-50 text-emerald-600" },
+   187→   187→  au_depot: { label: "Au dépôt", className: "bg-neutral-100 text-neutral-500" },
+   188→   188→  maintenance: { label: "Maintenance", className: "bg-amber-50 text-amber-600" },
+   189→   189→};
+   190→   190→
+   191→   191→export interface Line {
+   192→   192→  id: string;
+   193→   193→  compagnie: string;
+   194→   194→  depart: string;
+   195→   195→  arrivee: string;
+   196→   196→  duree: string;
+   197→   197→  distanceKm: number;
+   198→   198→  arrets: string[]; // arrêts intermédiaires
+   199→   199→  prix: number; // FCFA
+   200→   200→  frequence: string;
+   201→   201→}
+   202→   202→
+   203→   203→export type DepartureStatus =
+   204→   204→  | "programme"
+   205→   205→  | "embarquement"
+   206→   206→  | "retarde"
+   207→   207→  | "annule"
+   208→   208→  | "termine";
+   209→   209→
+   210→   210→export interface Departure {
+   211→   211→  id: string;
+   212→   212→  compagnie: string;
+   213→   213→  jour: string; // "Aujourd'hui", "Demain"…
+   214→   214→  heure: string;
+   215→   215→  trajet: string; // "Bamako → Ségou"
+   216→   216→  bus: string; // immatriculation
+   217→   217→  prix: number; // FCFA
+   218→   218→  placesTotal: number;
+   219→   219→  placesDispo: number;
+   220→   220→  plateforme?: string;
+   221→   221→  retardMinutes?: number; // si statut = "retarde"
+   222→   222→  statut: DepartureStatus;
+   223→   223→}
+   224→   224→
+   225→   225→export const DEPARTURE_STATUS_META: Record<
+   226→   226→  DepartureStatus,
+   227→   227→  { label: string; className: string }
+   228→   228→> = {
+   229→   229→  programme: { label: "Programmé", className: "bg-neutral-100 text-neutral-500" },
+   230→   230→  embarquement: { label: "Embarquement", className: "bg-coral-50 text-coral-600" },
+   231→   231→  retarde: { label: "Retardé", className: "bg-amber-50 text-amber-600" },
+   232→   232→  annule: { label: "Annulé", className: "bg-rose-50 text-rose-600" },
+   233→   233→  termine: { label: "Terminé", className: "bg-emerald-50 text-emerald-600" },
+   234→   234→};
+   235→   235→
+   236→   236→export type DepartureModificationType =
+   237→   237→  | "retard"
+   238→   238→  | "annulation"
+   239→   239→  | "changement_bus"
+   240→   240→  | "plateforme"
+   241→   241→  | "info";
+   242→   242→
+   243→   243→export interface DepartureModification {
+   244→   244→  id: string;
+   245→   245→  departId: string;
+   246→   246→  date: string;
+   247→   247→  type: DepartureModificationType;
+   248→   248→  detail: string;
+   249→   249→  auteur: string;
+   250→   250→}
+   251→   251→
+   252→   252→export const DEPARTURE_MODIFICATION_META: Record<
+   253→   253→  DepartureModificationType,
+   254→   254→  { label: string; className: string }
+   255→   255→> = {
+   256→   256→  retard: { label: "Retard", className: "bg-amber-50 text-amber-600" },
+   257→   257→  annulation: { label: "Annulation", className: "bg-rose-50 text-rose-600" },
+   258→   258→  changement_bus: { label: "Changement de bus", className: "bg-violet-100 text-violet-600" },
+   259→   259→  plateforme: { label: "Plateforme", className: "bg-sky-50 text-sky-600" },
+   260→   260→  info: { label: "Information", className: "bg-neutral-100 text-neutral-500" },
+   261→   261→};
+   262→   262→
+   263→   263→export const departureModifications: DepartureModification[] = [
+   264→   264→  {
+   265→   265→    id: "MOD-14",
+   266→   266→    departId: "DEP-04",
+   267→   267→    date: "Aujourd'hui 14:40",
+   268→   268→    type: "retard",
+   269→   269→    detail: "Départ décalé de 45 min — attente de correspondance depuis Fana.",
+   270→   270→    auteur: "Bamako Express — dispatch",
+   271→   271→  },
+   272→   272→  {
+   273→   273→    id: "MOD-13",
+   274→   274→    departId: "DEP-04",
+   275→   275→    date: "Aujourd'hui 12:10",
+   276→   276→    type: "plateforme",
+   277→   277→    detail: "Départ déplacé de la plateforme B à la plateforme C (gare de Sogoniko).",
+   278→   278→    auteur: "Bamako Express — gare",
+   279→   279→  },
+   280→   280→  {
+   281→   281→    id: "MOD-12",
+   282→   282→    departId: "DEP-09",
+   283→   283→    date: "Aujourd'hui 11:20",
+   284→   284→    type: "annulation",
+   285→   285→    detail: "Annulé — pluies torrentielles sur la RN6, tickets reportés sans frais.",
+   286→   286→    auteur: "Sahel Bus — dispatch",
+   287→   287→  },
+   288→   288→  {
+   289→   289→    id: "MOD-11",
+   290→   290→    departId: "DEP-10",
+   291→   291→    date: "Aujourd'hui 10:05",
+   292→   292→    type: "changement_bus",
+   293→   293→    detail: "Bus remplacé — SGO 2233 G (41 places) affecté au départ de demain 07:00.",
+   294→   294→    auteur: "Sahel Bus — dépôt",
+   295→   295→  },
+   296→   296→  {
+   297→   297→    id: "MOD-10",
+   298→   298→    departId: "DEP-03",
+   299→   299→    date: "Hier 16:45",
+   300→   300→    type: "info",
+   301→   301→    detail: "Bus Yutong remis en service après contrôle technique — départ confirmé.",
+   302→   302→    auteur: "Bamako Express — atelier",
+   303→   303→  },
+   304→   304→  {
+   305→   305→    id: "MOD-09",
+   306→   306→    departId: "DEP-08",
+   307→   307→    date: "Hier 09:30",
+   308→   308→    type: "annulation",
+   309→   309→    detail: "Compagnie suspendue — tous les départs sont annulés jusqu'à régularisation.",
+   310→   310→    auteur: "TBM — administration",
+   311→   311→  },
+   312→   312→];
+   313→   313→
+   314→   314→export type CompanyEventType = "activite" | "incident";
+   315→   315→
+   316→   316→export interface CompanyEvent {
+   317→   317→  id: string;
+   318→   318→  compagnie: string;
+   319→   319→  date: string;
+   320→   320→  type: CompanyEventType;
+   321→   321→  titre: string;
+   322→   322→  detail: string;
+   323→   323→}
+   324→   324→
+   325→   325→export const companyBuses: Bus[] = [
+   326→   326→  { id: "BUS-01", compagnie: "CPG-001", immatriculation: "BKO 1204 A", modele: "Mercedes Sprinter", places: 20, chauffeur: "Moussa Keïta", statut: "en_service" },
+   327→   327→  { id: "BUS-02", compagnie: "CPG-001", immatriculation: "BKO 2210 B", modele: "Toyota Coaster", places: 26, chauffeur: "Salif Diarra", statut: "en_service" },
+   328→   328→  { id: "BUS-03", compagnie: "CPG-001", immatriculation: "BKO 3317 C", modele: "Yutong ZK6119", places: 41, chauffeur: "—", statut: "maintenance" },
+   329→   329→  { id: "BUS-04", compagnie: "CPG-002", immatriculation: "BKO 4421 D", modele: "Toyota Hiace", places: 18, chauffeur: "Adama Touré", statut: "en_service" },
+   330→   330→  { id: "BUS-05", compagnie: "CPG-002", immatriculation: "BKO 5512 E", modele: "Mercedes Sprinter", places: 20, chauffeur: "—", statut: "au_depot" },
+   331→   331→  { id: "BUS-06", compagnie: "CPG-003", immatriculation: "SGO 1102 F", modele: "Toyota Coaster", places: 26, chauffeur: "Bakary Koné", statut: "en_service" },
+   332→   332→  { id: "BUS-07", compagnie: "CPG-003", immatriculation: "SGO 2233 G", modele: "Yutong ZK6119", places: 41, chauffeur: "—", statut: "au_depot" },
+   333→   333→  { id: "BUS-08", compagnie: "CPG-004", immatriculation: "SKO 1010 H", modele: "Toyota Hiace", places: 18, chauffeur: "Jean Diarra", statut: "en_service" },
+   334→   334→  { id: "BUS-09", compagnie: "CPG-005", immatriculation: "KYS 2040 J", modele: "Mercedes Sprinter", places: 20, chauffeur: "—", statut: "maintenance" },
+   335→   335→];
+   336→   336→
+   337→   337→export const companyLines: Line[] = [
+   338→   338→  { id: "LIG-01", compagnie: "CPG-001", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+   339→   339→  { id: "LIG-02", compagnie: "CPG-001", depart: "Bamako", arrivee: "Sikasso", duree: "5 h 30", distanceKm: 475, arrets: ["Bougouni", "Kolondiéba"], prix: 9000, frequence: "Quotidien" },
+   340→   340→  { id: "LIG-03", compagnie: "CPG-001", depart: "Bamako", arrivee: "Kayes", duree: "9 h", distanceKm: 580, arrets: ["Kita", "Bafoulabé"], prix: 15000, frequence: "Quotidien" },
+   341→   341→  { id: "LIG-04", compagnie: "CPG-002", depart: "Bamako", arrivee: "Mopti", duree: "7 h", distanceKm: 640, arrets: ["Ségou", "Bla", "San"], prix: 11000, frequence: "Lun · Mer · Ven" },
+   342→   342→  { id: "LIG-05", compagnie: "CPG-002", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+   343→   343→  { id: "LIG-06", compagnie: "CPG-003", depart: "Ségou", arrivee: "Bamako", duree: "3 h", distanceKm: 235, arrets: ["Ouélessébougou", "Kati"], prix: 5000, frequence: "Quotidien" },
+   344→   344→  { id: "LIG-07", compagnie: "CPG-003", depart: "Ségou", arrivee: "Mopti", duree: "4 h 30", distanceKm: 405, arrets: ["Bla", "San"], prix: 8500, frequence: "Mar · Jeu · Sam" },
+   345→   345→  { id: "LIG-08", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Bamako", duree: "5 h 30", distanceKm: 475, arrets: ["Kolondiéba", "Bougouni"], prix: 9000, frequence: "Quotidien" },
+   346→   346→  { id: "LIG-09", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Koutiala", duree: "2 h 30", distanceKm: 135, arrets: ["Zangasso"], prix: 4500, frequence: "Quotidien" },
+   347→   347→  { id: "LIG-10", compagnie: "CPG-005", depart: "Kayes", arrivee: "Bamako", duree: "10 h", distanceKm: 580, arrets: ["Bafoulabé", "Kita"], prix: 16000, frequence: "Quotidien" },
+   348→   348→];
+   349→   349→
+   350→   350→export const companyDepartures: Departure[] = [
+   351→   351→  { id: "DEP-01", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "07:30", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 5, plateforme: "A", statut: "embarquement" },
+   352→   352→  { id: "DEP-02", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "13:00", trajet: "Bamako → Sikasso", bus: "BKO 2210 B", prix: 9000, placesTotal: 26, placesDispo: 12, plateforme: "C", statut: "programme" },
+   353→   353→  { id: "DEP-03", compagnie: "CPG-001", jour: "Demain", heure: "06:30", trajet: "Bamako → Kayes", bus: "BKO 3317 C", prix: 15000, placesTotal: 41, placesDispo: 41, plateforme: "D", statut: "programme" },
+   354→   354→  { id: "DEP-04", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "16:00", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 8, plateforme: "A", retardMinutes: 45, statut: "retarde" },
+   355→   355→  { id: "DEP-05", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "06:00", trajet: "Bamako → Mopti", bus: "BKO 4421 D", prix: 11000, placesTotal: 18, placesDispo: 3, plateforme: "B", statut: "programme" },
+   356→   356→  { id: "DEP-06", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "08:30", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 4, plateforme: "B", statut: "termine" },
+   357→   357→  { id: "DEP-07", compagnie: "CPG-002", jour: "Demain", heure: "07:00", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 20, plateforme: "B", statut: "programme" },
+   358→   358→  { id: "DEP-08", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 1102 F", prix: 5000, placesTotal: 26, placesDispo: 8, statut: "embarquement" },
+   359→   359→  { id: "DEP-09", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "14:00", trajet: "Ségou → Mopti", bus: "SGO 2233 G", prix: 8500, placesTotal: 41, placesDispo: 41, statut: "annule" },
+   360→   360→  { id: "DEP-10", compagnie: "CPG-003", jour: "Demain", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 2233 G", prix: 5000, placesTotal: 41, placesDispo: 10, statut: "programme" },
+   361→   361→  { id: "DEP-11", compagnie: "CPG-004", jour: "Demain", heure: "05:30", trajet: "Sikasso → Bamako", bus: "SKO 1010 H", prix: 9000, placesTotal: 18, placesDispo: 11, statut: "programme" },
+   362→   362→  { id: "DEP-12", compagnie: "CPG-004", jour: "Demain", heure: "08:00", trajet: "Sikasso → Koutiala", bus: "SKO 1010 H", prix: 4500, placesTotal: 18, placesDispo: 14, statut: "programme" },
+   363→   363→  { id: "DEP-13", compagnie: "CPG-005", jour: "Aujourd'hui", heure: "06:00", trajet: "Kayes → Bamako", bus: "KYS 2040 J", prix: 16000, placesTotal: 20, placesDispo: 20, statut: "annule" },
+   364→   364→];
+   365→   365→
+   366→   366→export const companyEvents: CompanyEvent[] = [
+   367→   367→  { id: "EVT-31", compagnie: "CPG-001", date: "06/10 07:45", type: "activite", titre: "Vente en ligne rétablie", detail: "Réception des paiements Orange Money confirmée après l'incident de la veille." },
+   368→   368→  { id: "EVT-30", compagnie: "CPG-001", date: "05/10 15:20", type: "activite", titre: "Nouveau bus livré — BKO 3317 C", detail: "Yutong 41 places ajouté à la flotte ; mise en service après contrôle technique." },
+   369→   369→  { id: "EVT-29", compagnie: "CPG-001", date: "02/10 09:10", type: "incident", titre: "Retard de 45 min — Bamako → Ségou", detail: "Panne de climatisation sur BKO 1204 A, voyageurs transférés sur le départ suivant." },
+   370→   370→  { id: "EVT-28", compagnie: "CPG-001", date: "28/09 11:00", type: "activite", titre: "Commission ajustée à 10 %", detail: "Passage de 9 % à 10 % suite à l'accord commercial du 28/09." },
+   371→   371→  { id: "EVT-27", compagnie: "CPG-002", date: "05/10 08:30", type: "activite", titre: "Paiement Orange Money activé", detail: "Second opérateur mobile ajouté aux paramètres de vente." },
+   372→   372→  { id: "EVT-26", compagnie: "CPG-002", date: "01/10 17:40", type: "incident", titre: "Retard de 1 h — Bamako → Mopti", detail: "Embouteillage exceptionnel au pont Fahd, départ décalé de 60 minutes." },
+   373→   373→  { id: "EVT-25", compagnie: "CPG-003", date: "03/10 10:15", type: "activite", titre: "Guichet de Sébougou rouvert", detail: "Point de vente physique de nouveau opérationnel après travaux." },
+   374→   374→  { id: "EVT-24", compagnie: "CPG-003", date: "30/09 16:50", type: "incident", titre: "Départ 16:30 annulé — Ségou → Mopti", detail: "Pluies torrentielles sur la RN6, 12 tickets reportés sans frais." },
+   375→   375→  { id: "EVT-23", compagnie: "CPG-004", date: "02/10 14:00", type: "activite", titre: "Dossier de validation complété", detail: "RCCM, agrément de transport et coordonnées bancaires transmis." },
+   376→   376→  { id: "EVT-22", compagnie: "CPG-005", date: "04/10 09:15", type: "incident", titre: "Suspension de la compagnie", detail: "Documents de reversal manquants — ventes en ligne et guichet bloquées." },
+   377→   377→  { id: "EVT-21", compagnie: "CPG-005", date: "25/09 11:30", type: "activite", titre: "Audit administratif planifié", detail: "Contrôle sur site programmé au dépôt de Kayes N'Di." },
+   378→   378→];
+   379→   379→
+   380→   380→export const COMPANY_STATUS_META: Record<
+   381→   381→  CompanyStatus,
+   382→   382→  { label: string; className: string }
+   383→   383→> = {
+   384→   384→  active: { label: "Active", className: "bg-emerald-50 text-emerald-600" },
+   385→   385→  suspendue: { label: "Suspendue", className: "bg-rose-50 text-rose-600" },
+   386→   386→  attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   387→   387→};
+   388→   388→
+   389→   389→
+   390→   390→
+   391→   391→/* ----------------------- Transactions (A02) ----------------- */
+   392→   392→
+   393→   393→export type PaymentStatus =
+   394→   394→  | "reussi"
+   395→   395→  | "en_attente"
+   396→   396→  | "echoue"
+   397→   397→  | "expire"
+   398→   398→  | "rembourse";
+   399→   399→
+   400→   400→export type Operator = "Orange Money" | "Moov Money";
+   401→   401→
+   402→   402→export interface Transaction {
+   403→   403→  id: string;
+   404→   404→  date: string;
+   405→   405→  compagnie: string;
+   406→   406→  operateur: Operator;
+   407→   407→  montant: number; // FCFA
+   408→   408→  statut: PaymentStatus;
+   409→   409→}
+   410→   410→
+   411→   411→export const PAYMENT_STATUS_META: Record<
+   412→   412→  PaymentStatus,
+   413→   413→  { label: string; className: string }
+   414→   414→> = {
+   415→   415→  reussi: { label: "Réussi", className: "bg-emerald-50 text-emerald-600" },
+   416→   416→  en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   417→   417→  echoue: { label: "Échoué", className: "bg-rose-50 text-rose-600" },
+   418→   418→  expire: { label: "Expiré", className: "bg-neutral-100 text-neutral-500" },
+   419→   419→  rembourse: { label: "Remboursé", className: "bg-violet-100 text-violet-600" },
+   420→   420→};
+   421→   421→
+   422→   422→export const OPERATORS: Operator[] = ["Orange Money", "Moov Money"];
+   423→   423→
+   424→   424→export const transactions: Transaction[] = [
+   425→   425→  { id: "TXN-10248", date: "06/10 08:12", compagnie: "Bamako Express", operateur: "Orange Money", montant: 12500, statut: "reussi" },
+   426→   426→  { id: "TXN-10247", date: "06/10 07:54", compagnie: "Djoliba Transport", operateur: "Moov Money", montant: 10000, statut: "reussi" },
+   427→   427→  { id: "TXN-10246", date: "06/10 07:31", compagnie: "Sahel Bus", operateur: "Orange Money", montant: 7500, statut: "en_attente" },
+   428→   428→  { id: "TXN-10245", date: "05/10 19:46", compagnie: "Bamako Express", operateur: "Orange Money", montant: 15000, statut: "reussi" },
+   429→   429→  { id: "TXN-10244", date: "05/10 18:22", compagnie: "Sikasso Voyage", operateur: "Moov Money", montant: 12500, statut: "echoue" },
+   430→   430→  { id: "TXN-10243", date: "05/10 17:05", compagnie: "Djoliba Transport", operateur: "Orange Money", montant: 10000, statut: "rembourse" },
+   431→   431→  { id: "TXN-10242", date: "05/10 15:48", compagnie: "Sahel Bus", operateur: "Moov Money", montant: 7500, statut: "reussi" },
+   432→   432→  { id: "TXN-10241", date: "05/10 14:19", compagnie: "Bamako Express", operateur: "Orange Money", montant: 22500, statut: "expire" },
+   433→   433→  { id: "TXN-10240", date: "05/10 11:37", compagnie: "Sikasso Voyage", operateur: "Orange Money", montant: 12500, statut: "reussi" },
+   434→   434→  { id: "TXN-10239", date: "04/10 20:03", compagnie: "Djoliba Transport", operateur: "Moov Money", montant: 10000, statut: "reussi" },
+   435→   435→];
+   436→   436→
+   437→   437→/* ----------------------- Remboursements (A03) --------------- */
+   438→   438→
+   439→   439→export type RefundStatus = "en_attente" | "traite" | "refuse";
+   440→   440→
+   441→   441→export interface Refund {
+   442→   442→  id: string;
+   443→   443→  transaction: string;
+   444→   444→  passager: string;
+   445→   445→  montant: number;
+   446→   446→  motif: string;
+   447→   447→  demande: string;
+   448→   448→  statut: RefundStatus;
+   449→   449→  justification?: string;
+   450→   450→  traitePar?: string;
+   451→   451→}
+   452→   452→
+   453→   453→export const REFUND_STATUS_META: Record<
+   454→   454→  RefundStatus,
+   455→   455→  { label: string; className: string }
+   456→   456→> = {
+   457→   457→  en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+   458→   458→  traite: { label: "Traité", className: "bg-emerald-50 text-emerald-600" },
+   459→   459→  refuse: { label: "Refusé", className: "bg-rose-50 text-rose-600" },
+   460→   460→};
+   461→   461→
+   462→   462→export const initialRefunds: Refund[] = [
+   463→   463→  { id: "RMB-031", transaction: "TXN-10243", passager: "Aïcha Sissoko", montant: 10000, motif: "Départ annulé par la compagnie", demande: "05/10 18:40", statut: "en_attente" },
+   464→   464→  { id: "RMB-030", transaction: "TXN-10244", passager: "Moussa Traoré", montant: 12500, motif: "Argent débité, ticket non reçu", demande: "05/10 18:55", statut: "en_attente" },
+   465→   465→  { id: "RMB-029", transaction: "TXN-10238", passager: "Fatoumata Diallo", montant: 7500, motif: "Annulation voyageur (plus de 24 h)", demande: "04/10 10:12", statut: "traite", justification: "Délai > 24 h — remboursement intégral conforme à la politique.", traitePar: "Mody BARRY" },
+   466→   466→  { id: "RMB-028", transaction: "TXN-10235", passager: "Ibrahim Keïta", montant: 15000, motif: "Paiement en double", demande: "03/10 16:27", statut: "traite", justification: "Double débit confirmé par le relevé Orange Money.", traitePar: "Mody BARRY" },
+   467→   467→  { id: "RMB-027", transaction: "TXN-10233", passager: "Salif Diarra", montant: 5000, motif: "Annulation voyageur (moins de 6 h)", demande: "02/10 09:44", statut: "refuse", justification: "Moins de 6 h avant le départ : aucun remboursement (RG5).", traitePar: "Mody BARRY" },
+   468→   468→];
+   469→   469→
+   470→   470→/* ------------------------- Utilisateurs (A05) --------------- */
+   471→   471→
+   472→   472→export type BackofficeRole =
+   473→   473→  | "Administrateur TBM"
+   474→   474→  | "Support TBM"
+   475→   475→  | "Gestionnaire de compagnie"
+   476→   476→  | "Agent de guichet"
+   477→   477→  | "Contrôleur";
+   478→   478→
+   479→   479→export interface BackofficeUser {
+   480→   480→  id: string;
+   481→   481→  nom: string;
+   482→   482→  email: string;
+   483→   483→  role: BackofficeRole;
+   484→   484→  compagnie?: string;
+   485→   485→  bloque: boolean;
+   486→   486→}
+   487→   487→
+   488→   488→export const initialUsers: BackofficeUser[] = [
+   489→   489→  { id: "USR-01", nom: "Daouda FOMBA", email: "admin@tbm.ml", role: "Administrateur TBM", bloque: false },
+   490→   490→  { id: "USR-02", nom: "Mody BARRY", email: "support@tbm.ml", role: "Support TBM", bloque: false },
+   491→   491→  { id: "USR-03", nom: "Aminata Traoré", email: "a.traore@bamakoexpress.ml", role: "Gestionnaire de compagnie", compagnie: "Bamako Express", bloque: false },
+   492→   492→  { id: "USR-04", nom: "Moussa Keïta", email: "m.keita@sahelbus.ml", role: "Agent de guichet", compagnie: "Sahel Bus", bloque: false },
+   493→   493→  { id: "USR-05", nom: "Fatoumata Cissé", email: "f.cisse@djoliba.ml", role: "Gestionnaire de compagnie", compagnie: "Djoliba Transport", bloque: true },
+   494→   494→  { id: "USR-06", nom: "Ibrahim Coulibaly", email: "i.coulibaly@gmail.com", role: "Contrôleur", compagnie: "Sikasso Voyage", bloque: false },
+   495→   495→];
+   496→   496→
+   497→   497→/* ------------------------ Journal d'audit (A06) ------------- */
+   498→   498→
+   499→   499→export type AuditAction =
+   500→   500→  | "Connexion"
+   501→   501→  | "Remboursement"
+   502→   502→  | "Modification prix"
+   503→   503→  | "Annulation"
+   504→   504→  | "Compagnie"
+   505→   505→  | "Paramétrage"
+   506→   506→  | "Utilisateur";
+   507→   507→
+   508→   508→export interface AuditEntry {
+   509→   509→  id: string;
+   510→   510→  date: string;
+   511→   511→  auteur: string;
+   512→   512→  role: string;
+   513→   513→  action: AuditAction;
+   514→   514→  objet: string;
+   515→   515→  detail: string;
+   516→   516→}
+   517→   517→
+   518→   518→export const AUDIT_ACTION_META: Record<AuditAction, { className: string }> = {
+   519→   519→  Connexion: { className: "bg-neutral-100 text-neutral-500" },
+   520→   520→  Remboursement: { className: "bg-violet-100 text-violet-600" },
+   521→   521→  "Modification prix": { className: "bg-amber-50 text-amber-600" },
+   522→   522→  Annulation: { className: "bg-rose-50 text-rose-600" },
+   523→   523→  Compagnie: { className: "bg-coral-50 text-coral-600" },
+   524→   524→  Paramétrage: { className: "bg-sky-50 text-sky-600" },
+   525→   525→  Utilisateur: { className: "bg-emerald-50 text-emerald-600" },
+   526→   526→};
+   527→   527→
+   528→   528→export const initialAudit: AuditEntry[] = [
+   529→   529→  { id: "AUD-214", date: "06/10 08:02", auteur: "Mody BARRY", role: "Support TBM", action: "Connexion", objet: "Session back-office", detail: "Connexion depuis Bamako (IP 41.79.x.x)." },
+   530→   530→  { id: "AUD-213", date: "05/10 18:58", auteur: "Mody BARRY", role: "Support TBM", action: "Remboursement", objet: "RMB-029 · Fatoumata Diallo", detail: "Remboursement de 7 500 FCFA validé — délai > 24 h." },
+   531→   531→  { id: "AUD-212", date: "05/10 17:31", auteur: "Daouda FOMBA", role: "Administrateur TBM", action: "Modification prix", objet: "Bamako Express · commission", detail: "Commission passée de 9 % à 10 %." },
+   532→   532→  { id: "AUD-211", date: "05/10 16:44", auteur: "Daouda FOMBA", role: "Administrateur TBM", action: "Annulation", objet: "Départ BAM-SKG 16:30", detail: "Départ annulé — 12 tickets remboursés automatiquement." },
+   533→   533→  { id: "AUD-210", date: "04/10 11:20", auteur: "Daouda FOMBA", role: "Administrateur TBM", action: "Compagnie", objet: "Kayes Lines", detail: "Compagnie suspendue : documents de reversal manquants." },
+   534→   534→  { id: "AUD-209", date: "04/10 09:15", auteur: "Daouda FOMBA", role: "Administrateur TBM", action: "Utilisateur", objet: "Fatoumata Cissé", detail: "Compte bloqué après 5 échecs de connexion." },
+   535→   535→  { id: "AUD-208", date: "03/10 14:07", auteur: "Mody BARRY", role: "Support TBM", action: "Remboursement", objet: "RMB-028 · Ibrahim Keïta", detail: "Double débit confirmé — remboursement de 15 000 FCFA." },
+   536→   536→];
+   537→   537→
+   538→   538→/* -------------------- Villes, gares, notifications (A07) ---- */
+   539→   539→
+   540→   540→export interface City {
+   541→   541→  id: string;
+   542→   542→  nom: string;
+   543→   543→  region: string;
+   544→   544→  gares: string[];
+   545→   545→}
+   546→   546→
+   547→   547→export const cities: City[] = [
+   548→   548→  { id: "VIL-01", nom: "Bamako", region: "District de Bamako", gares: ["Gare de Sogoniko", "Gare de Badalabougou"] },
+   549→   549→  { id: "VIL-02", nom: "Ségou", region: "Région de Ségou", gares: ["Gare de Sébougou"] },
+   550→   550→  { id: "VIL-03", nom: "Sikasso", region: "Région de Sikasso", gares: ["Gare de Wayerma"] },
+   551→   551→  { id: "VIL-04", nom: "Mopti", region: "Région de Mopti", gares: ["Gare de Sévaré"] },
+   552→   552→  { id: "VIL-05", nom: "Kayes", region: "Région de Kayes", gares: ["Gare de Kayes N'Di"] },
+   553→   553→  { id: "VIL-06", nom: "Koutiala", region: "Région de Sikasso", gares: ["Gare centrale"] },
+   554→   554→];
+   555→   555→
+   556→   556→/* ------------------------- Statistiques (A08) --------------- */
+   557→   557→
+   558→   558→export interface SalesPoint {
+   559→   559→  day: string;
+   560→   560→  ventes: number;
+   561→   561→}
+   562→   562→
+   563→   563→export const salesSeries: SalesPoint[] = [
+   564→   564→  { day: "23/09", ventes: 845000 },
+   565→   565→  { day: "24/09", ventes: 912000 },
+   566→   566→  { day: "25/09", ventes: 780000 },
+   567→   567→  { day: "26/09", ventes: 1024000 },
+   568→   568→  { day: "27/09", ventes: 1189000 },
+   569→   569→  { day: "28/09", ventes: 967000 },
+   570→   570→  { day: "29/09", ventes: 745000 },
+   571→   571→  { day: "30/09", ventes: 892000 },
+   572→   572→  { day: "01/10", ventes: 1053000 },
+   573→   573→  { day: "02/10", ventes: 1231000 },
+   574→   574→  { day: "03/10", ventes: 1104000 },
+   575→   575→  { day: "04/10", ventes: 1348000 },
+   576→   576→  { day: "05/10", ventes: 1289000 },
+   577→   577→  { day: "06/10", ventes: 1245000 },
+   578→   578→];
+   579→   579→
+   580→   580→export const topCompanies = [
+   581→   581→  { nom: "Bamako Express", ventes: 486200, part: 39 },
+   582→   582→  { nom: "Djoliba Transport", ventes: 341800, part: 27 },
+   583→   583→  { nom: "Sahel Bus", ventes: 228500, part: 18 },
+   584→   584→  { nom: "Sikasso Voyage", ventes: 188500, part: 16 },
+   585→   585→];
+   586→   586→
+   587→   587→export const globalStats = {
+   588→   588→  ventesAujourdhui: 1245000,
+   589→   589→  deltaVentes: "+12 %",
+   590→   590→  ticketsMois: 3412,
+   591→   591→  deltaTickets: "+8,4 %",
+   592→   592→  compagniesActives: 4,
+   593→   593→  compagniesTotal: 6,
+   594→   594→  conversion: 62,
+   595→   595→  deltaConversion: "+3 pts",
+   596→   596→};
+   597→   597→
+   598→   598→/* ------------------------- Paramétrage (A04) ---------------- */
+   599→   599→
+   600→   600→export interface Settings {
+   601→   601→  fraisMode: "fixe" | "pourcentage";
+   602→   602→  fraisValeur: number;
+   603→   603→  commissionDefaut: number;
+   604→   604→  blocageMinutes: number; // RG1
+   605→   605→  annulationPlus24h: number; // % remboursé
+   606→   606→  annulation24a6h: number;
+   607→   607→  annulationMoins6h: number;
+   608→   608→}
+   609→   609→
+   610→   610→export const defaultSettings: Settings = {
+   611→   611→  fraisMode: "fixe",
+   612→   612→  fraisValeur: 250,
+   613→   613→  commissionDefaut: 10,
+   614→   614→  blocageMinutes: 10,
+   615→   615→  annulationPlus24h: 100,
+   616→   616→  annulation24a6h: 50,
+   617→   617→  annulationMoins6h: 0,
+   618→   618→};
+   619→   619→

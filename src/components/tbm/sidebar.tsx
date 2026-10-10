@@ -15,6 +15,7 @@ import {
   Route,
   ScrollText,
   Settings,
+  Ticket,
   Undo2,
   Users,
 } from "lucide-react";
@@ -30,6 +31,7 @@ export type SectionId =
   | "refunds"
   | "cities"
   | "lines"
+  | "reservations"
   | "users"
   | "audit"
   | "settings";
@@ -97,6 +99,13 @@ export const SECTION_GROUPS: SectionGroup[] = [
         label: "Lignes & Départs",
         icon: Route,
         roles: ["admin", "support"], // A09 — supervision inter-compagnies
+      },
+      {
+        id: "reservations",
+        label: "Réservations",
+        icon: Ticket,
+        roles: ["admin", "support"], // A10 — réservations & billets (support)
+        badge: "2",
       },
     ],
   },

@@ -20,6 +20,7 @@ import { TransactionsPage } from "@/components/tbm/pages/transactions";
 import { RefundsPage } from "@/components/tbm/pages/refunds";
 import { CitiesPage } from "@/components/tbm/pages/cities";
 import { LinesPage } from "@/components/tbm/pages/lines";
+import { ReservationsPage } from "@/components/tbm/pages/reservations";
 import { UsersPage } from "@/components/tbm/pages/users";
 import { AuditLogPage } from "@/components/tbm/pages/audit-log";
 import { SettingsPage } from "@/components/tbm/pages/settings";
@@ -56,6 +57,8 @@ export function TbmShell() {
         return <CitiesPage />;
       case "lines":
         return <LinesPage />;
+      case "reservations":
+        return <ReservationsPage />;
       case "users":
         return <UsersPage />;
       case "audit":

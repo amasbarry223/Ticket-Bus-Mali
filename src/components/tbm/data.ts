@@ -616,3 +616,338 @@ export const defaultSettings: Settings = {
   annulation24a6h: 50,
   annulationMoins6h: 0,
 };
+
+/* --------------- Réservations & billets (A10) --------------- */
+
+export type ReservationStatus = "en_attente" | "confirmee" | "expiree" | "annulee";
+
+export const RESERVATION_STATUS_META: Record<
+  ReservationStatus,
+  { label: string; className: string }
+> = {
+  en_attente: { label: "En attente", className: "bg-amber-50 text-amber-600" },
+  confirmee: { label: "Confirmée", className: "bg-emerald-50 text-emerald-600" },
+  expiree: { label: "Expirée", className: "bg-neutral-100 text-neutral-500" },
+  annulee: { label: "Annulée", className: "bg-rose-50 text-rose-600" },
+};
+
+export type TicketStatus = "emis" | "utilise" | "annule";
+
+export const TICKET_STATUS_META: Record<
+  TicketStatus,
+  { label: string; className: string }
+> = {
+  emis: { label: "Émis", className: "bg-coral-50 text-coral-600" },
+  utilise: { label: "Utilisé", className: "bg-emerald-50 text-emerald-600" },
+  annule: { label: "Annulé", className: "bg-rose-50 text-rose-600" },
+};
+
+export interface Passenger {
+  nom: string;
+  type: "adulte" | "enfant";
+  siege: string; // ex. « 12A »
+}
+
+export interface Ticket {
+  id: string; // numéro de billet imprimé / QR
+  passager: Passenger;
+  tarif: number; // FCFA (RG11)
+  statut: TicketStatus;
+}
+
+export type ScanKind =
+  | "paiement"
+  | "emission"
+  | "scan_embarquement"
+  | "controle"
+  | "annulation"
+  | "expiration";
+
+export interface ScanEvent {
+  id: string;
+  date: string; // ex. « Aujourd'hui 07:12 »
+  type: ScanKind;
+  detail: string;
+  agent: string;
+}
+
+export const SCAN_KIND_META: Record<
+  ScanKind,
+  { label: string; className: string }
+> = {
+  paiement: { label: "Paiement", className: "bg-emerald-50 text-emerald-600" },
+  emission: { label: "Émission", className: "bg-coral-50 text-coral-600" },
+  scan_embarquement: { label: "Scan embarquement", className: "bg-sky-50 text-sky-600" },
+  controle: { label: "Contrôle à bord", className: "bg-violet-100 text-violet-600" },
+  annulation: { label: "Annulation", className: "bg-rose-50 text-rose-600" },
+  expiration: { label: "Expiration", className: "bg-neutral-100 text-neutral-500" },
+};
+
+export interface Reservation {
+  id: string; // référence RES-xxxx
+  telephone: string; // n° du voyageur principal
+  canal: "en_ligne" | "guichet";
+  operateur?: "Orange Money" | "Moov Money" | null; // null pour le guichet
+  departId: string; // → companyDepartures
+  statut: ReservationStatus;
+  creee: string; // ex. « Aujourd'hui 06:42 »
+  tickets: Ticket[];
+  historique: ScanEvent[];
+  motif?: string; // motif d'annulation / d'expiration
+}
+
+export const reservations: Reservation[] = [
+  {
+    id: "RES-2041",
+    telephone: "+223 76 42 18 05",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-01",
+    statut: "confirmee",
+    creee: "Aujourd'hui 06:15",
+    tickets: [
+      { id: "TKT-2605-40812", passager: { nom: "Aïssata Coulibaly", type: "adulte", siege: "12A" }, tarif: 5000, statut: "utilise" },
+      { id: "TKT-2605-40813", passager: { nom: "Moussa Keïta", type: "adulte", siege: "12B" }, tarif: 5000, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-301", date: "Aujourd'hui 07:12", type: "scan_embarquement", detail: "Siège 12A — portique d'embarquement, gare de Sogoniko.", agent: "Contrôle TBM — F. Sissoko" },
+      { id: "SCN-300", date: "Aujourd'hui 06:15", type: "emission", detail: "2 billets émis et envoyés par SMS au +223 76 42 18 05.", agent: "Système — plateforme TBM" },
+      { id: "SCN-299", date: "Aujourd'hui 06:15", type: "paiement", detail: "Paiement Orange Money confirmé — 10 000 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2042",
+    telephone: "+223 66 05 77 21",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-04",
+    statut: "confirmee",
+    creee: "Hier 18:02",
+    tickets: [
+      { id: "TKT-2605-40901", passager: { nom: "Fatoumata Diallo", type: "adulte", siege: "05C" }, tarif: 5000, statut: "emis" },
+      { id: "TKT-2605-40902", passager: { nom: "Ibrahim Maïga", type: "adulte", siege: "05D" }, tarif: 5000, statut: "emis" },
+      { id: "TKT-2605-40903", passager: { nom: "Kadiatou Sangaré", type: "enfant", siege: "05E" }, tarif: 2500, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-310", date: "Aujourd'hui 14:40", type: "emission", detail: "Billets revalidés après report — nouvelle heure estimée 16:45 transmise par SMS.", agent: "Système — plateforme TBM" },
+      { id: "SCN-305", date: "Hier 18:02", type: "emission", detail: "3 billets émis et envoyés par SMS au +223 66 05 77 21.", agent: "Système — plateforme TBM" },
+      { id: "SCN-304", date: "Hier 18:02", type: "paiement", detail: "Paiement Orange Money confirmé — 12 500 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2043",
+    telephone: "+223 91 26 03 47",
+    canal: "en_ligne",
+    operateur: "Moov Money",
+    departId: "DEP-02",
+    statut: "en_attente",
+    creee: "Aujourd'hui 09:58",
+    tickets: [],
+    historique: [
+      { id: "SCN-312", date: "Aujourd'hui 09:59", type: "paiement", detail: "Paiement Moov Money initié — en attente de confirmation USSD.", agent: "Système — plateforme TBM" },
+      { id: "SCN-311", date: "Aujourd'hui 09:58", type: "emission", detail: "Réservation créée — 1 place bloquée pendant 10 min (RG1).", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2044",
+    telephone: "+223 78 30 44 92",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-09",
+    statut: "annulee",
+    creee: "04/10 19:22",
+    motif: "Départ annulé par la compagnie — pluies torrentielles sur la RN6.",
+    tickets: [
+      { id: "TKT-2605-40920", passager: { nom: "Sékou Konaté", type: "adulte", siege: "03A" }, tarif: 8500, statut: "annule" },
+      { id: "TKT-2605-40921", passager: { nom: "Rokia Fofana", type: "adulte", siege: "03B" }, tarif: 8500, statut: "annule" },
+    ],
+    historique: [
+      { id: "SCN-320", date: "Aujourd'hui 11:20", type: "annulation", detail: "Billets annulés après annulation du départ — remboursement automatique engagé (17 000 FCFA).", agent: "Sahel Bus — dispatch" },
+      { id: "SCN-318", date: "04/10 19:22", type: "emission", detail: "2 billets émis et envoyés par SMS au +223 78 30 44 92.", agent: "Système — plateforme TBM" },
+      { id: "SCN-317", date: "04/10 19:22", type: "paiement", detail: "Paiement Orange Money confirmé — 17 000 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2045",
+    telephone: "+223 76 88 51 14",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-05",
+    statut: "confirmee",
+    creee: "Hier 15:41",
+    tickets: [
+      { id: "TKT-2605-40933", passager: { nom: "Oumar Cissé", type: "adulte", siege: "08A" }, tarif: 11000, statut: "utilise" },
+      { id: "TKT-2605-40934", passager: { nom: "Mariam Traoré", type: "adulte", siege: "08B" }, tarif: 11000, statut: "utilise" },
+    ],
+    historique: [
+      { id: "SCN-316", date: "Aujourd'hui 05:49", type: "scan_embarquement", detail: "Siège 08B — portique d'embarquement, gare de Sogoniko.", agent: "Contrôle TBM — A. Dembélé" },
+      { id: "SCN-315", date: "Aujourd'hui 05:48", type: "scan_embarquement", detail: "Siège 08A — portique d'embarquement, gare de Sogoniko.", agent: "Contrôle TBM — A. Dembélé" },
+      { id: "SCN-314", date: "Hier 15:41", type: "emission", detail: "2 billets émis et envoyés par SMS au +223 76 88 51 14.", agent: "Système — plateforme TBM" },
+      { id: "SCN-313", date: "Hier 15:41", type: "paiement", detail: "Paiement Orange Money confirmé — 22 000 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2046",
+    telephone: "+223 65 19 77 60",
+    canal: "en_ligne",
+    operateur: "Moov Money",
+    departId: "DEP-07",
+    statut: "expiree",
+    creee: "Hier 21:14",
+    motif: "Paiement Moov Money non finalisé — places libérées après 10 min (RG1).",
+    tickets: [],
+    historique: [
+      { id: "SCN-321", date: "Hier 21:24", type: "expiration", detail: "Délai de paiement dépassé — la place est remise en vente.", agent: "Système — plateforme TBM" },
+      { id: "SCN-319", date: "Hier 21:14", type: "emission", detail: "Réservation créée — 2 places bloquées pendant 10 min (RG1).", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2047",
+    telephone: "+223 79 12 65 38",
+    canal: "guichet",
+    operateur: null,
+    departId: "DEP-08",
+    statut: "confirmee",
+    creee: "Aujourd'hui 06:40",
+    tickets: [
+      { id: "TKT-2605-40941", passager: { nom: "Boubacar Touré", type: "adulte", siege: "14A" }, tarif: 5000, statut: "utilise" },
+      { id: "TKT-2605-40942", passager: { nom: "Hawa Kanté", type: "adulte", siege: "14B" }, tarif: 5000, statut: "utilise" },
+      { id: "TKT-2605-40943", passager: { nom: "Youssouf Doumbia", type: "enfant", siege: "14C" }, tarif: 2500, statut: "utilise" },
+      { id: "TKT-2605-40944", passager: { nom: "Djénéba Doumbia", type: "enfant", siege: "14D" }, tarif: 2500, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-330", date: "Aujourd'hui 06:58", type: "scan_embarquement", detail: "Sièges 14A, 14B et 14C — contrôle manuel au quai de Sébougou.", agent: "Contrôle TBM — M. Sylla" },
+      { id: "SCN-329", date: "Aujourd'hui 06:40", type: "emission", detail: "4 billets imprimés au guichet de Sébougou (espèces).", agent: "Guichet Sébougou — A. Bagayoko" },
+    ],
+  },
+  {
+    id: "RES-2048",
+    telephone: "+223 70 41 98 23",
+    canal: "guichet",
+    operateur: null,
+    departId: "DEP-10",
+    statut: "annulee",
+    creee: "Hier 12:30",
+    motif: "Annulation par le voyageur plus de 24 h avant le départ — remboursé à 100 % (RG5).",
+    tickets: [
+      { id: "TKT-2605-40951", passager: { nom: "Amadou Sissoko", type: "adulte", siege: "02C" }, tarif: 5000, statut: "annule" },
+      { id: "TKT-2605-40952", passager: { nom: "Assétou Bagayoko", type: "adulte", siege: "02D" }, tarif: 5000, statut: "annule" },
+    ],
+    historique: [
+      { id: "SCN-335", date: "Hier 14:05", type: "annulation", detail: "Annulation demandée au guichet — 10 000 FCFA remboursés (palier 100 %).", agent: "Guichet Sogoniko — A. Bagayoko" },
+      { id: "SCN-334", date: "Hier 12:30", type: "emission", detail: "2 billets imprimés au guichet de Sogoniko (espèces).", agent: "Guichet Sogoniko — A. Bagayoko" },
+    ],
+  },
+  {
+    id: "RES-2049",
+    telephone: "+223 92 55 10 76",
+    canal: "en_ligne",
+    operateur: "Moov Money",
+    departId: "DEP-11",
+    statut: "confirmee",
+    creee: "Hier 08:12",
+    tickets: [
+      { id: "TKT-2605-40960", passager: { nom: "Yacouba Ouattara", type: "adulte", siege: "07A" }, tarif: 9000, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-338", date: "Hier 08:12", type: "emission", detail: "1 billet émis et envoyé par SMS au +223 92 55 10 76.", agent: "Système — plateforme TBM" },
+      { id: "SCN-337", date: "Hier 08:12", type: "paiement", detail: "Paiement Moov Money confirmé — 9 000 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2050",
+    telephone: "+223 74 63 22 09",
+    canal: "guichet",
+    operateur: null,
+    departId: "DEP-03",
+    statut: "confirmee",
+    creee: "Aujourd'hui 08:05",
+    tickets: [
+      { id: "TKT-2605-40971", passager: { nom: "Salif Diarra", type: "adulte", siege: "21B" }, tarif: 15000, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-342", date: "Aujourd'hui 08:05", type: "emission", detail: "1 billet imprimé au guichet de Sogoniko (espèces).", agent: "Guichet Sogoniko — A. Bagayoko" },
+    ],
+  },
+  {
+    id: "RES-2051",
+    telephone: "+223 89 04 47 31",
+    canal: "en_ligne",
+    operateur: "Moov Money",
+    departId: "DEP-12",
+    statut: "en_attente",
+    creee: "Aujourd'hui 10:22",
+    tickets: [],
+    historique: [
+      { id: "SCN-344", date: "Aujourd'hui 10:23", type: "paiement", detail: "Paiement Moov Money initié — en attente de confirmation USSD.", agent: "Système — plateforme TBM" },
+      { id: "SCN-343", date: "Aujourd'hui 10:22", type: "emission", detail: "Réservation créée — 2 places bloquées pendant 10 min (RG1).", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2052",
+    telephone: "+223 77 23 84 66",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-06",
+    statut: "confirmee",
+    creee: "Hier 20:15",
+    tickets: [
+      { id: "TKT-2605-40980", passager: { nom: "Bintou Sanogo", type: "adulte", siege: "03A" }, tarif: 5000, statut: "utilise" },
+    ],
+    historique: [
+      { id: "SCN-346", date: "Aujourd'hui 08:40", type: "controle", detail: "Contrôle à bord entre Kati et Ouélessébougou — billet validé.", agent: "Contrôleur — B. Coulibaly" },
+      { id: "SCN-345", date: "Aujourd'hui 07:58", type: "scan_embarquement", detail: "Siège 03A — portique d'embarquement, gare de Sogoniko.", agent: "Contrôle TBM — F. Sissoko" },
+      { id: "SCN-333", date: "Hier 20:15", type: "emission", detail: "1 billet émis et envoyé par SMS au +223 77 23 84 66.", agent: "Système — plateforme TBM" },
+      { id: "SCN-332", date: "Hier 20:15", type: "paiement", detail: "Paiement Orange Money confirmé — 5 000 FCFA.", agent: "Système — plateforme TBM" },
+    ],
+  },
+  {
+    id: "RES-2053",
+    telephone: "+223 66 71 90 48",
+    canal: "guichet",
+    operateur: null,
+    departId: "DEP-13",
+    statut: "annulee",
+    creee: "03/10 11:47",
+    motif: "Compagnie suspendue par TBM — remboursement automatique des billets.",
+    tickets: [
+      { id: "TKT-2605-40990", passager: { nom: "Mahamadou Haïdara", type: "adulte", siege: "01A" }, tarif: 16000, statut: "annule" },
+      { id: "TKT-2605-40991", passager: { nom: "Kani Touré", type: "adulte", siege: "01B" }, tarif: 16000, statut: "annule" },
+      { id: "TKT-2605-40992", passager: { nom: "Ibrahim Haïdara", type: "enfant", siege: "01C" }, tarif: 8000, statut: "annule" },
+    ],
+    historique: [
+      { id: "SCN-352", date: "Aujourd'hui 09:30", type: "annulation", detail: "Billets annulés — suspension de la compagnie, remboursements automatiques (40 000 FCFA).", agent: "TBM — administration" },
+      { id: "SCN-350", date: "03/10 11:47", type: "emission", detail: "3 billets imprimés au guichet de Kayes centre (espèces).", agent: "Guichet Kayes — M. Cissoko" },
+    ],
+  },
+  {
+    id: "RES-2054",
+    telephone: "+223 76 55 31 90",
+    canal: "guichet",
+    operateur: null,
+    departId: "DEP-02",
+    statut: "confirmee",
+    creee: "Aujourd'hui 10:12",
+    tickets: [
+      { id: "TKT-2605-41001", passager: { nom: "Drissa Koné", type: "adulte", siege: "09C" }, tarif: 9000, statut: "emis" },
+    ],
+    historique: [
+      { id: "SCN-355", date: "Aujourd'hui 10:12", type: "emission", detail: "1 billet imprimé au guichet de Sogoniko (espèces).", agent: "Guichet Sogoniko — A. Bagayoko" },
+    ],
+  },
+  {
+    id: "RES-2055",
+    telephone: "+223 95 40 28 17",
+    canal: "en_ligne",
+    operateur: "Orange Money",
+    departId: "DEP-04",
+    statut: "expiree",
+    creee: "Aujourd'hui 10:31",
+    motif: "Paiement Orange Money non finalisé — places libérées après 10 min (RG1).",
+    tickets: [],
+    historique: [
+      { id: "SCN-357", date: "Aujourd'hui 10:41", type: "expiration", detail: "Délai de paiement dépassé — les 3 places sont remises en vente.", agent: "Système — plateforme TBM" },
+      { id: "SCN-356", date: "Aujourd'hui 10:31", type: "emission", detail: "Réservation créée — 3 places bloquées pendant 10 min (RG1).", agent: "Système — plateforme TBM" },
+    ],
+  },
+];
