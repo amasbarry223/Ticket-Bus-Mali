@@ -12,6 +12,7 @@ import {
   MapPin,
   PanelRightClose,
   PanelRightOpen,
+  Percent,
   Route,
   ScrollText,
   Settings,
@@ -29,6 +30,7 @@ export type SectionId =
   | "companies"
   | "transactions"
   | "refunds"
+  | "settlements"
   | "cities"
   | "lines"
   | "reservations"
@@ -87,6 +89,13 @@ export const SECTION_GROUPS: SectionGroup[] = [
         icon: Undo2,
         roles: ["admin", "support"], // A03
         badge: "4",
+      },
+      {
+        id: "settlements",
+        label: "Reversements",
+        icon: Percent,
+        roles: ["admin", "support"], // A11 — commissions & reversements
+        badge: "5",
       },
       {
         id: "cities",

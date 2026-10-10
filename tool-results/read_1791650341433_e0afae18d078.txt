@@ -1,0 +1,542 @@
+     1→   981→      >
+     2→   982→        <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
+     3→   983→          <ShieldCheck className="h-4 w-4 text-coral-500" />
+     4→   984→          {isAdmin ? "Vos droits (administration)" : "Vos droits (support)"} :
+     5→   985→        </span>
+     6→   986→        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
+     7→   987→          <li className="flex items-center gap-1.5">
+     8→   988→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+     9→   989→            {isAdmin
+    10→   990→              ? "Traitement sans plafond de montant"
+    11→   991→              : `Traitement jusqu'à ${formatNumber(REFUND_SUPPORT_LIMIT)} FCFA`}
+    12→   992→          </li>
+    13→   993→          <li className="flex items-center gap-1.5">
+    14→   994→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+    15→   995→            {isAdmin
+    16→   996→              ? "Levée des litiges"
+    17→   997→              : "Escalade en litige (levée réservée à l'administration)"}
+    18→   998→          </li>
+    19→   999→          <li className="flex items-center gap-1.5">
+    20→  1000→            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+    21→  1001→            Traçabilité complète au journal d&apos;audit (A06)
+    22→  1002→          </li>
+    23→  1003→        </ul>
+    24→  1004→      </motion.div>
+    25→  1005→
+    26→  1006→      {/* KPIs */}
+    27→  1007→      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    28→  1008→        <MiniKpi
+    29→  1009→          icon={Clock}
+    30→  1010→          label="À traiter"
+    31→  1011→          value={`${pending.length} demande${pending.length > 1 ? "s" : ""}`}
+    32→  1012→          hint={`${formatFcfa(pendingTotal)} en jeu`}
+    33→  1013→          tone="bg-amber-100 text-amber-600"
+    34→  1014→        />
+    35→  1015→        <MiniKpi
+    36→  1016→          icon={Hourglass}
+    37→  1017→          label="Validés en cours"
+    38→  1018→          value={`${approuves.length} dossier${approuves.length > 1 ? "s" : ""}`}
+    39→  1019→          hint={`reste ${formatFcfa(resteTotal)} à verser`}
+    40→  1020→          tone="bg-sky-100 text-sky-600"
+    41→  1021→        />
+    42→  1022→        <MiniKpi
+    43→  1023→          icon={Banknote}
+    44→  1024→          label="Déjà remboursés"
+    45→  1025→          value={formatFcfa(totalVerse)}
+    46→  1026→          hint={`${soldes} dossier${soldes > 1 ? "s" : ""} soldé${soldes > 1 ? "s" : ""}`}
+    47→  1027→          tone="bg-emerald-100 text-emerald-600"
+    48→  1028→        />
+    49→  1029→        <MiniKpi
+    50→  1030→          icon={Scale}
+    51→  1031→          label="Litiges ouverts"
+    52→  1032→          value={`${litiges.length}`}
+    53→  1033→          hint="gelés jusqu'à résolution admin"
+    54→  1034→          tone="bg-rose-100 text-rose-600"
+    55→  1035→        />
+    56→  1036→      </div>
+    57→  1037→
+    58→  1038→      {/* Filtres */}
+    59→  1039→      <div className="mt-5 flex flex-wrap items-center gap-2.5">
+    60→  1040→        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+    61→  1041→          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+    62→  1042→          <Input
+    63→  1043→            value={query}
+    64→  1044→            onChange={(e) => setQuery(e.target.value)}
+    65→  1045→            placeholder="Réf., passager, téléphone, TXN, réservation…"
+    66→  1046→            aria-label="Rechercher un dossier de remboursement"
+    67→  1047→            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+    68→  1048→          />
+    69→  1049→        </div>
+    70→  1050→        <Select value={statut} onValueChange={setStatut}>
+    71→  1051→          <SelectTrigger
+    72→  1052→            aria-label="Filtrer par statut"
+    73→  1053→            className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+    74→  1054→          >
+    75→  1055→            <SelectValue />
+    76→  1056→          </SelectTrigger>
+    77→  1057→          <SelectContent className="rounded-xl border-neutral-100">
+    78→  1058→            <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
+    79→  1059→            {Object.entries(REFUND_STATUS_META).map(([key, meta]) => (
+    80→  1060→              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+    81→  1061→                {meta.label}
+    82→  1062→              </SelectItem>
+    83→  1063→            ))}
+    84→  1064→          </SelectContent>
+    85→  1065→        </Select>
+    86→  1066→        <Select value={motif} onValueChange={setMotif}>
+    87→  1067→          <SelectTrigger
+    88→  1068→            aria-label="Filtrer par motif"
+    89→  1069→            className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+    90→  1070→          >
+    91→  1071→            <SelectValue />
+    92→  1072→          </SelectTrigger>
+    93→  1073→          <SelectContent className="rounded-xl border-neutral-100">
+    94→  1074→            <SelectItem value="all" className="rounded-lg text-[13px]">Tous motifs</SelectItem>
+    95→  1075→            {Object.entries(REFUND_REASON_META).map(([key, meta]) => (
+    96→  1076→              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+    97→  1077→                {meta.label}
+    98→  1078→              </SelectItem>
+    99→  1079→            ))}
+   100→  1080→          </SelectContent>
+   101→  1081→        </Select>
+   102→  1082→        <Select value={litige} onValueChange={setLitige}>
+   103→  1083→          <SelectTrigger
+   104→  1084→            aria-label="Filtrer par litige"
+   105→  1085→            className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+   106→  1086→          >
+   107→  1087→            <SelectValue />
+   108→  1088→          </SelectTrigger>
+   109→  1089→          <SelectContent className="rounded-xl border-neutral-100">
+   110→  1090→            <SelectItem value="all" className="rounded-lg text-[13px]">Tous dossiers</SelectItem>
+   111→  1091→            <SelectItem value="ouvert" className="rounded-lg text-[13px]">Litiges ouverts</SelectItem>
+   112→  1092→            <SelectItem value="aucun" className="rounded-lg text-[13px]">Sans litige</SelectItem>
+   113→  1093→          </SelectContent>
+   114→  1094→        </Select>
+   115→  1095→      </div>
+   116→  1096→
+   117→  1097→      {/* Tableau */}
+   118→  1098→      <motion.section
+   119→  1099→        initial={{ opacity: 0, y: 12 }}
+   120→  1100→        animate={{ opacity: 1, y: 0 }}
+   121→  1101→        transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+   122→  1102→        className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+   123→  1103→      >
+   124→  1104→        <div className="ff-scrollbar overflow-x-auto">
+   125→  1105→          <Table>
+   126→  1106→            <TableHeader>
+   127→  1107→              <TableRow className="border-b border-neutral-100 hover:bg-transparent">
+   128→  1108→                <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">Réf.</TableHead>
+   129→  1109→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Passager</TableHead>
+   130→  1110→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Motif</TableHead>
+   131→  1111→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Transaction</TableHead>
+   132→  1112→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Montants</TableHead>
+   133→  1113→                <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Statut</TableHead>
+   134→  1114→                <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+   135→  1115→                  <span className="sr-only">Actions</span>
+   136→  1116→                </TableHead>
+   137→  1117→              </TableRow>
+   138→  1118→            </TableHeader>
+   139→  1119→            <TableBody>
+   140→  1120→              {filtered.map((r) => {
+   141→  1121→                const gelé = r.litige?.ouvert ?? false;
+   142→  1122→                const reste = refundResteDu(r);
+   143→  1123→                return (
+   144→  1124→                  <TableRow
+   145→  1125→                    key={r.id}
+   146→  1126→                    className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+   147→  1127→                    onClick={() => setSelectedId(r.id)}
+   148→  1128→                  >
+   149→  1129→                    <TableCell className="py-3.5 pl-5">
+   150→  1130→                      <span className="block text-[13px] font-semibold tabular-nums text-neutral-700">{r.id}</span>
+   151→  1131→                      <span className="block text-[11px] text-neutral-400">{r.demande}</span>
+   152→  1132→                    </TableCell>
+   153→  1133→                    <TableCell className="max-w-[170px] pt-3.5">
+   154→  1134→                      <span className="block truncate text-[12.5px] font-medium text-neutral-700">{r.passager}</span>
+   155→  1135→                      <span className="block truncate text-[11px] text-neutral-400">{r.telephone}</span>
+   156→  1136→                    </TableCell>
+   157→  1137→                    <TableCell className="max-w-[210px] pt-3.5">
+   158→  1138→                      <ReasonBadge motif={r.motif} />
+   159→  1139→                      <span className="mt-1 block truncate text-[11.5px] text-neutral-400" title={r.motifDetail}>
+   160→  1140→                        {r.motifDetail}
+   161→  1141→                      </span>
+   162→  1142→                    </TableCell>
+   163→  1143→                    <TableCell className="pt-3.5">
+   164→  1144→                      <span className="block font-mono text-[12px] font-semibold text-neutral-600">{r.transaction}</span>
+   165→  1145→                      <span className="block text-[11px] text-neutral-400">
+   166→  1146→                        {r.refReservation ?? r.compagnie}
+   167→  1147→                      </span>
+   168→  1148→                    </TableCell>
+   169→  1149→                    <TableCell className="pt-3.5">
+   170→  1150→                      <span className="block text-[13px] font-semibold tabular-nums text-neutral-800">
+   171→  1151→                        {formatFcfa(r.montantRemboursable)}
+   172→  1152→                      </span>
+   173→  1153→                      {refundMontantRembourse(r) > 0 ? (
+   174→  1154→                        <RembourseProgress r={r} compact />
+   175→  1155→                      ) : (
+   176→  1156→                        <span className="block text-[11px] text-neutral-400">aucun versement</span>
+   177→  1157→                      )}
+   178→  1158→                    </TableCell>
+   179→  1159→                    <TableCell className="pt-3.5">
+   180→  1160→                      <div className="flex flex-wrap items-center gap-1.5">
+   181→  1161→                        <StatusBadge statut={r.statut} />
+   182→  1162→                        {gelé && <LitigePill />}
+   183→  1163→                      </div>
+   184→  1164→                      <span className="mt-1 block max-w-[150px] truncate text-[11px] text-neutral-400">
+   185→  1165→                        {r.traitePar ? `par ${r.traitePar}` : "non attribué"}
+   186→  1166→                      </span>
+   187→  1167→                    </TableCell>
+   188→  1168→                    <TableCell className="pr-5 pt-3 text-right">
+   189→  1169→                      {r.statut === "en_attente" ? (
+   190→  1170→                        gelé ? (
+   191→  1171→                          <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-rose-500">
+   192→  1172→                            <Scale className="h-3.5 w-3.5" />
+   193→  1173→                            Gelé
+   194→  1174→                          </span>
+   195→  1175→                        ) : canDecide(r.montantRemboursable) ? (
+   196→  1176→                          <div className="flex items-center justify-end gap-1.5">
+   197→  1177→                            <Button
+   198→  1178→                              size="sm"
+   199→  1179→                              onClick={(e) => {
+   200→  1180→                                e.stopPropagation();
+   201→  1181→                                openDecide(r, true);
+   202→  1182→                              }}
+   203→  1183→                              className="h-8 rounded-lg bg-emerald-500 px-2.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600"
+   204→  1184→                            >
+   205→  1185→                              Valider
+   206→  1186→                            </Button>
+   207→  1187→                            <Button
+   208→  1188→                              size="sm"
+   209→  1189→                              variant="outline"
+   210→  1190→                              onClick={(e) => {
+   211→  1191→                                e.stopPropagation();
+   212→  1192→                                openDecide(r, false);
+   213→  1193→                              }}
+   214→  1194→                              className="h-8 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium text-rose-500 shadow-none hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+   215→  1195→                            >
+   216→  1196→                              Refuser
+   217→  1197→                            </Button>
+   218→  1198→                          </div>
+   219→  1199→                        ) : (
+   220→  1200→                          <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+   221→  1201→                            <Lock className="h-3 w-3" />
+   222→  1202→                            Admin requis
+   223→  1203→                          </span>
+   224→  1204→                        )
+   225→  1205→                      ) : r.statut === "approuve" ? (
+   226→  1206→                        gelé ? (
+   227→  1207→                          <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-rose-500">
+   228→  1208→                            <Scale className="h-3.5 w-3.5" />
+   229→  1209→                            Gelé
+   230→  1210→                          </span>
+   231→  1211→                        ) : canDecide(reste) ? (
+   232→  1212→                          <Button
+   233→  1213→                            size="sm"
+   234→  1214→                            variant="outline"
+   235→  1215→                            onClick={(e) => {
+   236→  1216→                              e.stopPropagation();
+   237→  1217→                              openVersement(r);
+   238→  1218→                            }}
+   239→  1219→                            className="h-8 rounded-lg border-coral-200 bg-coral-50 px-2.5 text-[12px] font-semibold text-coral-600 shadow-none hover:bg-coral-100"
+   240→  1220→                          >
+   241→  1221→                            <Banknote className="h-3.5 w-3.5" />
+   242→  1222→                            Verser
+   243→  1223→                          </Button>
+   244→  1224→                        ) : (
+   245→  1225→                          <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
+   246→  1226→                            <Lock className="h-3 w-3" />
+   247→  1227→                            Admin requis
+   248→  1228→                          </span>
+   249→  1229→                        )
+   250→  1230→                      ) : (
+   251→  1231→                        <span className="text-[11.5px] text-neutral-300">Clôturé</span>
+   252→  1232→                      )}
+   253→  1233→                    </TableCell>
+   254→  1234→                  </TableRow>
+   255→  1235→                );
+   256→  1236→              })}
+   257→  1237→              {filtered.length === 0 && (
+   258→  1238→                <TableRow>
+   259→  1239→                  <TableCell colSpan={7} className="py-10 text-center text-[13px] text-neutral-400">
+   260→  1240→                    Aucun dossier ne correspond à ces filtres.
+   261→  1241→                  </TableCell>
+   262→  1242→                </TableRow>
+   263→  1243→              )}
+   264→  1244→            </TableBody>
+   265→  1245→          </Table>
+   266→  1246→        </div>
+   267→  1247→      </motion.section>
+   268→  1248→
+   269→  1249→      {/* Fiche dossier */}
+   270→  1250→      <RefundSheet
+   271→  1251→        refund={selected}
+   272→  1252→        open={selected != null}
+   273→  1253→        onOpenChange={(v) => !v && setSelectedId(null)}
+   274→  1254→        refunds={refunds}
+   275→  1255→        isAdmin={isAdmin}
+   276→  1256→        canDecide={canDecide}
+   277→  1257→        onClaim={claim}
+   278→  1258→        onDecide={openDecide}
+   279→  1259→        onVersement={openVersement}
+   280→  1260→        onLitige={openLitige}
+   281→  1261→        onLitigeResolu={openLitigeResolu}
+   282→  1262→      />
+   283→  1263→
+   284→  1264→      {/* Dialog : décision (valider / refuser) */}
+   285→  1265→      <Dialog
+   286→  1266→        open={dialog?.kind === "decide" && selected != null}
+   287→  1267→        onOpenChange={(open) => !open && closeDialog()}
+   288→  1268→      >
+   289→  1269→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+   290→  1270→          {dialog?.kind === "decide" && selected && (
+   291→  1271→            <>
+   292→  1272→              <DialogHeader>
+   293→  1273→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   294→  1274→                  {dialog.approuve ? (
+   295→  1275→                    <>
+   296→  1276→                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   297→  1277→                      Valider le remboursement {selected.id}
+   298→  1278→                    </>
+   299→  1279→                  ) : (
+   300→  1280→                    <>
+   301→  1281→                      <XCircle className="h-5 w-5 text-rose-500" />
+   302→  1282→                      Refuser le remboursement {selected.id}
+   303→  1283→                    </>
+   304→  1284→                  )}
+   305→  1285→                </DialogTitle>
+   306→  1286→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   307→  1287→                  {selected.passager} — {formatFcfa(selected.montantRemboursable)} · Motif :{" "}
+   308→  1288→                  {REFUND_REASON_META[selected.motif].label}.
+   309→  1289→                  {dialog.approuve
+   310→  1290→                    ? " Après validation, enregistrez le(s) versement(s) opérateur avec la référence fournie par celui-ci."
+   311→  1291→                    : " Le voyageur sera informé du refus et de sa justification."}
+   312→  1292→                </DialogDescription>
+   313→  1293→              </DialogHeader>
+   314→  1294→              <div className="space-y-1.5">
+   315→  1295→                <Label htmlFor="justification" className="text-[13px]">
+   316→  1296→                  Justification <span className="text-rose-500">*</span>
+   317→  1297→                </Label>
+   318→  1298→                <Textarea
+   319→  1299→                  id="justification"
+   320→  1300→                  value={justification}
+   321→  1301→                  onChange={(e) => setJustification(e.target.value)}
+   322→  1302→                  rows={3}
+   323→  1303→                  placeholder="Ex. : délai d'annulation > 24 h, remboursement intégral conforme au palier RG5…"
+   324→  1304→                  className="rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+   325→  1305→                />
+   326→  1306→                {error && (
+   327→  1307→                  <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-600">
+   328→  1308→                    {error}
+   329→  1309→                  </p>
+   330→  1310→                )}
+   331→  1311→                <p className="text-[11.5px] text-neutral-400">
+   332→  1312→                  La justification et votre nom ({auteur} · {roleLabel}) seront enregistrés au journal
+   333→  1313→                  d&apos;audit — traçabilité obligatoire.
+   334→  1314→                </p>
+   335→  1315→              </div>
+   336→  1316→              <DialogFooter className="gap-2 pt-1">
+   337→  1317→                <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 text-[13px]">
+   338→  1318→                  Annuler
+   339→  1319→                </Button>
+   340→  1320→                <Button
+   341→  1321→                  onClick={confirmDecide}
+   342→  1322→                  className={cn(
+   343→  1323→                    "h-9 rounded-xl text-[13px] font-medium text-white shadow-md active:scale-[0.98]",
+   344→  1324→                    dialog.approuve
+   345→  1325→                      ? "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"
+   346→  1326→                      : "bg-rose-500 shadow-rose-500/30 hover:bg-rose-600"
+   347→  1327→                  )}
+   348→  1328→                >
+   349→  1329→                  {dialog.approuve ? "Valider le remboursement" : "Confirmer le refus"}
+   350→  1330→                </Button>
+   351→  1331→              </DialogFooter>
+   352→  1332→            </>
+   353→  1333→          )}
+   354→  1334→        </DialogContent>
+   355→  1335→      </Dialog>
+   356→  1336→
+   357→  1337→      {/* Dialog : versement opérateur */}
+   358→  1338→      <Dialog
+   359→  1339→        open={dialog?.kind === "versement" && selected != null}
+   360→  1340→        onOpenChange={(open) => !open && closeDialog()}
+   361→  1341→      >
+   362→  1342→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+   363→  1343→          {dialog?.kind === "versement" && selected && (
+   364→  1344→            <>
+   365→  1345→              <DialogHeader>
+   366→  1346→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   367→  1347→                  <Banknote className="h-5 w-5 text-coral-500" />
+   368→  1348→                  Enregistrer un versement — {selected.id}
+   369→  1349→                </DialogTitle>
+   370→  1350→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   371→  1351→                  Reste dû : {formatFcfa(refundResteDu(selected))} — le versement s&apos;effectue via{" "}
+   372→  1352→                  {selected.operateur} vers le compte d&apos;origine ({selected.telephone}).
+   373→  1353→                  Un dossier versé au montant exact est automatiquement soldé.
+   374→  1354→                </DialogDescription>
+   375→  1355→              </DialogHeader>
+   376→  1356→              <div className="space-y-3.5">
+   377→  1357→                <div className="space-y-1.5">
+   378→  1358→                  <Label htmlFor="versement-montant" className="text-[13px]">
+   379→  1359→                    Montant versé (FCFA) <span className="text-rose-500">*</span>
+   380→  1360→                  </Label>
+   381→  1361→                  <Input
+   382→  1362→                    id="versement-montant"
+   383→  1363→                    value={versementMontant}
+   384→  1364→                    onChange={(e) => setVersementMontant(e.target.value)}
+   385→  1365→                    inputMode="numeric"
+   386→  1366→                    className="h-9 rounded-xl border-neutral-200 text-[13px] tabular-nums focus-visible:ring-coral-200"
+   387→  1367→                  />
+   388→  1368→                </div>
+   389→  1369→                <div className="space-y-1.5">
+   390→  1370→                  <Label htmlFor="versement-ref" className="text-[13px]">
+   391→  1371→                    Référence opérateur <span className="text-rose-500">*</span>
+   392→  1372→                  </Label>
+   393→  1373→                  <Input
+   394→  1374→                    id="versement-ref"
+   395→  1375→                    value={versementRef}
+   396→  1376→                    onChange={(e) => setVersementRef(e.target.value)}
+   397→  1377→                    placeholder={`Ex. : ${selected.operateur === "Orange Money" ? "OM-RMB-88125" : "MM-RMB-55210"}`}
+   398→  1378→                    className="h-9 rounded-xl border-neutral-200 font-mono text-[12.5px] focus-visible:ring-coral-200"
+   399→  1379→                  />
+   400→  1380→                </div>
+   401→  1381→                {error && (
+   402→  1382→                  <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-600">
+   403→  1383→                    {error}
+   404→  1384→                  </p>
+   405→  1385→                )}
+   406→  1386→                <p className="text-[11.5px] text-neutral-400">
+   407→  1387→                  Le versement et la référence opérateur seront tracés au journal d&apos;audit
+   408→  1388→                  avec votre nom ({auteur}).
+   409→  1389→                </p>
+   410→  1390→              </div>
+   411→  1391→              <DialogFooter className="gap-2 pt-1">
+   412→  1392→                <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 text-[13px]">
+   413→  1393→                  Annuler
+   414→  1394→                </Button>
+   415→  1395→                <Button
+   416→  1396→                  onClick={confirmVersement}
+   417→  1397→                  className="h-9 rounded-xl bg-coral-500 text-[13px] font-medium text-white shadow-md shadow-coral-500/30 hover:bg-coral-600 active:scale-[0.98]"
+   418→  1398→                >
+   419→  1399→                  Enregistrer le versement
+   420→  1400→                </Button>
+   421→  1401→              </DialogFooter>
+   422→  1402→            </>
+   423→  1403→          )}
+   424→  1404→        </DialogContent>
+   425→  1405→      </Dialog>
+   426→  1406→
+   427→  1407→      {/* Dialog : escalade en litige */}
+   428→  1408→      <Dialog
+   429→  1409→        open={dialog?.kind === "litige" && selected != null}
+   430→  1410→        onOpenChange={(open) => !open && closeDialog()}
+   431→  1411→      >
+   432→  1412→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+   433→  1413→          {dialog?.kind === "litige" && selected && (
+   434→  1414→            <>
+   435→  1415→              <DialogHeader>
+   436→  1416→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   437→  1417→                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+   438→  1418→                  Escalader {selected.id} en litige
+   439→  1419→                </DialogTitle>
+   440→  1420→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   441→  1421→                  Le dossier sera immédiatement gelé : plus aucune décision ni versement ne sera
+   442→  1422→                  possible jusqu&apos;à la levée du litige, réservée à l&apos;administration.
+   443→  1423→                </DialogDescription>
+   444→  1424→              </DialogHeader>
+   445→  1425→              <div className="space-y-1.5">
+   446→  1426→                <Label htmlFor="litige-detail" className="text-[13px]">
+   447→  1427→                  Motif du litige <span className="text-rose-500">*</span>
+   448→  1428→                </Label>
+   449→  1429→                <Textarea
+   450→  1430→                  id="litige-detail"
+   451→  1431→                  value={litigeDetail}
+   452→  1432→                  onChange={(e) => setLitigeDetail(e.target.value)}
+   453→  1433→                  rows={3}
+   454→  1434→                  placeholder="Ex. : la compagnie conteste le double débit, preuves contradictoires entre relevé et capture client…"
+   455→  1435→                  className="rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+   456→  1436→                />
+   457→  1437→                {error && (
+   458→  1438→                  <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-600">
+   459→  1439→                    {error}
+   460→  1440→                  </p>
+   461→  1441→                )}
+   462→  1442→                <p className="text-[11.5px] text-neutral-400">
+   463→  1443→                  L&apos;escalade sera tracée au journal d&apos;audit avec votre nom ({auteur}).
+   464→  1444→                </p>
+   465→  1445→              </div>
+   466→  1446→              <DialogFooter className="gap-2 pt-1">
+   467→  1447→                <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 text-[13px]">
+   468→  1448→                  Annuler
+   469→  1449→                </Button>
+   470→  1450→                <Button
+   471→  1451→                  onClick={confirmLitige}
+   472→  1452→                  className="h-9 rounded-xl bg-rose-500 text-[13px] font-medium text-white shadow-md shadow-rose-500/30 hover:bg-rose-600 active:scale-[0.98]"
+   473→  1453→                >
+   474→  1454→                  Ouvrir le litige
+   475→  1455→                </Button>
+   476→  1456→              </DialogFooter>
+   477→  1457→            </>
+   478→  1458→          )}
+   479→  1459→        </DialogContent>
+   480→  1460→      </Dialog>
+   481→  1461→
+   482→  1462→      {/* Dialog : lever le litige (admin) */}
+   483→  1463→      <Dialog
+   484→  1464→        open={dialog?.kind === "litige-resolu" && selected != null}
+   485→  1465→        onOpenChange={(open) => !open && closeDialog()}
+   486→  1466→      >
+   487→  1467→        <DialogContent className="rounded-2xl sm:max-w-[480px]">
+   488→  1468→          {dialog?.kind === "litige-resolu" && selected && (
+   489→  1469→            <>
+   490→  1470→              <DialogHeader>
+   491→  1471→                <DialogTitle className="flex items-center gap-2 text-[16px]">
+   492→  1472→                  <ShieldCheck className="h-5 w-5 text-emerald-500" />
+   493→  1473→                  Lever le litige — {selected.id}
+   494→  1474→                </DialogTitle>
+   495→  1475→                <DialogDescription className="text-[12.5px] leading-relaxed">
+   496→  1476→                  Litige ouvert {selected.litige?.ouvertLe}
+   497→  1477→                  {selected.litige?.ouvertPar ? ` par ${selected.litige.ouvertPar}` : ""} : «{" "}
+   498→  1478→                  {selected.litige?.detail} » La levée du litige dégèle le dossier ; la décision de
+   499→  1479→                  remboursement reste ensuite à rendre.
+   500→  1480→                </DialogDescription>
+   501→  1481→              </DialogHeader>
+   502→  1482→              <div className="space-y-1.5">
+   503→  1483→                <Label htmlFor="litige-resolution" className="text-[13px]">
+   504→  1484→                  Résolution administrative <span className="text-rose-500">*</span>
+   505→  1485→                </Label>
+   506→  1486→                <Textarea
+   507→  1487→                  id="litige-resolution"
+   508→  1488→                  value={litigeDetail}
+   509→  1489→                  onChange={(e) => setLitigeDetail(e.target.value)}
+   510→  1490→                  rows={3}
+   511→  1491→                  placeholder="Ex. : double débit confirmé au relevé Orange Money du 05/10 — remboursement du second versement dû."
+   512→  1492→                  className="rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+   513→  1493→                />
+   514→  1494→                {error && (
+   515→  1495→                  <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[12.5px] font-medium text-rose-600">
+   516→  1496→                    {error}
+   517→  1497→                  </p>
+   518→  1498→                )}
+   519→  1499→                <p className="text-[11.5px] text-neutral-400">
+   520→  1500→                  La résolution et votre nom ({auteur} · {roleLabel}) seront tracés au journal
+   521→  1501→                  d&apos;audit.
+   522→  1502→                </p>
+   523→  1503→              </div>
+   524→  1504→              <DialogFooter className="gap-2 pt-1">
+   525→  1505→                <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 text-[13px]">
+   526→  1506→                  Annuler
+   527→  1507→                </Button>
+   528→  1508→                <Button
+   529→  1509→                  onClick={confirmLitigeResolu}
+   530→  1510→                  className="h-9 rounded-xl bg-emerald-500 text-[13px] font-medium text-white shadow-md shadow-emerald-500/30 hover:bg-emerald-600 active:scale-[0.98]"
+   531→  1511→                >
+   532→  1512→                  Lever le litige
+   533→  1513→                </Button>
+   534→  1514→              </DialogFooter>
+   535→  1515→            </>
+   536→  1516→          )}
+   537→  1517→        </DialogContent>
+   538→  1518→      </Dialog>
+   539→  1519→    </div>
+   540→  1520→  );
+   541→  1521→}
+   542→  1522→

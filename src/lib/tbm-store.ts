@@ -6,9 +6,12 @@ import {
   initialAudit,
   initialCompanies,
   initialRefunds,
+  initialSettlements,
   initialUserAccounts,
   refundMontantRembourse,
   transactions as initialTransactions,
+  REVERSEMENT_MOYEN_META,
+  SETTLEMENT_PRECOMPUTED,
   type AuditAction,
   type AuditEntry,
   type Company,
@@ -17,7 +20,11 @@ import {
   type Refund,
   type RefundEvent,
   type RefundVersement,
+  type ReversementMoyen,
   type Settings,
+  type Settlement,
+  type SettlementDoc,
+  type SettlementEvent,
   type UserAccount,
   type UserRole,
   type Transaction,
@@ -27,6 +34,10 @@ let auditSeq = 215;
 let refundEventSeq = 430;
 let refundVersementSeq = 131;
 let userSeq = 13;
+let settlementEventSeq = 340;
+let settlementDocSeq = 122;
+
+const fcfa = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 
 function makeAudit(
   entry: Omit<AuditEntry, "id"> & { id?: string }
@@ -110,6 +121,15 @@ interface TbmState {
     operateur: Operator,
     auteur: string
   ) => void;
+  calculateSettlement: (id: string, auteur: string, role: string) => void;
+  validateSettlement: (id: string, auteur: string, role: string) => void;
+  paySettlement: (
+    id: string,
+    moyen: ReversementMoyen,
+    refPaiement: string,
+    auteur: string,
+    role: string
+  ) => void;
   pushAudit: (entry: Omit<AuditEntry, "id">) => void;
 }
 
@@ -125,6 +145,7 @@ export const useTbmStore = create<TbmState>()((set) => ({
   settings: defaultSettings,
   transactions: initialTransactions,
   closedReconciliations: [],
+  settlements: initialSettlements,
 
   setCompanyStatus: (id, statut, auteur) =>
     set((state) => {
@@ -748,6 +769,165 @@ export const useTbmStore = create<TbmState>()((set) => ({
             action: "Rapprochement" as AuditAction,
             objet: `${operateur} · ${jour}`,
             detail: "Rapprochement quotidien clôturé — plateforme TBM conforme au relevé de l'opérateur.",
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Calcul d'un reversement : consolidation des transactions confirmées
+   * et des remboursements exécutés de la période (A02/A03) — le résultat
+   * passe « À valider » avec relevé de collecte et avis de commission.
+   */
+  calculateSettlement: (id, auteur, role) =>
+    set((state) => {
+      const s = state.settlements.find((x) => x.id === id);
+      if (!s || s.statut !== "a_calculer") return state;
+      const pre = SETTLEMENT_PRECOMPUTED[id];
+      if (!pre) return state;
+      const netCollecte = Math.max(0, pre.brutCollecte - pre.remboursements);
+      const commission = Math.round((netCollecte * s.commissionTaux) / 100);
+      const net = netCollecte - commission;
+      const now = "À l'instant";
+      const event: SettlementEvent = {
+        id: `SVE-${settlementEventSeq++}`,
+        date: now,
+        type: "calcul",
+        detail: `Calcul consolidé : collecté brut ${fcfa(pre.brutCollecte)} − remboursements ${fcfa(pre.remboursements)} − commission ${s.commissionTaux} % (${fcfa(commission)}) = net à reverser ${fcfa(net)} FCFA. En attente de validation.`,
+        par: auteur,
+        role,
+      };
+      const docs: SettlementDoc[] = [
+        { id: `SDC-${settlementDocSeq++}`, kind: "releve_collecte", nom: `releve-collecte-${s.id}.pdf`, taille: "41 Ko", genereLe: now },
+        { id: `SDC-${settlementDocSeq++}`, kind: "avis_commission", nom: `avis-commission-${s.id}.pdf`, taille: "16 Ko", genereLe: now },
+      ];
+      return {
+        settlements: state.settlements.map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                statut: "a_valider" as const,
+                brutCollecte: pre.brutCollecte,
+                remboursements: pre.remboursements,
+                commissionMontant: commission,
+                netAReverser: net,
+                nbTransactions: pre.nbTransactions,
+                nbBillets: pre.nbBillets,
+                nbRemboursements: pre.nbRemboursements,
+                calculeLe: now,
+                calculePar: auteur,
+                docs: [...x.docs, ...docs],
+                historique: [...x.historique, event],
+              }
+            : x
+        ),
+        audit: [
+          makeAudit({
+            date: now,
+            auteur,
+            role,
+            action: "Reversement" as AuditAction,
+            objet: `${s.id} · ${s.compagnie}`,
+            detail: `Reversement calculé — net à reverser ${fcfa(net)} FCFA (commission ${fcfa(commission)} FCFA à ${s.commissionTaux} %). En attente de validation.`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Validation d'un reversement (administration) — le net est engagé
+   * et l'exécution du paiement passe « En cours » (manualisation au lancement).
+   */
+  validateSettlement: (id, auteur, role) =>
+    set((state) => {
+      const s = state.settlements.find((x) => x.id === id);
+      if (!s || s.statut !== "a_valider") return state;
+      const now = "À l'instant";
+      const event: SettlementEvent = {
+        id: `SVE-${settlementEventSeq++}`,
+        date: now,
+        type: "validation",
+        detail: `Reversement validé — net de ${fcfa(s.netAReverser)} FCFA à reverser à ${s.compagnie}. Exécution du paiement à finaliser manuellement (lancement).`,
+        par: auteur,
+        role,
+      };
+      return {
+        settlements: state.settlements.map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                statut: "en_cours" as const,
+                valideLe: now,
+                validePar: auteur,
+                historique: [...x.historique, event],
+              }
+            : x
+        ),
+        audit: [
+          makeAudit({
+            date: now,
+            auteur,
+            role,
+            action: "Reversement" as AuditAction,
+            objet: `${s.id} · ${s.compagnie}`,
+            detail: `Reversement validé — net de ${fcfa(s.netAReverser)} FCFA engagé (commission ${fcfa(s.commissionMontant)} FCFA à ${s.commissionTaux} %).`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /**
+   * Enregistrement du reversement effectif — référence de paiement
+   * obligatoire (virement ou opérateur), preuve rattachée au dossier.
+   */
+  paySettlement: (id, moyen, refPaiement, auteur, role) =>
+    set((state) => {
+      const s = state.settlements.find((x) => x.id === id);
+      if (!s || s.statut !== "en_cours" || refPaiement.trim().length < 4)
+        return state;
+      const ref = refPaiement.trim();
+      const now = "À l'instant";
+      const event: SettlementEvent = {
+        id: `SVE-${settlementEventSeq++}`,
+        date: now,
+        type: "paiement",
+        detail: `Reversement de ${fcfa(s.netAReverser)} FCFA exécuté via ${REVERSEMENT_MOYEN_META[moyen].label} (réf. ${ref}) — preuve rattachée au dossier.`,
+        par: auteur,
+        role,
+      };
+      const doc: SettlementDoc = {
+        id: `SDC-${settlementDocSeq++}`,
+        kind: "preuve_paiement",
+        nom: `preuve-reversement-${s.id}.pdf`,
+        taille: "10 Ko",
+        genereLe: now,
+      };
+      return {
+        settlements: state.settlements.map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                statut: "paye" as const,
+                moyen,
+                refPaiement: ref,
+                payeLe: now,
+                payePar: auteur,
+                docs: [...x.docs, doc],
+                historique: [...x.historique, event],
+              }
+            : x
+        ),
+        audit: [
+          makeAudit({
+            date: now,
+            auteur,
+            role,
+            action: "Reversement" as AuditAction,
+            objet: `${s.id} · ${s.compagnie}`,
+            detail: `Reversement payé — ${fcfa(s.netAReverser)} FCFA via ${REVERSEMENT_MOYEN_META[moyen].label} (réf. ${ref}).`,
           }),
           ...state.audit,
         ],

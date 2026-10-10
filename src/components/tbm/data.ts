@@ -1414,6 +1414,453 @@ export const initialRefunds: Refund[] = [
   },
 ];
 
+/* ------------ Commissions & reversements (A11) -------------- */
+
+/**
+ * Modèle d'encaissement retenu par TBM — il détermine qui collecte
+ * l'argent des voyageurs et donc le sens du reversement :
+ *  - « plateforme » : TBM encaisse (Orange/Moov), prélève sa commission
+ *    et reverse le net aux compagnies ;
+ *  - « compagnie » : la compagnie encaisse et règle la commission TBM.
+ * Le module est conçu pour les deux modèles ; certaines opérations
+ * restent finalisées manuellement au lancement (validation, exécution).
+ */
+export type EncaissementMode = "plateforme" | "compagnie";
+
+export const ENCAISSEMENT_MODE_META: Record<
+  EncaissementMode,
+  { label: string; description: string }
+> = {
+  plateforme: {
+    label: "TBM encaisse, puis reverse",
+    description:
+      "Les paiements voyageurs arrivent sur les comptes TBM (Orange Money / Moov Money). TBM prélève sa commission puis reverse le net à chaque compagnie.",
+  },
+  compagnie: {
+    label: "La compagnie encaisse",
+    description:
+      "Les paiements arrivent directement chez la compagnie. La commission TBM est décomptée puis réglée périodiquement par la compagnie.",
+  },
+};
+
+export const TBM_ENCAISSEMENT_MODE: EncaissementMode = "plateforme";
+
+/** Cycle de vie d'un reversement : à calculer → à valider → en cours → payé. */
+export type SettlementStatus = "a_calculer" | "a_valider" | "en_cours" | "paye";
+
+export const SETTLEMENT_STATUS_META: Record<
+  SettlementStatus,
+  { label: string; className: string }
+> = {
+  a_calculer: { label: "À calculer", className: "bg-amber-50 text-amber-600" },
+  a_valider: { label: "À valider", className: "bg-sky-50 text-sky-600" },
+  en_cours: { label: "En cours", className: "bg-coral-50 text-coral-600" },
+  paye: { label: "Payé", className: "bg-emerald-50 text-emerald-600" },
+};
+
+/** Moyen utilisé pour exécuter le reversement vers la compagnie. */
+export type ReversementMoyen =
+  | "virement_bancaire"
+  | "orange_money"
+  | "moov_money";
+
+export const REVERSEMENT_MOYEN_META: Record<
+  ReversementMoyen,
+  { label: string; className: string }
+> = {
+  virement_bancaire: {
+    label: "Virement bancaire",
+    className: "bg-neutral-100 text-neutral-600",
+  },
+  orange_money: { label: "Orange Money", className: "bg-orange-50 text-orange-600" },
+  moov_money: { label: "Moov Money", className: "bg-violet-100 text-violet-600" },
+};
+
+/** Justificatifs et relevés rattachés à chaque reversement. */
+export type SettlementDocKind =
+  | "releve_collecte"
+  | "avis_commission"
+  | "preuve_paiement";
+
+export const SETTLEMENT_DOC_META: Record<
+  SettlementDocKind,
+  { label: string; description: string }
+> = {
+  releve_collecte: {
+    label: "Relevé de collecte",
+    description:
+      "Détail des transactions confirmées de la période (rapprochement A02).",
+  },
+  avis_commission: {
+    label: "Avis de commission",
+    description:
+      "Décompte détaillé : collecté brut − remboursements − commission = net à reverser.",
+  },
+  preuve_paiement: {
+    label: "Preuve de reversement",
+    description:
+      "Avis de virement ou reçu opérateur avec la référence du paiement exécuté.",
+  },
+};
+
+export interface SettlementDoc {
+  id: string;
+  kind: SettlementDocKind;
+  nom: string; // nom de fichier téléchargeable
+  taille: string;
+  genereLe: string;
+}
+
+export type SettlementEventKind = "creation" | "calcul" | "validation" | "paiement";
+
+export const SETTLEMENT_EVENT_META: Record<
+  SettlementEventKind,
+  { label: string; className: string }
+> = {
+  creation: { label: "Période clôturée", className: "bg-neutral-100 text-neutral-500" },
+  calcul: { label: "Calcul", className: "bg-sky-50 text-sky-600" },
+  validation: { label: "Validation", className: "bg-coral-50 text-coral-600" },
+  paiement: { label: "Reversement exécuté", className: "bg-emerald-50 text-emerald-600" },
+};
+
+export interface SettlementEvent {
+  id: string;
+  date: string;
+  type: SettlementEventKind;
+  detail: string;
+  par: string; // agent ou « Système — plateforme TBM »
+  role: string;
+}
+
+export interface Settlement {
+  id: string; // REV-2026-0xx
+  compagnie: string; // nom (cohérent avec transactions / remboursements)
+  periode: string; // libellé affiché
+  periodeDebut: string;
+  periodeFin: string;
+  statut: SettlementStatus;
+  brutCollecte: number; // transactions confirmées de la période (A02)
+  remboursements: number; // remboursements exécutés sur la période (A03)
+  commissionTaux: number; // % contractuel de la compagnie (A01)
+  commissionMontant: number; // arrondi sur le collecté net (RG11)
+  netAReverser: number;
+  nbTransactions: number;
+  nbBillets: number;
+  nbRemboursements: number;
+  estimation?: { brut: number; transactions: number; billets: number }; // provisoire, avant calcul
+  moyen?: ReversementMoyen;
+  refPaiement?: string;
+  calculeLe?: string;
+  calculePar?: string;
+  valideLe?: string;
+  validePar?: string;
+  payeLe?: string;
+  payePar?: string;
+  docs: SettlementDoc[];
+  historique: SettlementEvent[];
+}
+
+/** Collecté net de la période (après remboursements). */
+export function settlementNetCollecte(s: Settlement): number {
+  return Math.max(0, s.brutCollecte - s.remboursements);
+}
+
+/**
+ * Montants consolidés au calcul (démo) — la consolidation réelle part
+ * des transactions confirmées et des remboursements exécutés de la période.
+ */
+export const SETTLEMENT_PRECOMPUTED: Record<
+  string,
+  {
+    brutCollecte: number;
+    remboursements: number;
+    nbTransactions: number;
+    nbBillets: number;
+    nbRemboursements: number;
+  }
+> = {
+  "REV-2026-042": {
+    brutCollecte: 305000,
+    remboursements: 7500,
+    nbTransactions: 41,
+    nbBillets: 63,
+    nbRemboursements: 1,
+  },
+  "REV-2026-043": {
+    brutCollecte: 224500,
+    remboursements: 0,
+    nbTransactions: 26,
+    nbBillets: 39,
+    nbRemboursements: 0,
+  },
+};
+
+export const initialSettlements: Settlement[] = [
+  {
+    id: "REV-2026-035",
+    compagnie: "Sikasso Voyage",
+    periode: "Semaine 39 · 15/09 → 21/09",
+    periodeDebut: "15/09",
+    periodeFin: "21/09",
+    statut: "paye",
+    brutCollecte: 132000,
+    remboursements: 0,
+    commissionTaux: 10,
+    commissionMontant: 13200,
+    netAReverser: 118800,
+    nbTransactions: 18,
+    nbBillets: 27,
+    nbRemboursements: 0,
+    moyen: "orange_money",
+    refPaiement: "OM-REV-87504",
+    calculeLe: "22/09 05:40",
+    calculePar: "Système — plateforme TBM",
+    valideLe: "22/09 09:15",
+    validePar: "Daouda FOMBA",
+    payeLe: "22/09 14:20",
+    payePar: "Daouda FOMBA",
+    docs: [
+      { id: "SDC-104", kind: "releve_collecte", nom: "releve-collecte-REV-2026-035.pdf", taille: "31 Ko", genereLe: "22/09 05:40" },
+      { id: "SDC-105", kind: "avis_commission", nom: "avis-commission-REV-2026-035.pdf", taille: "14 Ko", genereLe: "22/09 05:40" },
+      { id: "SDC-106", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-035.pdf", taille: "9 Ko", genereLe: "22/09 14:20" },
+    ],
+    historique: [
+      { id: "SVE-311", date: "22/09 14:20", type: "paiement", detail: "Reversement de 118 800 FCFA exécuté via Orange Money (réf. OM-REV-87504) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-310", date: "22/09 09:15", type: "validation", detail: "Reversement validé — net de 118 800 FCFA à reverser à Sikasso Voyage.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-309", date: "22/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 132 000 − remboursements 0 − commission 10 % (13 200) = net à reverser 118 800 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-308", date: "21/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-036",
+    compagnie: "Bamako Express",
+    periode: "Semaine 40 · 22/09 → 28/09",
+    periodeDebut: "22/09",
+    periodeFin: "28/09",
+    statut: "paye",
+    brutCollecte: 648000,
+    remboursements: 21000,
+    commissionTaux: 10,
+    commissionMontant: 62700,
+    netAReverser: 564300,
+    nbTransactions: 92,
+    nbBillets: 141,
+    nbRemboursements: 3,
+    moyen: "virement_bancaire",
+    refPaiement: "BCEAO-87102-TBM",
+    calculeLe: "29/09 05:40",
+    calculePar: "Système — plateforme TBM",
+    valideLe: "29/09 09:05",
+    validePar: "Daouda FOMBA",
+    payeLe: "29/09 15:10",
+    payePar: "Daouda FOMBA",
+    docs: [
+      { id: "SDC-107", kind: "releve_collecte", nom: "releve-collecte-REV-2026-036.pdf", taille: "46 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-108", kind: "avis_commission", nom: "avis-commission-REV-2026-036.pdf", taille: "17 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-109", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-036.pdf", taille: "11 Ko", genereLe: "29/09 15:10" },
+    ],
+    historique: [
+      { id: "SVE-315", date: "29/09 15:10", type: "paiement", detail: "Reversement de 564 300 FCFA exécuté par virement bancaire (réf. BCEAO-87102-TBM) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-314", date: "29/09 09:05", type: "validation", detail: "Reversement validé — net de 564 300 FCFA à reverser à Bamako Express.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-313", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 648 000 − remboursements 21 000 − commission 10 % (62 700) = net à reverser 564 300 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-312", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-037",
+    compagnie: "Djoliba Transport",
+    periode: "Semaine 40 · 22/09 → 28/09",
+    periodeDebut: "22/09",
+    periodeFin: "28/09",
+    statut: "paye",
+    brutCollecte: 297500,
+    remboursements: 7500,
+    commissionTaux: 8,
+    commissionMontant: 23200,
+    netAReverser: 266800,
+    nbTransactions: 45,
+    nbBillets: 67,
+    nbRemboursements: 1,
+    moyen: "virement_bancaire",
+    refPaiement: "BCEAO-87214-TBM",
+    calculeLe: "29/09 05:40",
+    calculePar: "Système — plateforme TBM",
+    valideLe: "29/09 09:30",
+    validePar: "Daouda FOMBA",
+    payeLe: "30/09 10:40",
+    payePar: "Daouda FOMBA",
+    docs: [
+      { id: "SDC-110", kind: "releve_collecte", nom: "releve-collecte-REV-2026-037.pdf", taille: "33 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-111", kind: "avis_commission", nom: "avis-commission-REV-2026-037.pdf", taille: "15 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-112", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-037.pdf", taille: "10 Ko", genereLe: "30/09 10:40" },
+    ],
+    historique: [
+      { id: "SVE-319", date: "30/09 10:40", type: "paiement", detail: "Reversement de 266 800 FCFA exécuté par virement bancaire (réf. BCEAO-87214-TBM) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-318", date: "29/09 09:30", type: "validation", detail: "Reversement validé — net de 266 800 FCFA à reverser à Djoliba Transport.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-317", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 297 500 − remboursements 7 500 − commission 8 % (23 200) = net à reverser 266 800 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-316", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-038",
+    compagnie: "Kayes Lines",
+    periode: "Semaine 40 · 22/09 → 28/09",
+    periodeDebut: "22/09",
+    periodeFin: "28/09",
+    statut: "paye",
+    brutCollecte: 92000,
+    remboursements: 0,
+    commissionTaux: 11,
+    commissionMontant: 10120,
+    netAReverser: 81880,
+    nbTransactions: 9,
+    nbBillets: 14,
+    nbRemboursements: 0,
+    moyen: "orange_money",
+    refPaiement: "OM-REV-87688",
+    calculeLe: "29/09 05:40",
+    calculePar: "Système — plateforme TBM",
+    valideLe: "29/09 09:40",
+    validePar: "Daouda FOMBA",
+    payeLe: "30/09 11:25",
+    payePar: "Daouda FOMBA",
+    docs: [
+      { id: "SDC-113", kind: "releve_collecte", nom: "releve-collecte-REV-2026-038.pdf", taille: "24 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-114", kind: "avis_commission", nom: "avis-commission-REV-2026-038.pdf", taille: "13 Ko", genereLe: "29/09 05:40" },
+      { id: "SDC-115", kind: "preuve_paiement", nom: "preuve-reversement-REV-2026-038.pdf", taille: "8 Ko", genereLe: "30/09 11:25" },
+    ],
+    historique: [
+      { id: "SVE-323", date: "30/09 11:25", type: "paiement", detail: "Reversement de 81 880 FCFA exécuté via Orange Money (réf. OM-REV-87688) — preuve rattachée au dossier.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-322", date: "29/09 09:40", type: "validation", detail: "Reversement validé — net de 81 880 FCFA à reverser à Kayes Lines.", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-321", date: "29/09 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 92 000 − remboursements 0 − commission 11 % (10 120) = net à reverser 81 880 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-320", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-039",
+    compagnie: "Sahel Bus",
+    periode: "Semaine 40 · 22/09 → 28/09",
+    periodeDebut: "22/09",
+    periodeFin: "28/09",
+    statut: "en_cours",
+    brutCollecte: 386000,
+    remboursements: 18000,
+    commissionTaux: 12,
+    commissionMontant: 44160,
+    netAReverser: 323840,
+    nbTransactions: 55,
+    nbBillets: 83,
+    nbRemboursements: 2,
+    calculeLe: "Hier 05:40",
+    calculePar: "Système — plateforme TBM",
+    valideLe: "Hier 16:20",
+    validePar: "Daouda FOMBA",
+    docs: [
+      { id: "SDC-116", kind: "releve_collecte", nom: "releve-collecte-REV-2026-039.pdf", taille: "39 Ko", genereLe: "Hier 05:40" },
+      { id: "SDC-117", kind: "avis_commission", nom: "avis-commission-REV-2026-039.pdf", taille: "16 Ko", genereLe: "Hier 05:40" },
+    ],
+    historique: [
+      { id: "SVE-327", date: "Hier 16:20", type: "validation", detail: "Reversement validé — net de 323 840 FCFA à reverser à Sahel Bus. Exécution du paiement à finaliser manuellement (lancement).", par: "Daouda FOMBA", role: "Administrateur TBM" },
+      { id: "SVE-326", date: "Hier 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 386 000 − remboursements 18 000 − commission 12 % (44 160) = net à reverser 323 840 FCFA.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-325", date: "28/09 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-040",
+    compagnie: "Bamako Express",
+    periode: "Semaine 41 · 29/09 → 05/10",
+    periodeDebut: "29/09",
+    periodeFin: "05/10",
+    statut: "a_valider",
+    brutCollecte: 612000,
+    remboursements: 32500,
+    commissionTaux: 10,
+    commissionMontant: 57950,
+    netAReverser: 521550,
+    nbTransactions: 87,
+    nbBillets: 133,
+    nbRemboursements: 4,
+    calculeLe: "Aujourd'hui 05:40",
+    calculePar: "Système — plateforme TBM",
+    docs: [
+      { id: "SDC-118", kind: "releve_collecte", nom: "releve-collecte-REV-2026-040.pdf", taille: "44 Ko", genereLe: "Aujourd'hui 05:40" },
+      { id: "SDC-119", kind: "avis_commission", nom: "avis-commission-REV-2026-040.pdf", taille: "17 Ko", genereLe: "Aujourd'hui 05:40" },
+    ],
+    historique: [
+      { id: "SVE-330", date: "Aujourd'hui 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 612 000 − remboursements 32 500 − commission 10 % (57 950) = net à reverser 521 550 FCFA. En attente de validation.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-329", date: "05/10 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-041",
+    compagnie: "Sikasso Voyage",
+    periode: "Semaine 41 · 29/09 → 05/10",
+    periodeDebut: "29/09",
+    periodeFin: "05/10",
+    statut: "a_valider",
+    brutCollecte: 148500,
+    remboursements: 12500,
+    commissionTaux: 10,
+    commissionMontant: 13600,
+    netAReverser: 122400,
+    nbTransactions: 21,
+    nbBillets: 31,
+    nbRemboursements: 1,
+    calculeLe: "Aujourd'hui 05:40",
+    calculePar: "Système — plateforme TBM",
+    docs: [
+      { id: "SDC-120", kind: "releve_collecte", nom: "releve-collecte-REV-2026-041.pdf", taille: "28 Ko", genereLe: "Aujourd'hui 05:40" },
+      { id: "SDC-121", kind: "avis_commission", nom: "avis-commission-REV-2026-041.pdf", taille: "14 Ko", genereLe: "Aujourd'hui 05:40" },
+    ],
+    historique: [
+      { id: "SVE-332", date: "Aujourd'hui 05:40", type: "calcul", detail: "Calcul consolidé : collecté brut 148 500 − remboursements 12 500 (dont l'anomalie « débité sans billet » RMB-030) − commission 10 % (13 600) = net à reverser 122 400 FCFA. En attente de validation.", par: "Système — plateforme TBM", role: "Automatisation" },
+      { id: "SVE-331", date: "05/10 23:55", type: "creation", detail: "Période clôturée — reversement ouvert automatiquement après clôture des rapprochements quotidiens (A02).", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-042",
+    compagnie: "Djoliba Transport",
+    periode: "Semaine 41 · 29/09 → 05/10",
+    periodeDebut: "29/09",
+    periodeFin: "05/10",
+    statut: "a_calculer",
+    brutCollecte: 0,
+    remboursements: 0,
+    commissionTaux: 8,
+    commissionMontant: 0,
+    netAReverser: 0,
+    nbTransactions: 0,
+    nbBillets: 0,
+    nbRemboursements: 0,
+    estimation: { brut: 305000, transactions: 41, billets: 63 },
+    docs: [],
+    historique: [
+      { id: "SVE-334", date: "05/10 23:55", type: "creation", detail: "Période clôturée — rapprochement quotidien en cours de finalisation (A02). Le calcul consolidera les transactions confirmées et les remboursements exécutés.", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+  {
+    id: "REV-2026-043",
+    compagnie: "Sahel Bus",
+    periode: "Semaine 41 · 29/09 → 05/10",
+    periodeDebut: "29/09",
+    periodeFin: "05/10",
+    statut: "a_calculer",
+    brutCollecte: 0,
+    remboursements: 0,
+    commissionTaux: 12,
+    commissionMontant: 0,
+    netAReverser: 0,
+    nbTransactions: 0,
+    nbBillets: 0,
+    nbRemboursements: 0,
+    estimation: { brut: 224500, transactions: 26, billets: 39 },
+    docs: [],
+    historique: [
+      { id: "SVE-336", date: "05/10 23:55", type: "creation", detail: "Période clôturée — rapprochement quotidien en cours de finalisation (A02). Le calcul consolidera les transactions confirmées et les remboursements exécutés.", par: "Système — plateforme TBM", role: "Automatisation" },
+    ],
+  },
+];
+
 /* ----------------- Utilisateurs & accès (A05) --------------- */
 
 export type UserRole =
@@ -1801,7 +2248,8 @@ export type AuditAction =
   | "Utilisateur"
   | "Transaction"
   | "Rapprochement"
-  | "Litige";
+  | "Litige"
+  | "Reversement";
 
 export interface AuditEntry {
   id: string;
@@ -1824,6 +2272,7 @@ export const AUDIT_ACTION_META: Record<AuditAction, { className: string }> = {
   Transaction: { className: "bg-teal-50 text-teal-600" },
   Rapprochement: { className: "bg-lime-50 text-lime-700" },
   Litige: { className: "bg-rose-100 text-rose-700" },
+  Reversement: { className: "bg-amber-100 text-amber-700" },
 };
 
 export const initialAudit: AuditEntry[] = [
