@@ -194,11 +194,18 @@ export interface Line {
   depart: string;
   arrivee: string;
   duree: string;
+  distanceKm: number;
+  arrets: string[]; // arrêts intermédiaires
   prix: number; // FCFA
   frequence: string;
 }
 
-export type DepartureStatus = "programme" | "embarquement" | "annule";
+export type DepartureStatus =
+  | "programme"
+  | "embarquement"
+  | "retarde"
+  | "annule"
+  | "termine";
 
 export interface Departure {
   id: string;
@@ -207,8 +214,11 @@ export interface Departure {
   heure: string;
   trajet: string; // "Bamako → Ségou"
   bus: string; // immatriculation
+  prix: number; // FCFA
   placesTotal: number;
   placesDispo: number;
+  plateforme?: string;
+  retardMinutes?: number; // si statut = "retarde"
   statut: DepartureStatus;
 }
 
@@ -218,8 +228,88 @@ export const DEPARTURE_STATUS_META: Record<
 > = {
   programme: { label: "Programmé", className: "bg-neutral-100 text-neutral-500" },
   embarquement: { label: "Embarquement", className: "bg-coral-50 text-coral-600" },
+  retarde: { label: "Retardé", className: "bg-amber-50 text-amber-600" },
   annule: { label: "Annulé", className: "bg-rose-50 text-rose-600" },
+  termine: { label: "Terminé", className: "bg-emerald-50 text-emerald-600" },
 };
+
+export type DepartureModificationType =
+  | "retard"
+  | "annulation"
+  | "changement_bus"
+  | "plateforme"
+  | "info";
+
+export interface DepartureModification {
+  id: string;
+  departId: string;
+  date: string;
+  type: DepartureModificationType;
+  detail: string;
+  auteur: string;
+}
+
+export const DEPARTURE_MODIFICATION_META: Record<
+  DepartureModificationType,
+  { label: string; className: string }
+> = {
+  retard: { label: "Retard", className: "bg-amber-50 text-amber-600" },
+  annulation: { label: "Annulation", className: "bg-rose-50 text-rose-600" },
+  changement_bus: { label: "Changement de bus", className: "bg-violet-100 text-violet-600" },
+  plateforme: { label: "Plateforme", className: "bg-sky-50 text-sky-600" },
+  info: { label: "Information", className: "bg-neutral-100 text-neutral-500" },
+};
+
+export const departureModifications: DepartureModification[] = [
+  {
+    id: "MOD-14",
+    departId: "DEP-04",
+    date: "Aujourd'hui 14:40",
+    type: "retard",
+    detail: "Départ décalé de 45 min — attente de correspondance depuis Fana.",
+    auteur: "Bamako Express — dispatch",
+  },
+  {
+    id: "MOD-13",
+    departId: "DEP-04",
+    date: "Aujourd'hui 12:10",
+    type: "plateforme",
+    detail: "Départ déplacé de la plateforme B à la plateforme C (gare de Sogoniko).",
+    auteur: "Bamako Express — gare",
+  },
+  {
+    id: "MOD-12",
+    departId: "DEP-09",
+    date: "Aujourd'hui 11:20",
+    type: "annulation",
+    detail: "Annulé — pluies torrentielles sur la RN6, tickets reportés sans frais.",
+    auteur: "Sahel Bus — dispatch",
+  },
+  {
+    id: "MOD-11",
+    departId: "DEP-10",
+    date: "Aujourd'hui 10:05",
+    type: "changement_bus",
+    detail: "Bus remplacé — SGO 2233 G (41 places) affecté au départ de demain 07:00.",
+    auteur: "Sahel Bus — dépôt",
+  },
+  {
+    id: "MOD-10",
+    departId: "DEP-03",
+    date: "Hier 16:45",
+    type: "info",
+    detail: "Bus Yutong remis en service après contrôle technique — départ confirmé.",
+    auteur: "Bamako Express — atelier",
+  },
+  {
+    id: "MOD-09",
+    departId: "DEP-08",
+    date: "Hier 09:30",
+    type: "annulation",
+    detail: "Compagnie suspendue — tous les départs sont annulés jusqu'à régularisation.",
+    auteur: "TBM — administration",
+  },
+];
 
 export type CompanyEventType = "activite" | "incident";
 
@@ -245,27 +335,32 @@ export const companyBuses: Bus[] = [
 ];
 
 export const companyLines: Line[] = [
-  { id: "LIG-01", compagnie: "CPG-001", depart: "Bamako", arrivee: "Ségou", duree: "3 h", prix: 5000, frequence: "Quotidien" },
-  { id: "LIG-02", compagnie: "CPG-001", depart: "Bamako", arrivee: "Sikasso", duree: "5 h 30", prix: 9000, frequence: "Quotidien" },
-  { id: "LIG-03", compagnie: "CPG-001", depart: "Bamako", arrivee: "Kayes", duree: "9 h", prix: 15000, frequence: "Quotidien" },
-  { id: "LIG-04", compagnie: "CPG-002", depart: "Bamako", arrivee: "Mopti", duree: "7 h", prix: 11000, frequence: "Lun · Mer · Ven" },
-  { id: "LIG-05", compagnie: "CPG-002", depart: "Bamako", arrivee: "Ségou", duree: "3 h", prix: 5000, frequence: "Quotidien" },
-  { id: "LIG-06", compagnie: "CPG-003", depart: "Ségou", arrivee: "Bamako", duree: "3 h", prix: 5000, frequence: "Quotidien" },
-  { id: "LIG-07", compagnie: "CPG-003", depart: "Ségou", arrivee: "Mopti", duree: "4 h 30", prix: 8500, frequence: "Mar · Jeu · Sam" },
-  { id: "LIG-08", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Bamako", duree: "5 h 30", prix: 9000, frequence: "Quotidien" },
-  { id: "LIG-09", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Koutiala", duree: "2 h 30", prix: 4500, frequence: "Quotidien" },
-  { id: "LIG-10", compagnie: "CPG-005", depart: "Kayes", arrivee: "Bamako", duree: "10 h", prix: 16000, frequence: "Quotidien" },
+  { id: "LIG-01", compagnie: "CPG-001", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+  { id: "LIG-02", compagnie: "CPG-001", depart: "Bamako", arrivee: "Sikasso", duree: "5 h 30", distanceKm: 475, arrets: ["Bougouni", "Kolondiéba"], prix: 9000, frequence: "Quotidien" },
+  { id: "LIG-03", compagnie: "CPG-001", depart: "Bamako", arrivee: "Kayes", duree: "9 h", distanceKm: 580, arrets: ["Kita", "Bafoulabé"], prix: 15000, frequence: "Quotidien" },
+  { id: "LIG-04", compagnie: "CPG-002", depart: "Bamako", arrivee: "Mopti", duree: "7 h", distanceKm: 640, arrets: ["Ségou", "Bla", "San"], prix: 11000, frequence: "Lun · Mer · Ven" },
+  { id: "LIG-05", compagnie: "CPG-002", depart: "Bamako", arrivee: "Ségou", duree: "3 h", distanceKm: 235, arrets: ["Kati", "Ouélessébougou"], prix: 5000, frequence: "Quotidien" },
+  { id: "LIG-06", compagnie: "CPG-003", depart: "Ségou", arrivee: "Bamako", duree: "3 h", distanceKm: 235, arrets: ["Ouélessébougou", "Kati"], prix: 5000, frequence: "Quotidien" },
+  { id: "LIG-07", compagnie: "CPG-003", depart: "Ségou", arrivee: "Mopti", duree: "4 h 30", distanceKm: 405, arrets: ["Bla", "San"], prix: 8500, frequence: "Mar · Jeu · Sam" },
+  { id: "LIG-08", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Bamako", duree: "5 h 30", distanceKm: 475, arrets: ["Kolondiéba", "Bougouni"], prix: 9000, frequence: "Quotidien" },
+  { id: "LIG-09", compagnie: "CPG-004", depart: "Sikasso", arrivee: "Koutiala", duree: "2 h 30", distanceKm: 135, arrets: ["Zangasso"], prix: 4500, frequence: "Quotidien" },
+  { id: "LIG-10", compagnie: "CPG-005", depart: "Kayes", arrivee: "Bamako", duree: "10 h", distanceKm: 580, arrets: ["Bafoulabé", "Kita"], prix: 16000, frequence: "Quotidien" },
 ];
 
 export const companyDepartures: Departure[] = [
-  { id: "DEP-01", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "07:30", trajet: "Bamako → Ségou", bus: "BKO 1204 A", placesTotal: 20, placesDispo: 5, statut: "embarquement" },
-  { id: "DEP-02", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "13:00", trajet: "Bamako → Sikasso", bus: "BKO 2210 B", placesTotal: 26, placesDispo: 12, statut: "programme" },
-  { id: "DEP-03", compagnie: "CPG-001", jour: "Demain", heure: "06:30", trajet: "Bamako → Kayes", bus: "BKO 3317 C", placesTotal: 41, placesDispo: 41, statut: "programme" },
-  { id: "DEP-04", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "06:00", trajet: "Bamako → Mopti", bus: "BKO 4421 D", placesTotal: 18, placesDispo: 3, statut: "programme" },
-  { id: "DEP-05", compagnie: "CPG-002", jour: "Demain", heure: "07:00", trajet: "Bamako → Ségou", bus: "BKO 5512 E", placesTotal: 20, placesDispo: 20, statut: "programme" },
-  { id: "DEP-06", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 1102 F", placesTotal: 26, placesDispo: 8, statut: "embarquement" },
-  { id: "DEP-07", compagnie: "CPG-004", jour: "Demain", heure: "05:30", trajet: "Sikasso → Bamako", bus: "SKO 1010 H", placesTotal: 18, placesDispo: 11, statut: "programme" },
-  { id: "DEP-08", compagnie: "CPG-005", jour: "Aujourd'hui", heure: "06:00", trajet: "Kayes → Bamako", bus: "KYS 2040 J", placesTotal: 20, placesDispo: 20, statut: "annule" },
+  { id: "DEP-01", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "07:30", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 5, plateforme: "A", statut: "embarquement" },
+  { id: "DEP-02", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "13:00", trajet: "Bamako → Sikasso", bus: "BKO 2210 B", prix: 9000, placesTotal: 26, placesDispo: 12, plateforme: "C", statut: "programme" },
+  { id: "DEP-03", compagnie: "CPG-001", jour: "Demain", heure: "06:30", trajet: "Bamako → Kayes", bus: "BKO 3317 C", prix: 15000, placesTotal: 41, placesDispo: 41, plateforme: "D", statut: "programme" },
+  { id: "DEP-04", compagnie: "CPG-001", jour: "Aujourd'hui", heure: "16:00", trajet: "Bamako → Ségou", bus: "BKO 1204 A", prix: 5000, placesTotal: 20, placesDispo: 8, plateforme: "A", retardMinutes: 45, statut: "retarde" },
+  { id: "DEP-05", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "06:00", trajet: "Bamako → Mopti", bus: "BKO 4421 D", prix: 11000, placesTotal: 18, placesDispo: 3, plateforme: "B", statut: "programme" },
+  { id: "DEP-06", compagnie: "CPG-002", jour: "Aujourd'hui", heure: "08:30", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 4, plateforme: "B", statut: "termine" },
+  { id: "DEP-07", compagnie: "CPG-002", jour: "Demain", heure: "07:00", trajet: "Bamako → Ségou", bus: "BKO 5512 E", prix: 5000, placesTotal: 20, placesDispo: 20, plateforme: "B", statut: "programme" },
+  { id: "DEP-08", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 1102 F", prix: 5000, placesTotal: 26, placesDispo: 8, statut: "embarquement" },
+  { id: "DEP-09", compagnie: "CPG-003", jour: "Aujourd'hui", heure: "14:00", trajet: "Ségou → Mopti", bus: "SGO 2233 G", prix: 8500, placesTotal: 41, placesDispo: 41, statut: "annule" },
+  { id: "DEP-10", compagnie: "CPG-003", jour: "Demain", heure: "07:00", trajet: "Ségou → Bamako", bus: "SGO 2233 G", prix: 5000, placesTotal: 41, placesDispo: 10, statut: "programme" },
+  { id: "DEP-11", compagnie: "CPG-004", jour: "Demain", heure: "05:30", trajet: "Sikasso → Bamako", bus: "SKO 1010 H", prix: 9000, placesTotal: 18, placesDispo: 11, statut: "programme" },
+  { id: "DEP-12", compagnie: "CPG-004", jour: "Demain", heure: "08:00", trajet: "Sikasso → Koutiala", bus: "SKO 1010 H", prix: 4500, placesTotal: 18, placesDispo: 14, statut: "programme" },
+  { id: "DEP-13", compagnie: "CPG-005", jour: "Aujourd'hui", heure: "06:00", trajet: "Kayes → Bamako", bus: "KYS 2040 J", prix: 16000, placesTotal: 20, placesDispo: 20, statut: "annule" },
 ];
 
 export const companyEvents: CompanyEvent[] = [

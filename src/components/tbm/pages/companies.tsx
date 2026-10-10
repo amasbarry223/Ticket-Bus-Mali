@@ -536,7 +536,9 @@ export function CompaniesPage() {
       ? companyLines.filter((l) => l.compagnie === selected.id)
       : [];
     const departs = selected
-      ? companyDepartures.filter((d) => d.compagnie === selected.id)
+      ? companyDepartures.filter(
+          (d) => d.compagnie === selected.id && d.statut !== "termine"
+        )
       : [];
     const events = selected
       ? companyEvents.filter((e) => e.compagnie === selected.id)

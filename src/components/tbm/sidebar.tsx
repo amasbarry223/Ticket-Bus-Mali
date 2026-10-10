@@ -12,6 +12,7 @@ import {
   MapPin,
   PanelRightClose,
   PanelRightOpen,
+  Route,
   ScrollText,
   Settings,
   Undo2,
@@ -28,6 +29,7 @@ export type SectionId =
   | "transactions"
   | "refunds"
   | "cities"
+  | "lines"
   | "users"
   | "audit"
   | "settings";
@@ -89,6 +91,12 @@ export const SECTION_GROUPS: SectionGroup[] = [
         label: "Villes & Gares",
         icon: MapPin,
         roles: ["admin"], // A07
+      },
+      {
+        id: "lines",
+        label: "Lignes & Départs",
+        icon: Route,
+        roles: ["admin", "support"], // A09 — supervision inter-compagnies
       },
     ],
   },

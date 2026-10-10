@@ -106,3 +106,26 @@ Stage Summary:
 - Page A01 conforme au cahier des charges : liste, ajouter/modifier/activer/suspendre, coordonnées+logo, commission & paramètres de vente, historique activités/incidents, consultation bus/lignes/départs
 - Store étendu avec updateCompany tracée au journal d'audit
 - Données de démo riches (flotte, lignes, départs, événements) sans backend
+
+---
+Task ID: 4
+Agent: Z.ai Code (main)
+Task: Refonte « Lignes et départs » (A09) — supervision inter-compagnies (MVP cahier des charges)
+
+Work Log:
+- data.ts : Line étendue (arrets: string[], distanceKm), Departure étendue (prix, plateforme?, retardMinutes?, statuts +« retardé » et « terminé »), DEPARTURE_STATUS_META complété (5 statuts), nouveau modèle DepartureModification (retard/annulation/changement_bus/plateforme/info) + meta + 6 modifications de démo ; companyDepartures reconstruite (13 départs sur 2 jours, toutes compagnies, capacité vendue/libre) ; companyLines enrichies (arrêts réels type Kati/Bougouni/Kita + distances)
+- sidebar.tsx / shell.tsx : nouvelle section « Lignes & Départs » (icône Route, admin+support, A09) dans le groupe Opérations + routage
+- pages/lines.tsx (nouveau) :
+  • 4 KPI du jour (départs, places vendues, taux d'occupation, départs perturbés + nb modifications suivies)
+  • Onglet « Tableau des départs » : recherche (trajet/bus/compagnie) + filtres compagnie/statut/jour, colonnes heure+jour (icône History si programme modifié), trajet+plateforme, avatar compagnie, bus, tarif FCFA, barre d'occupation (vendues/libres), badge statut (+45 min pour les retards, point pulsant)
+  • Onglet « Réseau de lignes » : agrégation inter-compagnies par trajet (stack avatars ×N, tarifs min–max, arrêts listés)
+  • Fiche départ (Sheet) : alerte retard avec nouvelle heure estimée (calcul shiftTime), places vendues/disponibles avec jauge, itinéraire en stepper (Départ → arrêts → Arrivée), timeline « Modifications du programme » (vide = « Programme conforme »)
+  • Fiche ligne (Sheet) : parcours complet, compagnies exploitantes (statut, tarif, fréquence), départs à venir cliquables (renvoie vers fiche départ)
+  • Lecture seule : aucune action d'édition (recommandation du cahier respectée)
+- companies.tsx : fiche compagnie — prochains départs excluent désormais les « terminés »
+- Vérifié Agent Browser : board + onglets + filtres, fiche départ retardée (alerte, 2 modifications tracées), fiche ligne multi-compagnies, navigation inter-fiches, mobile iPhone 16 (KPI 2×2, scroll horizontal), 0 erreur console/serveur
+
+Stage Summary:
+- Onglet A09 conforme au MVP : lignes interrégionales (départ/destination/arrêts), date/heure/tarif/capacité, 5 statuts de départ, suivi des modifications de programme, places vendues/disponibles
+- Supervision toutes compagnies sans outil d'édition (recommandation respectée)
+- Données partagées avec la fiche compagnie (une seule source : data.ts)
