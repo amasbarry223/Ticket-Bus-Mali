@@ -399,13 +399,48 @@ export type PaymentStatus =
 
 export type Operator = "Orange Money" | "Moov Money";
 
-export interface Transaction {
+/** Étapes de la chaîne critique : un billet n'est émis qu'après confirmation serveur. */
+export type PaymentEventKind =
+  | "initiation"
+  | "requete_operateur"
+  | "debit"
+  | "confirmation"
+  | "emission"
+  | "echec"
+  | "expiration"
+  | "remboursement"
+  | "anomalie";
+
+export interface PaymentEvent {
   id: string;
   date: string;
+  type: PaymentEventKind;
+  detail: string;
+  source: string; // « Opérateur », « Serveur TBM », « Compagnie », « Back-office »…
+}
+
+export type AnomalieStatus = "detectee" | "resolue";
+
+export interface Transaction {
+  id: string; // référence plateforme TXN-xxxxx
+  refOperateur: string; // retour fiable de l'opérateur (reçu client)
+  refReservation: string | null; // RES-xxxx — null si jamais finalisée (anomalie)
+  date: string; // « Aujourd'hui 06:15 »
+  jour: string; // « Aujourd'hui » · « Hier » · « 04/10 » (clé de rapprochement)
   compagnie: string;
-  operateur: Operator;
-  montant: number; // FCFA
+  telephone: string; // numéro débité
+  operateur: Operator; // moyen de paiement : Orange Money / Moov Money
+  montant: number; // FCFA (TTC, frais de service inclus)
   statut: PaymentStatus;
+  billetsEmis: number; // billets émis APRÈS confirmation serveur
+  releve: boolean; // figure au relevé de l'opérateur du jour
+  timeline: PaymentEvent[];
+  anomalie?: {
+    statut: AnomalieStatus;
+    detail: string;
+    resolution?: string;
+    resoluPar?: string;
+  };
 }
 
 export const PAYMENT_STATUS_META: Record<
@@ -419,19 +454,425 @@ export const PAYMENT_STATUS_META: Record<
   rembourse: { label: "Remboursé", className: "bg-violet-100 text-violet-600" },
 };
 
+export const PAYMENT_EVENT_META: Record<
+  PaymentEventKind,
+  { label: string; className: string }
+> = {
+  initiation: { label: "Demande initiée", className: "bg-neutral-100 text-neutral-500" },
+  requete_operateur: { label: "Requête opérateur", className: "bg-amber-50 text-amber-600" },
+  debit: { label: "Débit client", className: "bg-sky-50 text-sky-600" },
+  confirmation: { label: "Confirmation serveur", className: "bg-emerald-50 text-emerald-600" },
+  emission: { label: "Émission des billets", className: "bg-coral-50 text-coral-600" },
+  echec: { label: "Échec", className: "bg-rose-50 text-rose-600" },
+  expiration: { label: "Expiration", className: "bg-neutral-100 text-neutral-500" },
+  remboursement: { label: "Remboursement", className: "bg-violet-100 text-violet-600" },
+  anomalie: { label: "Anomalie", className: "bg-rose-100 text-rose-700" },
+};
+
 export const OPERATORS: Operator[] = ["Orange Money", "Moov Money"];
 
+/** Écarts détectés entre la plateforme et le relevé d'un opérateur. */
+export type ReconciliationEcartType =
+  | "sans_billet" // débité sans ticket reçu
+  | "absent_plateforme" // dans le relevé, absent de la plateforme
+  | "absent_releve" // sur la plateforme, absent du relevé
+  | "montant"; // montants différents
+
+export interface ReconciliationEcart {
+  ref: string;
+  type: ReconciliationEcartType;
+  detail: string;
+}
+
+export const RECONCILIATION_ECART_META: Record<
+  ReconciliationEcartType,
+  { label: string; className: string }
+> = {
+  sans_billet: { label: "Débité sans billet", className: "bg-rose-50 text-rose-600" },
+  absent_plateforme: { label: "Absent plateforme", className: "bg-amber-50 text-amber-600" },
+  absent_releve: { label: "Absent du relevé", className: "bg-amber-50 text-amber-600" },
+  montant: { label: "Montant divergent", className: "bg-amber-50 text-amber-600" },
+};
+
+/** Relevé quotidien fourni par l'opérateur (côté opérateur du rapprochement). */
+export interface OperatorStatement {
+  jour: string; // « Hier » · « 04/10 »…
+  operateur: Operator;
+  nbReleve: number;
+  montantReleve: number;
+  ecarts: ReconciliationEcart[];
+  recu: string; // heure de réception du relevé
+}
+
+/**
+ * Relevés opérateurs (démo) — le côté plateforme est recalculé en direct
+ * depuis les transactions (statuts réussi / remboursé).
+ */
+export const operatorStatements: OperatorStatement[] = [
+  {
+    jour: "Aujourd'hui",
+    operateur: "Orange Money",
+    nbReleve: 2,
+    montantReleve: 28000,
+    ecarts: [],
+    recu: "Aujourd'hui 06:00 (provisoire)",
+  },
+  {
+    jour: "Hier",
+    operateur: "Orange Money",
+    nbReleve: 3,
+    montantReleve: 41000,
+    ecarts: [],
+    recu: "Aujourd'hui 05:30",
+  },
+  {
+    jour: "Hier",
+    operateur: "Moov Money",
+    nbReleve: 2,
+    montantReleve: 21750,
+    ecarts: [
+      {
+        ref: "MM-2505-117988",
+        type: "sans_billet",
+        detail:
+          "Débit de 12 500 FCFA confirmé par l'opérateur mais aucun billet émis (TXN-10244) — demande de remboursement RMB-030 ouverte.",
+      },
+    ],
+    recu: "Aujourd'hui 05:30",
+  },
+  {
+    jour: "04/10",
+    operateur: "Orange Money",
+    nbReleve: 1,
+    montantReleve: 17500,
+    ecarts: [],
+    recu: "05/10 05:30",
+  },
+  {
+    jour: "04/10",
+    operateur: "Moov Money",
+    nbReleve: 0,
+    montantReleve: 0,
+    ecarts: [],
+    recu: "05/10 05:30",
+  },
+  {
+    jour: "03/10",
+    operateur: "Orange Money",
+    nbReleve: 0,
+    montantReleve: 0,
+    ecarts: [],
+    recu: "04/10 05:30",
+  },
+  {
+    jour: "02/10",
+    operateur: "Orange Money",
+    nbReleve: 1,
+    montantReleve: 7500,
+    ecarts: [],
+    recu: "03/10 05:30",
+  },
+];
+
 export const transactions: Transaction[] = [
-  { id: "TXN-10248", date: "06/10 08:12", compagnie: "Bamako Express", operateur: "Orange Money", montant: 12500, statut: "reussi" },
-  { id: "TXN-10247", date: "06/10 07:54", compagnie: "Djoliba Transport", operateur: "Moov Money", montant: 10000, statut: "reussi" },
-  { id: "TXN-10246", date: "06/10 07:31", compagnie: "Sahel Bus", operateur: "Orange Money", montant: 7500, statut: "en_attente" },
-  { id: "TXN-10245", date: "05/10 19:46", compagnie: "Bamako Express", operateur: "Orange Money", montant: 15000, statut: "reussi" },
-  { id: "TXN-10244", date: "05/10 18:22", compagnie: "Sikasso Voyage", operateur: "Moov Money", montant: 12500, statut: "echoue" },
-  { id: "TXN-10243", date: "05/10 17:05", compagnie: "Djoliba Transport", operateur: "Orange Money", montant: 10000, statut: "rembourse" },
-  { id: "TXN-10242", date: "05/10 15:48", compagnie: "Sahel Bus", operateur: "Moov Money", montant: 7500, statut: "reussi" },
-  { id: "TXN-10241", date: "05/10 14:19", compagnie: "Bamako Express", operateur: "Orange Money", montant: 22500, statut: "expire" },
-  { id: "TXN-10240", date: "05/10 11:37", compagnie: "Sikasso Voyage", operateur: "Orange Money", montant: 12500, statut: "reussi" },
-  { id: "TXN-10239", date: "04/10 20:03", compagnie: "Djoliba Transport", operateur: "Moov Money", montant: 10000, statut: "reussi" },
+  {
+    id: "TXN-10252",
+    refOperateur: "OM-2506-448120",
+    refReservation: "RES-2041",
+    date: "Aujourd'hui 06:15",
+    jour: "Aujourd'hui",
+    compagnie: "Bamako Express",
+    telephone: "+223 76 42 18 05",
+    operateur: "Orange Money",
+    montant: 10500,
+    statut: "reussi",
+    billetsEmis: 2,
+    releve: true,
+    timeline: [
+      { id: "PEV-901", date: "Aujourd'hui 06:15", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-900", date: "Aujourd'hui 06:15", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 10 500 FCFA confirmé (OM-2506-448120).", source: "Opérateur" },
+      { id: "PEV-899", date: "Aujourd'hui 06:14", type: "debit", detail: "Le client valide le paiement sur son téléphone (USSD Orange Money).", source: "Opérateur" },
+      { id: "PEV-898", date: "Aujourd'hui 06:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — 10 500 FCFA.", source: "Serveur TBM" },
+      { id: "PEV-897", date: "Aujourd'hui 06:15", type: "initiation", detail: "Réservation RES-2041 créée — 2 places bloquées pendant 10 min (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10251",
+    refOperateur: "MM-2506-118047",
+    refReservation: "RES-2043",
+    date: "Aujourd'hui 09:58",
+    jour: "Aujourd'hui",
+    compagnie: "Bamako Express",
+    telephone: "+223 91 26 03 47",
+    operateur: "Moov Money",
+    montant: 9000,
+    statut: "en_attente",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-905", date: "Aujourd'hui 09:59", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money — en attente de confirmation USSD du client.", source: "Serveur TBM" },
+      { id: "PEV-904", date: "Aujourd'hui 09:58", type: "initiation", detail: "Réservation RES-2043 créée — 1 place bloquée pendant 10 min (RG1). Aucun billet émis.", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10250",
+    refOperateur: "MM-2506-118061",
+    refReservation: "RES-2051",
+    date: "Aujourd'hui 10:22",
+    jour: "Aujourd'hui",
+    compagnie: "Sikasso Voyage",
+    telephone: "+223 89 04 47 31",
+    operateur: "Moov Money",
+    montant: 9000,
+    statut: "en_attente",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-907", date: "Aujourd'hui 10:23", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money — en attente de confirmation USSD du client.", source: "Serveur TBM" },
+      { id: "PEV-906", date: "Aujourd'hui 10:22", type: "initiation", detail: "Réservation RES-2051 créée — 2 places bloquées pendant 10 min (RG1). Aucun billet émis.", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10249",
+    refOperateur: "OM-2506-448077",
+    refReservation: "RES-2055",
+    date: "Aujourd'hui 10:31",
+    jour: "Aujourd'hui",
+    compagnie: "Bamako Express",
+    telephone: "+223 95 40 28 17",
+    operateur: "Orange Money",
+    montant: 15000,
+    statut: "expire",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-911", date: "Aujourd'hui 10:41", type: "expiration", detail: "Délai de 10 min dépassé (RG1) — 3 places libérées, aucun débit constaté.", source: "Serveur TBM" },
+      { id: "PEV-910", date: "Aujourd'hui 10:31", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — jamais finalisée par le client.", source: "Serveur TBM" },
+      { id: "PEV-909", date: "Aujourd'hui 10:31", type: "initiation", detail: "Réservation RES-2055 créée — 3 places bloquées pendant 10 min (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10248",
+    refOperateur: "OM-2506-448045",
+    refReservation: "RES-2044",
+    date: "Aujourd'hui 11:20",
+    jour: "Aujourd'hui",
+    compagnie: "Sahel Bus",
+    telephone: "+223 78 30 44 92",
+    operateur: "Orange Money",
+    montant: 17500,
+    statut: "rembourse",
+    billetsEmis: 2,
+    releve: true,
+    timeline: [
+      { id: "PEV-915", date: "Aujourd'hui 11:20", type: "remboursement", detail: "Remboursement automatique de 17 500 FCFA ordonné vers OM-2506-448045 (départ annulé).", source: "Serveur TBM" },
+      { id: "PEV-914", date: "Aujourd'hui 11:20", type: "anomalie", detail: "Départ Bamako → Mopti annulé par la compagnie — 2 billets annulés.", source: "Compagnie" },
+      { id: "PEV-913", date: "04/10 19:22", type: "emission", detail: "2 billets émis après confirmation serveur (voir TXN-10242, débit initial).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10247",
+    refOperateur: "MM-2505-117951",
+    refReservation: "RES-2049",
+    date: "Hier 08:12",
+    jour: "Hier",
+    compagnie: "Kayes Lines",
+    telephone: "+223 92 55 10 76",
+    operateur: "Moov Money",
+    montant: 9250,
+    statut: "reussi",
+    billetsEmis: 1,
+    releve: true,
+    timeline: [
+      { id: "PEV-921", date: "Hier 08:12", type: "emission", detail: "1 billet émis et envoyé par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-920", date: "Hier 08:12", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 9 250 FCFA confirmé (MM-2505-117951).", source: "Opérateur" },
+      { id: "PEV-919", date: "Hier 08:11", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+      { id: "PEV-918", date: "Hier 08:12", type: "initiation", detail: "Réservation RES-2049 créée — 1 place bloquée (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10246",
+    refOperateur: "OM-2505-447602",
+    refReservation: "RES-2045",
+    date: "Hier 15:41",
+    jour: "Hier",
+    compagnie: "Bamako Express",
+    telephone: "+223 76 88 51 14",
+    operateur: "Orange Money",
+    montant: 22500,
+    statut: "reussi",
+    billetsEmis: 2,
+    releve: true,
+    timeline: [
+      { id: "PEV-925", date: "Hier 15:41", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-924", date: "Hier 15:41", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 22 500 FCFA confirmé (OM-2505-447602).", source: "Opérateur" },
+      { id: "PEV-923", date: "Hier 15:40", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+      { id: "PEV-922", date: "Hier 15:41", type: "initiation", detail: "Réservation RES-2045 créée — 2 places bloquées (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10245",
+    refOperateur: "OM-2505-447633",
+    refReservation: "RES-2042",
+    date: "Hier 18:02",
+    jour: "Hier",
+    compagnie: "Bamako Express",
+    telephone: "+223 66 05 77 21",
+    operateur: "Orange Money",
+    montant: 13250,
+    statut: "reussi",
+    billetsEmis: 3,
+    releve: true,
+    timeline: [
+      { id: "PEV-929", date: "Hier 18:02", type: "emission", detail: "3 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-928", date: "Hier 18:02", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 13 250 FCFA confirmé (OM-2505-447633).", source: "Opérateur" },
+      { id: "PEV-927", date: "Hier 18:01", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+      { id: "PEV-926", date: "Hier 18:02", type: "initiation", detail: "Réservation RES-2042 créée — 3 places bloquées (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10244",
+    refOperateur: "MM-2505-117988",
+    refReservation: null,
+    date: "Hier 18:22",
+    jour: "Hier",
+    compagnie: "Sikasso Voyage",
+    telephone: "+223 76 22 41 09",
+    operateur: "Moov Money",
+    montant: 12500,
+    statut: "reussi",
+    billetsEmis: 0,
+    releve: true,
+    anomalie: {
+      statut: "detectee",
+      detail:
+        "Débit confirmé par Moov Money après expiration des places (RG1) — aucun billet émis. Détecté par le rapprochement du relevé du 05/10.",
+    },
+    timeline: [
+      { id: "PEV-935", date: "Aujourd'hui 05:30", type: "anomalie", detail: "Anomalie détectée au rapprochement : débit présent au relevé Moov Money, aucune émission côté TBM.", source: "Serveur TBM" },
+      { id: "PEV-934", date: "Hier 18:24", type: "confirmation", detail: "Retour opérateur reçu APRÈS libération des places — le débit de 12 500 FCFA est pourtant confirmé (MM-2505-117988).", source: "Opérateur" },
+      { id: "PEV-933", date: "Hier 18:23", type: "expiration", detail: "Places libérées après 10 min (RG1) — le retour de l'opérateur n'était pas encore arrivé.", source: "Serveur TBM" },
+      { id: "PEV-932", date: "Hier 18:22", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+      { id: "PEV-931", date: "Hier 18:22", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM (2 places, Bamako → Sikasso).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10243",
+    refOperateur: "OM-2505-447318",
+    refReservation: "RES-2052",
+    date: "Hier 20:15",
+    jour: "Hier",
+    compagnie: "Sahel Bus",
+    telephone: "+223 77 23 84 66",
+    operateur: "Orange Money",
+    montant: 5250,
+    statut: "reussi",
+    billetsEmis: 1,
+    releve: true,
+    timeline: [
+      { id: "PEV-939", date: "Hier 20:15", type: "emission", detail: "1 billet émis et envoyé par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-938", date: "Hier 20:15", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 5 250 FCFA confirmé (OM-2505-447318).", source: "Opérateur" },
+      { id: "PEV-937", date: "Hier 20:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+      { id: "PEV-936", date: "Hier 20:15", type: "initiation", detail: "Réservation RES-2052 créée — 1 place bloquée (RG1).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10242",
+    refOperateur: "MM-2504-117604",
+    refReservation: null,
+    date: "04/10 12:47",
+    jour: "04/10",
+    compagnie: "Sahel Bus",
+    telephone: "+223 70 55 12 30",
+    operateur: "Moov Money",
+    montant: 9000,
+    statut: "echoue",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-943", date: "04/10 12:47", type: "echec", detail: "Débit refusé par l'opérateur — solde insuffisant. Aucun montant prélevé, aucun billet émis.", source: "Opérateur" },
+      { id: "PEV-942", date: "04/10 12:46", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+      { id: "PEV-941", date: "04/10 12:46", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM.", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10241",
+    refOperateur: "OM-2504-447214",
+    refReservation: "RES-2044",
+    date: "04/10 19:22",
+    jour: "04/10",
+    compagnie: "Sahel Bus",
+    telephone: "+223 78 30 44 92",
+    operateur: "Orange Money",
+    montant: 17500,
+    statut: "reussi",
+    billetsEmis: 2,
+    releve: true,
+    timeline: [
+      { id: "PEV-947", date: "Aujourd'hui 11:20", type: "remboursement", detail: "Paiement remboursé intégralement suite à l'annulation du départ (voir TXN-10248).", source: "Serveur TBM" },
+      { id: "PEV-946", date: "04/10 19:22", type: "emission", detail: "2 billets émis et envoyés par SMS après confirmation serveur.", source: "Serveur TBM" },
+      { id: "PEV-945", date: "04/10 19:22", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 17 500 FCFA confirmé (OM-2504-447214).", source: "Opérateur" },
+      { id: "PEV-944", date: "04/10 19:21", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10240",
+    refOperateur: "OM-2503-446908",
+    refReservation: null,
+    date: "03/10 09:14",
+    jour: "03/10",
+    compagnie: "Bamako Express",
+    telephone: "+223 65 08 77 12",
+    operateur: "Orange Money",
+    montant: 22500,
+    statut: "expire",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-951", date: "03/10 09:24", type: "expiration", detail: "Délai de 10 min dépassé (RG1) — places libérées, aucun débit constaté au relevé.", source: "Serveur TBM" },
+      { id: "PEV-950", date: "03/10 09:14", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money — jamais finalisée.", source: "Serveur TBM" },
+      { id: "PEV-949", date: "03/10 09:14", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM (2 places, Bamako → Ségou).", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10239",
+    refOperateur: "MM-2502-117355",
+    refReservation: null,
+    date: "02/10 14:03",
+    jour: "02/10",
+    compagnie: "Djoliba Transport",
+    telephone: "+223 91 44 20 85",
+    operateur: "Moov Money",
+    montant: 5250,
+    statut: "echoue",
+    billetsEmis: 0,
+    releve: false,
+    timeline: [
+      { id: "PEV-955", date: "02/10 14:03", type: "echec", detail: "Débit refusé par l'opérateur — authentification USSD abandonnée par le client.", source: "Opérateur" },
+      { id: "PEV-954", date: "02/10 14:02", type: "requete_operateur", detail: "Requête de paiement transmise à Moov Money.", source: "Serveur TBM" },
+      { id: "PEV-953", date: "02/10 14:02", type: "initiation", detail: "Demande de paiement initiée depuis le site TBM.", source: "Serveur TBM" },
+    ],
+  },
+  {
+    id: "TXN-10238",
+    refOperateur: "OM-2502-446231",
+    refReservation: null,
+    date: "02/10 09:12",
+    jour: "02/10",
+    compagnie: "Djoliba Transport",
+    telephone: "+223 66 12 90 04",
+    operateur: "Orange Money",
+    montant: 7500,
+    statut: "rembourse",
+    billetsEmis: 1,
+    releve: true,
+    timeline: [
+      { id: "PEV-959", date: "04/10 11:20", type: "remboursement", detail: "Remboursement de 7 500 FCFA validé (RMB-029) — annulation voyageur plus de 24 h avant le départ (RG5).", source: "Back-office" },
+      { id: "PEV-958", date: "02/10 09:12", type: "emission", detail: "1 billet émis après confirmation serveur, puis annulé à la demande du voyageur.", source: "Serveur TBM" },
+      { id: "PEV-957", date: "02/10 09:12", type: "confirmation", detail: "Retour fiable de l'opérateur reçu — débit de 7 500 FCFA confirmé (OM-2502-446231).", source: "Opérateur" },
+      { id: "PEV-956", date: "02/10 09:11", type: "requete_operateur", detail: "Requête de paiement transmise à Orange Money.", source: "Serveur TBM" },
+    ],
+  },
 ];
 
 /* ----------------------- Remboursements (A03) --------------- */
@@ -503,7 +944,9 @@ export type AuditAction =
   | "Annulation"
   | "Compagnie"
   | "Paramétrage"
-  | "Utilisateur";
+  | "Utilisateur"
+  | "Transaction"
+  | "Rapprochement";
 
 export interface AuditEntry {
   id: string;
@@ -523,6 +966,8 @@ export const AUDIT_ACTION_META: Record<AuditAction, { className: string }> = {
   Compagnie: { className: "bg-coral-50 text-coral-600" },
   Paramétrage: { className: "bg-sky-50 text-sky-600" },
   Utilisateur: { className: "bg-emerald-50 text-emerald-600" },
+  Transaction: { className: "bg-teal-50 text-teal-600" },
+  Rapprochement: { className: "bg-lime-50 text-lime-700" },
 };
 
 export const initialAudit: AuditEntry[] = [

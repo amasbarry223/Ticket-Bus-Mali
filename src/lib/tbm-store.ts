@@ -7,13 +7,16 @@ import {
   initialCompanies,
   initialRefunds,
   initialUsers,
+  transactions as initialTransactions,
   type AuditAction,
   type AuditEntry,
   type Company,
   type CompanyStatus,
+  type Operator,
   type Refund,
   type Settings,
   type BackofficeUser,
+  type Transaction,
 } from "@/components/tbm/data";
 
 let auditSeq = 215;
@@ -30,6 +33,8 @@ interface TbmState {
   refunds: Refund[];
   audit: AuditEntry[];
   settings: Settings;
+  transactions: Transaction[];
+  closedReconciliations: string[]; // clés « jour|opérateur » clôturées
 
   setCompanyStatus: (id: string, statut: CompanyStatus, auteur: string) => void;
   addCompany: (company: Company, auteur: string) => void;
@@ -46,6 +51,17 @@ interface TbmState {
     refuse?: boolean
   ) => void;
   saveSettings: (settings: Settings, auteur: string) => void;
+  confirmPendingPayment: (id: string, auteur: string) => void;
+  resolveTransactionAnomaly: (
+    id: string,
+    resolution: string,
+    auteur: string
+  ) => void;
+  closeReconciliation: (
+    jour: string,
+    operateur: Operator,
+    auteur: string
+  ) => void;
   pushAudit: (entry: Omit<AuditEntry, "id">) => void;
 }
 
@@ -59,6 +75,8 @@ export const useTbmStore = create<TbmState>()((set) => ({
   refunds: initialRefunds,
   audit: initialAudit,
   settings: defaultSettings,
+  transactions: initialTransactions,
+  closedReconciliations: [],
 
   setCompanyStatus: (id, statut, auteur) =>
     set((state) => {
@@ -224,6 +242,120 @@ export const useTbmStore = create<TbmState>()((set) => ({
         ...state.audit,
       ],
     })),
+
+  /**
+   * Retour fiable de l'opérateur simulé : la confirmation serveur arrive,
+   * les billets sont émis APRÈS cette confirmation (point critique).
+   */
+  confirmPendingPayment: (id, auteur) =>
+    set((state) => {
+      const txn = state.transactions.find((t) => t.id === id);
+      if (!txn || txn.statut !== "en_attente") return state;
+      // Places bloquées déduites de l'historique d'initiation (RG1)
+      const init = txn.timeline.find((e) => e.type === "initiation");
+      const places = init ? (init.detail.match(/(\d+) place/) ?? ["", "1"])[1] : "1";
+      const nb = Number(places) || 1;
+      const now = "À l'instant";
+      const updated: Transaction = {
+        ...txn,
+        statut: "reussi",
+        billetsEmis: nb,
+        releve: true,
+        timeline: [
+          {
+            id: `PEV-${Date.now()}`,
+            date: now,
+            type: "emission",
+            detail: `${nb} billet${nb > 1 ? "s" : ""} émis et envoyé${nb > 1 ? "s" : ""} par SMS après confirmation serveur.`,
+            source: "Serveur TBM",
+          },
+          {
+            id: `PEV-${Date.now() - 1}`,
+            date: now,
+            type: "confirmation",
+            detail: `Retour fiable de l'opérateur reçu — débit de ${new Intl.NumberFormat("fr-FR").format(txn.montant)} FCFA confirmé (${txn.refOperateur}).`,
+            source: "Opérateur",
+          },
+          ...txn.timeline,
+        ],
+      };
+      return {
+        transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
+        audit: [
+          makeAudit({
+            date: now,
+            auteur,
+            role: "Session en cours",
+            action: "Transaction" as AuditAction,
+            objet: `${txn.id} · ${txn.refOperateur}`,
+            detail: `Retour opérateur confirmé — ${nb} billet${nb > 1 ? "s" : ""} émis après confirmation serveur (point critique respecté).`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Anomalie « débité sans billet » résolue avec justification obligatoire. */
+  resolveTransactionAnomaly: (id, resolution, auteur) =>
+    set((state) => {
+      const txn = state.transactions.find((t) => t.id === id);
+      if (!txn?.anomalie || txn.anomalie.statut === "resolue") return state;
+      const now = "À l'instant";
+      const updated: Transaction = {
+        ...txn,
+        anomalie: {
+          ...txn.anomalie,
+          statut: "resolue",
+          resolution,
+          resoluPar: auteur,
+        },
+        timeline: [
+          {
+            id: `PEV-${Date.now()}`,
+            date: now,
+            type: "remboursement",
+            detail: `Anomalie résolue — « ${resolution} »`,
+            source: "Back-office",
+          },
+          ...txn.timeline,
+        ],
+      };
+      return {
+        transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
+        audit: [
+          makeAudit({
+            date: now,
+            auteur,
+            role: "Session en cours",
+            action: "Transaction" as AuditAction,
+            objet: `${txn.id} · ${txn.refOperateur}`,
+            detail: `Anomalie « débité sans billet » résolue — « ${resolution} »`,
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
+
+  /** Clôture du rapprochement quotidien pour un jour + opérateur donné. */
+  closeReconciliation: (jour, operateur, auteur) =>
+    set((state) => {
+      const key = `${jour}|${operateur}`;
+      if (state.closedReconciliations.includes(key)) return state;
+      return {
+        closedReconciliations: [...state.closedReconciliations, key],
+        audit: [
+          makeAudit({
+            date: "À l'instant",
+            auteur,
+            role: "Session en cours",
+            action: "Rapprochement" as AuditAction,
+            objet: `${operateur} · ${jour}`,
+            detail: "Rapprochement quotidien clôturé — plateforme TBM conforme au relevé de l'opérateur.",
+          }),
+          ...state.audit,
+        ],
+      };
+    }),
 
   pushAudit: (entry) =>
     set((state) => ({ audit: [makeAudit(entry), ...state.audit] })),

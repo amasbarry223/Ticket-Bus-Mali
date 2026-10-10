@@ -170,3 +170,30 @@ Stage Summary:
 - Cause racine : cache Turbopack périmé (pas de régression code) — purge `.next` + redémarrage suffit
 - Page « Réservations & Billets » (A10) confirmée 100 % fonctionnelle après correction : recherche support multi-critères, 4 statuts de réservation, billet électronique + QR code, historique des scans/validations
 - Aucun fichier modifié : intervention purement opérationnelle (cache + process)
+
+---
+Task ID: 6
+Agent: Z.ai Code (main)
+Task: Refonte « Paiements & Transactions » (A02) — supervision des paiements opérateurs (MVP cahier des charges)
+
+Work Log:
+- data.ts : modèle Transaction étendu (refOperateur OM/MM, refReservation → RES-xxxx, téléphone débité, jour de rapprochement, billetsEmis, releve, anomalie + résolution), PaymentEvent/PaymentEventKind (9 types) + PAYMENT_EVENT_META, ReconciliationEcart + meta, OperatorStatement + 7 relevés opérateurs ; 15 transactions de démo liées aux réservations A10 (montants TTC = billets + 250 FCFA/billet), dont TXN-10244 « débité sans billet » reliée au remboursement RMB-030 (A03) ; AuditAction + « Transaction » / « Rapprochement »
+- tbm-store.ts : transactions + closedReconciliations dans le state ; confirmPendingPayment (retour fiable opérateur → billets émis APRÈS confirmation, point critique), resolveTransactionAnomaly (justification obligatoire), closeReconciliation — chaque action tracée à l'audit
+- pages/transactions.tsx réécrite (~1000 lignes) :
+  • 4 KPI live : encaissé (réussi), en attente RG1, débités sans billet, rapprochement (écarts/clôtures)
+  • Onglet Transactions : recherche normalisée (réf. opérateur, réf. réservation, TXN, téléphone, compagnie) + filtres opérateur/statut/jour ; tableau avec copie de la réf. opérateur, badges Orange Money/Moov Money, réservation liée, billets émis (0 émis en rose si anomalie), statuts P03
+  • Fiche transaction (Sheet) : infos complètes (téléphone cliquable, présence au relevé), chaîne de validation critique en 5 étapes (initiation → requête → débit → confirmation serveur → émission ; échec/ambers selon le statut), historique des échanges horodaté ; actions « Vérifier le retour opérateur » (en attente) et « Résoudre l'anomalie »
+  • Reçu de paiement (Dialog) : en-tête corail, montant, réf. opérateur, réservation, statut, billets émis, note « Règle d'émission » (point critique), bouton Imprimer
+  • Onglet Rapprochement quotidien : plateforme TBM recalculée en direct vs relevés opérateurs (montants/nb concordants), écarts documentés, statuts Clôturé/Écart/Provisoire/Conforme, clôture tracée à l'audit et bloquée tant qu'une anomalie « débité sans billet » reste ouverte
+  • Onglet Anomalies : cartes débit-sans-billet (à traiter/résolues), résolution avec justification ≥ 10 caractères, rappel du lien RMB-030 (A03)
+  • Export CSV étendu (13 colonnes : réf. opérateur, réf. réservation, téléphone, billets émis, présence relevé, anomalie)
+- Correction pendant la revue : la clôture d'un rapprochement était bloquée par les écarts déjà documentés au relevé — désormais seule une anomalie ouverte bloque
+- Fiche transaction reflète le store en temps réel (sélection par id) — statuts/badges/KPI mis à jour après chaque action
+- Vérifié Agent Browser desktop 1440×900 : tableau + badges, fiche TXN-10244 (chaîne critique en échec à l'émission), résolution avec justification → badge « Anomalie résolue » + KPI 0 + bloc émeraude « Résolu par Daouda FOMBA », onglet Rapprochement (28 000/41 000/21 750 FCFA concordants) + clôture « Hier · Orange Money » → badge Clôturé, reçu TXN-10252, TXN-10251 en attente → « Vérifier le retour opérateur » → Réussi + 1 billet émis + KPI 99 750 FCFA/1 en attente, recherches RES-2041 et Moov OK, 0 erreur console/serveur
+- Vérifié mobile iPhone 16 : KPIs empilés, onglets scrollables, tableau en scroll horizontal, 0 erreur
+
+Stage Summary:
+- A02 conforme au MVP : Orange Money/Moov Money, réf. opérateur + réf. réservation, montant FCFA/date/moyen, 5 statuts, détection des débits sans billet, rapprochement quotidien avec relevés, reçus de paiement + export
+- Point critique incarné dans l'UI : chaîne de validation en 5 étapes où l'émission n'intervient qu'après confirmation serveur (retour fiable opérateur) — l'anomalie TXN-10244 montre exactement la panne quand le retour arrive après expiration RG1
+- Toutes les actions sensibles (confirmation, résolution, clôture) alimentent le journal d'audit A06
+- Artefacts : src/components/tbm/pages/transactions.tsx (réécrite), src/components/tbm/data.ts (sections Transactions + audit), src/lib/tbm-store.ts (3 actions auditées)
