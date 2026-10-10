@@ -47,3 +47,23 @@ Stage Summary:
 - Le dashboard occupe désormais 100% du viewport, bord à bord : sidebar (pleine hauteur, repliable 88↔264px), top-bar épinglée, contenu scrollable sur fond blanc sans aucun arrière-plan
 - Aucune modification backend — 100% frontend avec données mock (data.ts)
 - Artefacts : src/app/page.tsx (shell), src/components/dashboard/header.tsx (top-bar)
+
+---
+Task ID: 2
+Agent: Z.ai Code (main)
+Task: Adapter le cahier des charges TBM (Ticket Bus Mali) à l’interface existante — back-office A01→A08 + écran de login RBAC centré, frontend only
+
+Work Log:
+- Lu le cahier des charges (upload/Cahier_des_charges_TBM.docx) : rôles (§2), back-office A01-A08 (§3.4), paiement P01-P08 (§3.5), règles RG1/RG5/RG7/RG9/RG10/RG11, contacts TBM (§1.4)
+- Supprimé les composants FiscalFlow (src/components/dashboard/*) ; conservé le design system (shell full-screen blanc, cartes ff-card, accent corail, sidebar repliable)
+- Créé data.ts (mock : compagnies, transactions Orange/Moov Money avec 5 états P03, remboursements, utilisateurs, villes/gares, ventes 14j, paramètres RG) + stores zustand : auth (persist localStorage) et opérationnel (chaque action sensible alimente le journal d’audit A06)
+- Écran de connexion : container centré au milieu (logo bus TBM + formulaire e-mail/mot de passe), sélecteur de rôle RBAC (Administrateur / Support), liseré tricolore malien, contacts TBM en pied de carte, validation + loading simulé
+- Shell back-office : sidebar à 3 groupes (Pilotage/Opérations/Administration) filtrée par rôle, recherche de section, topbar (fil d’Ariane, refresh, notifications popover, menu compte avec déconnexion), mobile via Sheet
+- 8 pages : Tableau de bord (A08 : KPIs, ventes 14j, top compagnies, dernières transactions), Compagnies (A01 : créer/activer/suspendre + toast + audit), Transactions (A02 : rapprochement TBM vs opérateurs, filtres, 5 statuts paiement, export CSV réel via Blob), Remboursements (A03 : traiter/refuser avec justification obligatoire → trace), Utilisateurs (A05 : bloquer/débloquer, admin protégé), Journal d’audit (A06 : filtrable, reflète les actions en direct), Villes & Gares (A07 : référentiel + notification ciblée), Paramétrage (A04 : frais fixe/%, commission, blocage 10 min RG1, paliers d’annulation RG5)
+- Corrigé 2 erreurs ESLint set-state-in-effect (useSyncExternalStore pour l’hydratation, suppression d’effet inutile) ; ajouté SheetDescription (a11y)
+- Vérifié avec Agent Browser : login admin → dashboard (KPIs FCFA sans décimales RG11), activation Sikasso Voyage → audit « À l’instant », remboursement RMB-031 traité avec justification → compteurs live + audit, transactions + export CSV, RBAC Support (4 sections seulement), paramétrage enregistré, mobile iPhone (topbar + Sheet), reload avec session persistée ; zéro erreur console/page ; lint OK
+
+Stage Summary:
+- Back-office TBM complet et cohérent avec le cahier des charges (A01→A08, RG, P03, RBAC §2), 100% frontend (mock data + état local zustand), même interface plein écran sans arrière-plan
+- Le journal d’audit est alimenté automatiquement par toutes les actions sensibles (compagnies, remboursements, utilisateurs, paramétrage, notifications) — démonstration A06 en conditions réelles
+- Artefacts : src/components/tbm/** (logo, login-screen, sidebar, topbar, shell, pages/*, data.ts), src/lib/auth-store.ts, src/lib/tbm-store.ts, src/app/page.tsx, src/app/layout.tsx

@@ -14,17 +14,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FiscalFlow — Financial Dashboard",
+  title: "TBM — Back-office | Ticket Bus Mali",
   description:
-    "Modern finance dashboard: cash flow analytics, balances, recent transactions and tax liabilities.",
-  keywords: ["FiscalFlow", "finance", "dashboard", "analytics", "Next.js"],
+    "Back-office TBM : gestion des compagnies, supervision des transactions, remboursements, journal d’audit et paramétrage.",
+  keywords: ["TBM", "Ticket Bus Mali", "back-office", "transport", "Bamako"],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "FiscalFlow — Financial Dashboard",
-    description: "Cash flow analytics, balances and tax liabilities at a glance.",
-    siteName: "FiscalFlow",
+    title: "TBM — Back-office | Ticket Bus Mali",
+    description:
+      "Compagnies, transactions, remboursements et audit au même endroit.",
+    siteName: "TBM — Ticket Bus Mali",
     type: "website",
   },
 };
@@ -35,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
