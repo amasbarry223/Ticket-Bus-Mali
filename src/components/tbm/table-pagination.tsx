@@ -109,114 +109,110 @@ export function TablePagination({
         </div>
 
         {/* Mobile compact : précédent / « Page X / Y » / suivant */}
-        {!singlePage && (
-          <nav
-            aria-label="Pagination compacte"
-            className="flex items-center gap-2 sm:hidden"
+        <nav
+          aria-label="Pagination compacte"
+          className="flex items-center gap-2 sm:hidden"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Page précédente"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            className={navBtn}
           >
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Page précédente"
-              disabled={page <= 1}
-              onClick={() => onPageChange(page - 1)}
-              className={navBtn}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span className="sr-only">Page précédente</span>
-            </Button>
-            <p className="min-w-[72px] text-center text-[12px] font-medium tabular-nums text-[var(--tbm-text)]">
-              Page {page} / {pageCount}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Page suivante"
-              disabled={page >= pageCount}
-              onClick={() => onPageChange(page + 1)}
-              className={navBtn}
-            >
-              <ChevronRight className="h-4 w-4" />
-              <span className="sr-only">Page suivante</span>
-            </Button>
-          </nav>
-        )}
-
-        {/* Navigation numérotée (masquée en dessous de sm et sur page unique) */}
-        {!singlePage && (
-          <Pagination
-            aria-label="Pagination de la liste"
-            className="mx-0 hidden w-auto justify-end sm:flex"
+            <ChevronLeft className="h-4 w-4" />
+            <span className="sr-only">Page précédente</span>
+          </Button>
+          <p className="min-w-[72px] text-center text-[12px] font-medium tabular-nums text-[var(--tbm-text)]">
+            Page {page} / {pageCount}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Page suivante"
+            disabled={page >= pageCount}
+            onClick={() => onPageChange(page + 1)}
+            className={navBtn}
           >
-            <PaginationContent className="gap-1.5">
-              <PaginationItem>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Page précédente"
-                  disabled={page <= 1}
-                  onClick={() => onPageChange(page - 1)}
-                  className={navBtn}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Page précédente</span>
-                </Button>
-              </PaginationItem>
+            <ChevronRight className="h-4 w-4" />
+            <span className="sr-only">Page suivante</span>
+          </Button>
+        </nav>
 
-              {tokens.map((t, i) => (
-                <PaginationItem key={`${t}-${i}`}>
-                  {t === "ellipsis" ? (
-                    <span
-                      aria-hidden
-                      className="flex h-8.5 w-6 items-center justify-center text-[var(--tbm-text-muted)]"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Pages supplémentaires</span>
-                    </span>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-current={t === page ? "page" : undefined}
-                      aria-label={
-                        t === page
-                          ? `Page actuelle ${t}`
-                          : `Aller à la page ${t}`
-                      }
-                      onClick={() => onPageChange(t)}
-                      className={cn(
-                        "h-8.5 min-w-8.5 rounded-xl px-2 text-[12px] font-semibold tabular-nums transition-colors shadow-xs",
-                        t === page
-                          ? "border-[#003B2D] bg-[#003B2D] text-[#9BE000] hover:bg-[#002D22] hover:text-[#9BE000]"
-                          : "border-[var(--tbm-border)] bg-white text-[var(--tbm-text)] hover:bg-[#F3F7F5] hover:text-[#003B2D] hover:border-[#003B2D]/40"
-                      )}
-                    >
-                      {t}
-                    </Button>
-                  )}
-                </PaginationItem>
-              ))}
+        {/* Navigation numérotée desktop (précédent, numéros de pages, suivant) */}
+        <Pagination
+          aria-label="Pagination de la liste"
+          className="mx-0 hidden w-auto justify-end sm:flex"
+        >
+          <PaginationContent className="gap-1.5">
+            <PaginationItem>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Page précédente"
+                disabled={page <= 1}
+                onClick={() => onPageChange(page - 1)}
+                className={navBtn}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="sr-only">Page précédente</span>
+              </Button>
+            </PaginationItem>
 
-              <PaginationItem>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Page suivante"
-                  disabled={page >= pageCount}
-                  onClick={() => onPageChange(page + 1)}
-                  className={navBtn}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="sr-only">Page suivante</span>
-                </Button>
+            {tokens.map((t, i) => (
+              <PaginationItem key={`${t}-${i}`}>
+                {t === "ellipsis" ? (
+                  <span
+                    aria-hidden
+                    className="flex h-8.5 w-6 items-center justify-center text-[var(--tbm-text-muted)]"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Pages supplémentaires</span>
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-current={t === page ? "page" : undefined}
+                    aria-label={
+                      t === page
+                        ? `Page actuelle ${t}`
+                        : `Aller à la page ${t}`
+                    }
+                    onClick={() => onPageChange(t)}
+                    className={cn(
+                      "h-8.5 min-w-8.5 rounded-xl px-2 text-[12px] font-semibold tabular-nums transition-colors shadow-xs",
+                      t === page
+                        ? "border-[#003B2D] bg-[#003B2D] text-[#9BE000] hover:bg-[#002D22] hover:text-[#9BE000]"
+                        : "border-[var(--tbm-border)] bg-white text-[var(--tbm-text)] hover:bg-[#F3F7F5] hover:text-[#003B2D] hover:border-[#003B2D]/40"
+                    )}
+                  >
+                    {t}
+                  </Button>
+                )}
               </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+            ))}
+
+            <PaginationItem>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Page suivante"
+                disabled={page >= pageCount}
+                onClick={() => onPageChange(page + 1)}
+                className={navBtn}
+              >
+                <ChevronRight className="h-4 w-4" />
+                <span className="sr-only">Page suivante</span>
+              </Button>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
     </div>
   );

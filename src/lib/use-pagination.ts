@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 export const DEFAULT_PAGE_SIZE = 10;
 
 /** Choix proposés dans le sélecteur « lignes par page ». */
-export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
 
 /**
  * Pagination de liste — hook générique réutilisé par toutes les tables du
