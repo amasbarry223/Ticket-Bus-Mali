@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   Bell,
   Building2,
+  CalendarClock,
   Eye,
   MapPin,
   Megaphone,
@@ -69,6 +70,9 @@ import { cn } from "@/lib/utils";
 
 const TABS = ["villes", "notifications"] as const;
 
+/** Peu de villes : pages courtes pour que la navigation reste utile. */
+const VILLES_PAGE_SIZES = [5, 10, 20] as const;
+
 /** Villes desservies par un trajet de départ (ex. « Bamako → Ségou »). */
 function trajetVilles(trajet: string): string[] {
   return trajet.split(" → ").map((v) => v.trim());
@@ -85,31 +89,31 @@ function MiniKpi({
   label: string;
   value: string;
   hint: string;
-  tone: string;
+  tone?: string;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+      className="flex items-center gap-3.5 rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
       <span
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-          tone
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+          tone ?? "bg-[#003B2D]/10 text-[#003B2D]"
         )}
       >
-        <Icon className="h-[18px] w-[18px]" />
+        <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-neutral-400">
+        <span className="block truncate text-[12.5px] font-medium text-[var(--tbm-text)]">
           {label}
         </span>
-        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
+        <span className="block truncate text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
           {value}
         </span>
-        <span className="block truncate text-[11px] text-neutral-400">
+        <span className="block truncate text-[11px] text-[var(--tbm-text-muted)]">
           {hint}
         </span>
       </span>
@@ -119,7 +123,7 @@ function MiniKpi({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-neutral-400">
+    <h4 className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-[var(--tbm-text-muted)]">
       {children}
     </h4>
   );
@@ -130,11 +134,11 @@ function CibleBadge({ cible }: { cible: "all" | string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold",
-        all ? "bg-coral-50 text-coral-600" : "bg-sky-50 text-sky-600"
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1 text-[11.5px] font-semibold",
+        all ? "bg-[#003B2D]/10 text-[#003B2D]" : "bg-sky-50 text-sky-700"
       )}
     >
-      {all ? <Users className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+      {all ? <Users className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
       {all ? "Tous les voyageurs" : cible}
     </span>
   );
@@ -226,6 +230,7 @@ export function CitiesPage() {
 
   // Pagination des listes — hook partagé (reset à la page 1 quand filtre/onglet change)
   const villesPg = useTablePagination(filteredCities, {
+    initialPageSize: VILLES_PAGE_SIZES[0],
     resetKey: [query, tab].join("|"),
   });
   const notifsPg = useTablePagination(notifications, { resetKey: tab });
@@ -276,20 +281,24 @@ export function CitiesPage() {
     <div>
       {/* ---- En-tête ---- */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Villes &amp; Gares
-          </h2>
-          <p className="mt-0.5 max-w-xl text-[12.5px] text-neutral-400">
-            A07 — Référentiel des villes et gares du réseau, notifications
-            ciblées aux voyageurs par SMS et push.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000] shadow-sm">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Villes &amp; Gares
+            </h2>
+            <p className="text-[12px] text-[var(--tbm-text-muted)]">
+              A07 — Référentiel des villes et gares du réseau, notifications ciblées aux voyageurs par SMS et push.
+            </p>
+          </div>
         </div>
         <Button
           onClick={() => openNotifDialog("all")}
-          className="h-9 gap-1.5 rounded-lg bg-coral-500 px-3.5 text-[13px] font-medium text-white shadow-md shadow-coral-500/30 transition-all hover:bg-coral-600 active:scale-[0.98]"
+          className="h-9 gap-1.5 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#002a20] active:scale-[0.98]"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4 text-[#9BE000]" />
           Notification ciblée
         </Button>
       </div>
@@ -301,48 +310,48 @@ export function CitiesPage() {
           label="Villes desservies"
           value={formatNumber(cities.length)}
           hint={`${regionsCount} région${regionsCount > 1 ? "s" : ""} couverte${regionsCount > 1 ? "s" : ""}`}
-          tone="bg-coral-50 text-coral-500"
+          tone="bg-[#003B2D]/10 text-[#003B2D]"
         />
         <MiniKpi
           icon={Building2}
           label="Gares référencées"
           value={formatNumber(totalGares)}
           hint="points d’embarquement du réseau"
-          tone="bg-amber-50 text-amber-600"
+          tone="bg-amber-500/10 text-amber-600"
         />
         <MiniKpi
           icon={Route}
           label="Lignes interurbaines"
           value={formatNumber(companyLines.length)}
           hint="toutes compagnies confondues"
-          tone="bg-violet-100 text-violet-600"
+          tone="bg-blue-500/10 text-blue-600"
         />
         <MiniKpi
           icon={Megaphone}
           label="Notifications envoyées"
           value={formatNumber(notifications.length)}
           hint="canal SMS + push"
-          tone="bg-emerald-50 text-emerald-600"
+          tone="bg-emerald-500/10 text-emerald-600"
         />
       </div>
 
       {/* ---- Onglets (synchronisés ?tab=) ---- */}
       <Tabs value={tab} onValueChange={(v) => setTabParam(v)}>
-        <TabsList className="mt-5 h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+        <TabsList className="mt-5 h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1 overflow-x-auto ff-scrollbar">
           <TabsTrigger
             value="villes"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
           >
             <MapPin className="h-3.5 w-3.5" />
             Villes &amp; gares
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
           >
             <Megaphone className="h-3.5 w-3.5" />
             Notifications ciblées
-            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 text-[9.5px] font-bold text-white">
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#9BE000] px-1 text-[9.5px] font-bold text-[#001D18]">
               {notifications.length}
             </span>
           </TabsTrigger>
@@ -352,16 +361,16 @@ export function CitiesPage() {
         <TabsContent value="villes" className="mt-4">
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher (ville, région, gare)…"
                 aria-label="Rechercher une ville, une région ou une gare"
-                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
               />
             </div>
-            <span className="ml-auto text-[12px] text-neutral-400">
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
               {filteredCities.length} ville{filteredCities.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -370,25 +379,25 @@ export function CitiesPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tbm-text-muted)]">
                       Ville
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 md:table-cell">
+                    <TableHead className="hidden h-11 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tbm-text-muted)] md:table-cell">
                       Gares
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tbm-text-muted)]">
                       Lignes desservies
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 sm:table-cell">
+                    <TableHead className="hidden h-11 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--tbm-text-muted)] sm:table-cell">
                       Compagnies présentes
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -397,81 +406,130 @@ export function CitiesPage() {
                   {villesPg.pageItems.map((c) => {
                     const lignes = linesByCity.get(c.nom) ?? [];
                     const comps = companiesByCity.get(c.nom) ?? [];
+                    const upcoming = upcomingByCity.get(c.nom) ?? 0;
+                    const destinations = Array.from(
+                      new Set(
+                        lignes.map((l) =>
+                          l.depart === c.nom ? l.arrivee : l.depart
+                        )
+                      )
+                    );
                     return (
                       <TableRow
                         key={c.id}
                         onClick={() => setSelParam(c.id)}
-                        className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                        className="group cursor-pointer border-b border-[var(--tbm-border)] transition-colors hover:bg-[#F3F7F5]/60"
                       >
+                        {/* Ville */}
                         <TableCell className="py-3.5 pl-5">
-                          <span className="flex items-center gap-2.5">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-coral-50 text-coral-500">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003B2D] text-[#9BE000] shadow-2xs transition-transform group-hover:scale-105">
                               <MapPin className="h-4 w-4" aria-hidden="true" />
                             </span>
-                            <span className="min-w-0">
-                              <span className="block text-[13px] font-semibold text-neutral-800">
+                            <div className="min-w-0">
+                              <span className="block text-[13px] font-semibold text-[#001D18] transition-colors group-hover:text-[#003B2D]">
                                 {c.nom}
                               </span>
-                              <span className="block text-[11px] text-neutral-400">
+                              <span className="inline-flex items-center rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
                                 {c.region}
                               </span>
-                            </span>
-                          </span>
+                            </div>
+                          </div>
                         </TableCell>
+
+                        {/* Gares */}
                         <TableCell className="hidden md:table-cell">
-                          <div className="flex max-w-[280px] flex-wrap items-center gap-1">
+                          <div className="flex max-w-[300px] flex-wrap items-center gap-1.5">
                             {c.gares.slice(0, 2).map((g) => (
                               <span
                                 key={g}
-                                className="inline-flex max-w-[170px] items-center gap-1 truncate rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500"
                                 title={g}
+                                className="inline-flex max-w-[180px] items-center gap-1.5 rounded-lg border border-[var(--tbm-border)] bg-white px-2 py-1 text-[11px] font-medium text-[var(--tbm-text)] shadow-2xs"
                               >
-                                <Building2 className="h-3 w-3 shrink-0 text-neutral-400" />
+                                <Building2 className="h-3 w-3 shrink-0 text-amber-600" />
                                 <span className="truncate">{g}</span>
                               </span>
                             ))}
                             {c.gares.length > 2 && (
-                              <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500">
+                              <span className="rounded-lg bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-500">
                                 +{c.gares.length - 2}
                               </span>
                             )}
                           </div>
                         </TableCell>
+
+                        {/* Lignes desservies */}
                         <TableCell>
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-coral-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-coral-600">
-                            <Route className="h-3 w-3" />
-                            {lignes.length} ligne{lignes.length > 1 ? "s" : ""}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums",
+                                lignes.length > 0
+                                  ? "border border-[#003B2D]/15 bg-[#003B2D]/10 text-[#003B2D]"
+                                  : "bg-neutral-100 text-neutral-400"
+                              )}
+                            >
+                              <Route className="h-3 w-3" />
+                              {lignes.length} ligne{lignes.length > 1 ? "s" : ""}
+                            </span>
+                            {destinations.length > 0 ? (
+                              <span
+                                className="block max-w-[220px] truncate text-[11px] text-[var(--tbm-text-muted)]"
+                                title={destinations.join(", ")}
+                              >
+                                ↔ {destinations.join(" · ")}
+                              </span>
+                            ) : null}
+                            {upcoming > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-700">
+                                <CalendarClock className="h-3 w-3" />
+                                {upcoming} départ{upcoming > 1 ? "s" : ""} à venir
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
+
+                        {/* Compagnies présentes */}
                         <TableCell className="hidden sm:table-cell">
                           {comps.length > 0 ? (
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex -space-x-1.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex -space-x-2">
                                 {comps.slice(0, 3).map((co) => (
                                   <span
                                     key={co.id}
-                                    title={co.nom}
+                                    title={`${co.nom} — ${COMPANY_STATUS_META[co.statut].label}`}
                                     aria-hidden="true"
                                     className={cn(
-                                      "flex h-6 w-6 items-center justify-center rounded-full text-[8.5px] font-bold ring-2 ring-white",
+                                      "flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-bold ring-2 ring-white shadow-2xs",
                                       companyLogoColor(co.id)
                                     )}
                                   >
                                     {companyInitials(co.nom)}
                                   </span>
                                 ))}
+                                {comps.length > 3 && (
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-100 text-[9px] font-bold text-neutral-500 ring-2 ring-white">
+                                    +{comps.length - 3}
+                                  </span>
+                                )}
                               </div>
-                              <span className="text-[11.5px] tabular-nums text-neutral-400">
-                                {comps.length} compagnie
-                                {comps.length > 1 ? "s" : ""}
-                              </span>
+                              <div className="min-w-0">
+                                <span className="block max-w-[160px] truncate text-[12px] font-semibold text-[var(--tbm-text)]">
+                                  {comps[0].nom}
+                                  {comps.length > 1 ? ` +${comps.length - 1}` : ""}
+                                </span>
+                                <span className="block text-[10.5px] tabular-nums text-[var(--tbm-text-muted)]">
+                                  {comps.length} compagnie{comps.length > 1 ? "s" : ""}
+                                </span>
+                              </div>
                             </div>
                           ) : (
-                            <span className="text-[11.5px] text-neutral-300">
-                              —
+                            <span className="inline-flex items-center rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-400">
+                              Aucune compagnie
                             </span>
                           )}
                         </TableCell>
+
                         <TableCell className="pr-5">
                           {/* stopPropagation déjà géré par ActionIconButton */}
                           <div className="flex items-center justify-end gap-1.5">
@@ -484,7 +542,7 @@ export function CitiesPage() {
                             <ActionIconButton
                               icon={Bell}
                               label={`Notifier cette ville (${c.nom})`}
-                              tone="coral"
+                              tone="neutral"
                               onClick={() => openNotifDialog(c.nom)}
                             />
                           </div>
@@ -514,6 +572,7 @@ export function CitiesPage() {
               to={villesPg.to}
               pageSize={villesPg.pageSize}
               onPageSizeChange={villesPg.setPageSize}
+              pageSizeOptions={VILLES_PAGE_SIZES}
               entity="ville"
             />
           </motion.section>
@@ -525,28 +584,28 @@ export function CitiesPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
-            <div className="ff-scrollbar max-h-[560px] overflow-auto">
+            <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader className="sticky top-0 z-10">
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400 backdrop-blur">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/90 hover:bg-transparent backdrop-blur">
+                    <TableHead className="h-11 bg-transparent pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Date
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 backdrop-blur">
+                    <TableHead className="h-11 bg-transparent text-xs font-semibold text-[var(--tbm-text)]">
                       Cible
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 backdrop-blur">
+                    <TableHead className="h-11 bg-transparent text-xs font-semibold text-[var(--tbm-text)]">
                       Message
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400 backdrop-blur sm:table-cell">
+                    <TableHead className="hidden h-11 bg-transparent text-right text-xs font-semibold text-[var(--tbm-text)] sm:table-cell">
                       Destinataires
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 backdrop-blur md:table-cell">
+                    <TableHead className="hidden h-11 bg-transparent text-xs font-semibold text-[var(--tbm-text)] md:table-cell">
                       Envoyé par
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400 backdrop-blur">
+                    <TableHead className="h-11 bg-transparent pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -555,9 +614,9 @@ export function CitiesPage() {
                   {notifsPg.pageItems.map((n) => (
                     <TableRow
                       key={n.id}
-                      className="border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                      className="border-b border-[var(--tbm-border)] transition-colors hover:bg-[#F3F7F5]/50"
                     >
-                      <TableCell className="whitespace-nowrap py-3.5 pl-5 text-[12px] tabular-nums text-neutral-400">
+                      <TableCell className="whitespace-nowrap py-3.5 pl-5 text-[12px] tabular-nums text-[var(--tbm-text-muted)]">
                         {n.date}
                       </TableCell>
                       <TableCell>
@@ -565,16 +624,16 @@ export function CitiesPage() {
                       </TableCell>
                       <TableCell className="max-w-[360px]">
                         <span
-                          className="block truncate text-[12.5px] leading-snug text-neutral-600"
+                          className="block truncate text-[12.5px] leading-snug text-[var(--tbm-text)]"
                           title={n.message}
                         >
                           {n.message}
                         </span>
                       </TableCell>
-                      <TableCell className="hidden text-right text-[12.5px] font-semibold tabular-nums text-neutral-700 sm:table-cell">
+                      <TableCell className="hidden text-right text-[12.5px] font-semibold tabular-nums text-[var(--tbm-text)] sm:table-cell">
                         ≈ {formatNumber(n.destinataires)}
                       </TableCell>
-                      <TableCell className="hidden whitespace-nowrap text-[12.5px] font-medium text-neutral-700 md:table-cell">
+                      <TableCell className="hidden whitespace-nowrap text-[12.5px] font-medium text-[var(--tbm-text)] md:table-cell">
                         {n.envoyePar}
                       </TableCell>
                       <TableCell className="pr-5">
@@ -634,29 +693,29 @@ export function CitiesPage() {
         >
           {selectedCity && (
             <>
-              <div className="border-b border-neutral-100 px-5 pb-4 pt-5">
+              <div className="border-b border-[var(--tbm-border)] px-5 pb-4 pt-5">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-coral-50 text-coral-500">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#003B2D]/10 text-[#003B2D]">
                     <MapPin className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <SheetTitle className="text-[17px] font-bold tracking-tight text-neutral-900">
+                    <SheetTitle className="text-[17px] font-bold tracking-tight text-[var(--tbm-text)]">
                       {selectedCity.nom}
                     </SheetTitle>
-                    <SheetDescription className="mt-0.5 text-[12.5px] text-neutral-400">
+                    <SheetDescription className="mt-0.5 text-[12.5px] text-[var(--tbm-text-muted)]">
                       {selectedCity.region} · {selectedCity.id}
                     </SheetDescription>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <span className="inline-flex items-center rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500">
+                  <span className="inline-flex items-center rounded-lg bg-[var(--tbm-background)] px-2.5 py-1 text-[11px] font-semibold text-[var(--tbm-text-muted)]">
                     {selectedCity.gares.length} gare
                     {selectedCity.gares.length > 1 ? "s" : ""}
                   </span>
-                  <span className="inline-flex items-center rounded-md bg-coral-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-coral-600">
+                  <span className="inline-flex items-center rounded-lg bg-[#003B2D]/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-[#003B2D]">
                     {cityLines.length} ligne{cityLines.length > 1 ? "s" : ""}
                   </span>
-                  <span className="inline-flex items-center rounded-md bg-violet-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-violet-600">
+                  <span className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-blue-700">
                     {cityCompanies.length} compagnie
                     {cityCompanies.length > 1 ? "s" : ""}
                   </span>
@@ -784,9 +843,9 @@ export function CitiesPage() {
                     setSelParam("");
                     openNotifDialog(selectedCity.nom);
                   }}
-                  className="h-9.5 w-full gap-1.5 rounded-xl bg-coral-500 text-[13px] font-semibold text-white shadow-md shadow-coral-500/30 hover:bg-coral-600"
+                  className="h-9.5 w-full gap-1.5 rounded-xl bg-[#003B2D] text-[13px] font-semibold text-white shadow-sm hover:bg-[#002a20]"
                 >
-                  <Bell className="h-4 w-4" />
+                  <Bell className="h-4 w-4 text-[#9BE000]" />
                   Notifier cette ville
                 </Button>
               </div>
@@ -901,11 +960,11 @@ export function CitiesPage() {
               <Select value={cible} onValueChange={setCible}>
                 <SelectTrigger
                   id="notif-cible"
-                  className="h-9.5 w-full rounded-xl border-neutral-200 focus:ring-coral-200"
+                  className="h-9.5 w-full rounded-xl border-[var(--tbm-border)] focus:ring-[#9BE000]"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-neutral-100">
+                <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                   <SelectItem value="all" className="rounded-lg text-[13px]">
                     Tous les voyageurs
                   </SelectItem>
@@ -920,7 +979,7 @@ export function CitiesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-[var(--tbm-text-muted)]">
                 ≈ {formatNumber(cible === "all" ? 5250 : 1200)} destinataires
                 estimés selon la cible.
               </p>
@@ -935,7 +994,7 @@ export function CitiesPage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Ex. : gare de Sogoniko — les départs de 14 h sont avancés à 13 h 30 ce samedi."
-                className="rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+                className="rounded-xl border-[var(--tbm-border)] text-[13px] focus-visible:ring-[#9BE000]"
               />
             </div>
             {error && (
@@ -951,15 +1010,15 @@ export function CitiesPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setNotifOpen(false)}
-                className="h-9 rounded-xl border-neutral-200 text-[13px]"
+                className="h-9 rounded-xl border-[var(--tbm-border)] text-[13px]"
               >
                 Annuler
               </Button>
               <Button
                 type="submit"
-                className="h-9 rounded-xl bg-coral-500 text-[13px] font-medium text-white shadow-md shadow-coral-500/30 hover:bg-coral-600"
+                className="h-9 rounded-xl bg-[#003B2D] text-[13px] font-medium text-white shadow-sm hover:bg-[#002a20]"
               >
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-3.5 w-3.5 text-[#9BE000]" />
                 Envoyer
               </Button>
             </DialogFooter>

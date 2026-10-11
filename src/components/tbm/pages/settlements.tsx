@@ -12,6 +12,7 @@ import {
   Download,
   Eye,
   FileText,
+  HandCoins,
   Hourglass,
   Info,
   Landmark,
@@ -107,38 +108,51 @@ function MiniKpi({
   value,
   hint,
   tone,
+  rightElement,
+  index = 0,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   hint: string;
   tone: string;
+  rightElement?: React.ReactNode;
+  index?: number;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+      transition={{
+        duration: 0.45,
+        delay: 0.05 + index * 0.06,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <span
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-          tone
-        )}
-      >
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-neutral-400">
-          {label}
+      <div className="flex items-start gap-3.5">
+        <span
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            tone
+          )}
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
-          {value}
-        </span>
-        <span className="block truncate text-[11px] text-neutral-400">{hint}</span>
-      </span>
-    </motion.div>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
+      </div>
+      {rightElement && (
+        <div className="self-start pt-1 shrink-0">
+          {rightElement}
+        </div>
+      )}
+    </motion.article>
   );
 }
 
@@ -227,30 +241,30 @@ function DocButton({
           e.stopPropagation();
           onDownload(doc, revId);
         }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-400 transition-colors hover:border-coral-200 hover:bg-coral-50 hover:text-coral-600"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-400 transition-colors hover:border-[#003B2D]/30 hover:bg-[#F3F7F5] hover:text-[#003B2D]"
       >
         <Download className="h-3.5 w-3.5" />
       </button>
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200/70 bg-neutral-50/60 px-3 py-2.5">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--tbm-border)] bg-[#F3F7F5]/50 px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-500 ring-1 ring-neutral-200/80">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-500 ring-1 ring-[var(--tbm-border)]">
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <p className="text-[12.5px] font-semibold text-neutral-700">
+          <p className="text-[12.5px] font-semibold text-[var(--tbm-text)]">
             {SETTLEMENT_DOC_META[doc.kind].label}
           </p>
-          <p className="truncate font-mono text-[11px] text-neutral-400">{doc.nom}</p>
-          <p className="text-[10.5px] text-neutral-400">
+          <p className="truncate font-mono text-[11px] text-[var(--tbm-text-muted)]">{doc.nom}</p>
+          <p className="text-[10.5px] text-[var(--tbm-text-muted)]">
             {SETTLEMENT_DOC_META[doc.kind].description}
           </p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-[10.5px] text-neutral-400">
+        <span className="text-[10.5px] text-[var(--tbm-text-muted)]">
           {doc.taille} · généré {doc.genereLe}
         </span>
         <Button
@@ -260,7 +274,7 @@ function DocButton({
             e.stopPropagation();
             onDownload(doc, revId);
           }}
-          className="h-8 gap-1.5 rounded-lg border-neutral-200 px-2.5 text-[12px] font-medium shadow-none hover:border-coral-200 hover:bg-coral-50 hover:text-coral-600"
+          className="h-8 gap-1.5 rounded-lg border-[var(--tbm-border)] px-2.5 text-[12px] font-medium shadow-none hover:border-[#003B2D]/30 hover:bg-[#F3F7F5] hover:text-[#003B2D]"
         >
           <Download className="h-3.5 w-3.5" />
           Télécharger
@@ -352,7 +366,7 @@ function DecompteLine({
   sub?: string;
   amount: string;
   sign?: "minus" | "equals";
-  tone?: "neutral" | "coral";
+  tone?: "neutral" | "highlight";
 }) {
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
@@ -371,20 +385,20 @@ function DecompteLine({
           <span
             className={cn(
               "block truncate text-[12.5px] font-semibold",
-              tone === "coral" ? "text-coral-700" : "text-neutral-700"
+              tone === "highlight" ? "text-[#003B2D]" : "text-[var(--tbm-text)]"
             )}
           >
             {label}
           </span>
           {sub && (
-            <span className="block truncate text-[10.5px] text-neutral-400">{sub}</span>
+            <span className="block truncate text-[10.5px] text-[var(--tbm-text-muted)]">{sub}</span>
           )}
         </span>
       </span>
       <span
         className={cn(
           "shrink-0 text-[13px] font-bold tabular-nums",
-          tone === "coral" ? "text-coral-600" : "text-neutral-800"
+          tone === "highlight" ? "text-[#003B2D] font-extrabold" : "text-[var(--tbm-text)]"
         )}
       >
         {amount}
@@ -498,9 +512,9 @@ function SettlementSheet({
                 <Button
                   size="sm"
                   onClick={() => onPay(s)}
-                  className="h-8 gap-1.5 rounded-xl bg-coral-500 text-[12.5px] font-semibold text-white hover:bg-coral-600"
+                  className="h-8 gap-1.5 rounded-xl bg-[#003B2D] text-[12.5px] font-semibold text-white hover:bg-[#002a20]"
                 >
-                  <Banknote className="h-3.5 w-3.5" />
+                  <Banknote className="h-3.5 w-3.5 text-[#9BE000]" />
                   Enregistrer le reversement
                 </Button>
               ) : (
@@ -544,7 +558,7 @@ function SettlementSheet({
               Décompte de la période
             </h4>
             {s.statut === "a_calculer" ? (
-              <div className="mt-2.5 rounded-2xl border border-neutral-200/70 p-4">
+              <div className="mt-2.5 rounded-2xl border border-[var(--tbm-border)] p-4">
                 <div className="rounded-xl bg-amber-50/70 p-3.5">
                   <p className="text-[12.5px] font-bold text-amber-700">
                     Estimation provisionnelle : ≈ {formatNumber(s.estimation?.brut ?? 0)} FCFA
@@ -556,7 +570,7 @@ function SettlementSheet({
                     calcul, après clôture du rapprochement quotidien (A02).
                   </p>
                 </div>
-                <p className="mt-3 text-[12px] leading-relaxed text-neutral-500">
+                <p className="mt-3 text-[12px] leading-relaxed text-[var(--tbm-text-muted)]">
                   Le calcul consolidera : collecté brut − remboursements exécutés
                   (A03) − commission TBM ({s.commissionTaux} %) = net à reverser.
                   Le relevé de collecte et l&apos;avis de commission seront générés
@@ -564,7 +578,7 @@ function SettlementSheet({
                 </p>
               </div>
             ) : (
-              <div className="mt-2.5 overflow-hidden rounded-2xl border border-neutral-200/70">
+              <div className="mt-2.5 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white">
                 <div className="divide-y divide-dashed divide-neutral-100">
                   <DecompteLine
                     label="Collecté brut"
@@ -589,11 +603,11 @@ function SettlementSheet({
                     amount={`− ${formatNumber(s.commissionMontant)} FCFA`}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-3 bg-coral-50/80 px-3.5 py-3">
-                  <span className="text-[13px] font-bold text-coral-700">
+                <div className="flex items-center justify-between gap-3 border-t border-[var(--tbm-border)] bg-[#F3F7F5] px-4 py-3">
+                  <span className="text-[13px] font-bold text-[#003B2D]">
                     Net à reverser à {s.compagnie}
                   </span>
-                  <span className="text-[15px] font-black tabular-nums text-coral-600">
+                  <span className="text-[15px] font-black tabular-nums text-[#003B2D]">
                     {formatFcfa(s.netAReverser)}
                   </span>
                 </div>
@@ -944,24 +958,27 @@ export function SettlementsPage() {
 
   return (
     <div>
-      {/* En-tête */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Commissions &amp; reversements
-          </h2>
-          <p className="mt-0.5 text-[12.5px] text-neutral-400">
-            A11 — Montants collectés par compagnie, commissions TBM et net à
-            reverser. Conçu dès le départ pour les deux modèles d&apos;encaissement.
-          </p>
+      {/* En-tête + action */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <HandCoins className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Commissions &amp; reversements
+            </h1>
+            <p className="mt-0.5 text-[12px] text-[var(--tbm-text-muted)]">
+              A11 — Montants collectés par compagnie, commissions TBM et net à reverser aux partenaires.
+            </p>
+          </div>
         </div>
         <Button
-          variant="outline"
           onClick={exportCsv}
-          className="h-9 gap-1.5 rounded-xl border-neutral-200 text-[12.5px] font-medium shadow-none hover:border-neutral-300"
+          className="h-10 gap-2 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white shadow-sm hover:bg-[#002a20] active:scale-[0.98] transition-all"
         >
-          <Download className="h-4 w-4 text-neutral-400" />
-          Exporter
+          <Download className="h-4 w-4 stroke-[2.5] text-[#9BE000]" />
+          Exporter CSV
         </Button>
       </div>
 
@@ -970,24 +987,24 @@ export function SettlementsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/60 px-4 py-3"
+        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-[var(--tbm-border)] bg-white p-4 shadow-xs"
       >
-        <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
-          <Info className="h-4 w-4 text-coral-500" />
+        <span className="flex items-center gap-2 text-[12px] font-semibold text-[var(--tbm-text)]">
+          <Info className="h-4 w-4 text-[#003B2D]" />
           Modèle d&apos;encaissement retenu :{" "}
-          {ENCAISSEMENT_MODE_META[settings.encaissementMode].label} —
+          <span className="font-bold text-[#003B2D]">{ENCAISSEMENT_MODE_META[settings.encaissementMode].label}</span> —
         </span>
-        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
+        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-[var(--tbm-text-muted)]">
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             Conçu pour les deux modèles (collecte TBM ou collecte compagnie)
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             Au lancement, calcul, validation et paiement finalisés manuellement
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             {isAdmin
               ? "Calcul, validation et exécution des reversements"
               : "Calcul et consultation — validation et paiement réservés à l'administration"}
@@ -996,95 +1013,101 @@ export function SettlementsPage() {
       </motion.div>
 
       {/* KPIs */}
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
+          index={0}
           icon={Wallet}
           label="Collecté (périodes traitées)"
           value={formatFcfa(kpi.collecte)}
           hint={`${settlements.length} reversements · ${compagniesList.length} compagnies`}
-          tone="bg-coral-100 text-coral-600"
+          tone="bg-[#eaf8e2] text-[var(--tbm-success)]"
         />
         <MiniKpi
+          index={1}
           icon={Percent}
           label="Commissions TBM"
           value={formatFcfa(kpi.commissions)}
           hint="taux contractuels 8 à 12 %"
-          tone="bg-violet-100 text-violet-600"
+          tone="bg-[#ede9fe] text-[#7c3aed]"
         />
         <MiniKpi
+          index={2}
           icon={Hourglass}
           label="Net à reverser — en attente"
           value={formatFcfa(kpi.attente)}
           hint={`${aTraiter.length} reversement${aTraiter.length > 1 ? "s" : ""} à traiter`}
-          tone="bg-amber-100 text-amber-600"
+          tone="bg-[#fef3c7] text-[var(--tbm-warning)]"
         />
         <MiniKpi
+          index={3}
           icon={CheckCircle2}
           label="Reversements payés"
           value={formatFcfa(kpi.payeTotal)}
           hint={`${kpi.payes.length} reversement${kpi.payes.length > 1 ? "s" : ""} exécuté${kpi.payes.length > 1 ? "s" : ""}`}
-          tone="bg-emerald-100 text-emerald-600"
+          tone="bg-[#e0f2fe] text-[#0284c7]"
         />
       </div>
 
       {/* Onglets — synchronisés à ?tab=… */}
       <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
-          <TabsTrigger
-            value="cycle"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Calculator className="h-3.5 w-3.5" />
-            Cycle de reversement
-            {aTraiter.length > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 text-[9.5px] font-bold text-white">
-                {aTraiter.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="paiements"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Banknote className="h-3.5 w-3.5" />
-            Historique des paiements
-          </TabsTrigger>
-          <TabsTrigger
-            value="compagnies"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Wallet className="h-3.5 w-3.5" />
-            Par compagnie
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="cycle"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Calculator className="h-4 w-4" />
+              Cycle de reversement
+              {aTraiter.length > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#003B2D] px-1 text-[9.5px] font-bold text-[#9BE000]">
+                  {aTraiter.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="paiements"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Banknote className="h-4 w-4" />
+              Historique des paiements
+            </TabsTrigger>
+            <TabsTrigger
+              value="compagnies"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Wallet className="h-4 w-4" />
+              Par compagnie
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ---------------------- Cycle de reversement ---------------------- */}
         <TabsContent value="cycle" className="mt-4">
           {/* Filtres */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Réf. (REV-…), compagnie, période, réf. paiement…"
                 aria-label="Rechercher un reversement"
-                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
               />
             </div>
             <Select value={statut} onValueChange={setStatut}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[150px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous statuts
                 </SelectItem>
                 {Object.entries(SETTLEMENT_STATUS_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
                     {meta.label}
                   </SelectItem>
                 ))}
@@ -1093,16 +1116,16 @@ export function SettlementsPage() {
             <Select value={compagnie} onValueChange={setCompagnie}>
               <SelectTrigger
                 aria-label="Filtrer par compagnie"
-                className="h-9 w-[180px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[190px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Toutes compagnies
                 </SelectItem>
                 {compagniesList.map((nom) => (
-                  <SelectItem key={nom} value={nom} className="rounded-lg text-[13px]">
+                  <SelectItem key={nom} value={nom} className="rounded-lg text-[12.5px]">
                     {nom}
                   </SelectItem>
                 ))}
@@ -1115,34 +1138,34 @@ export function SettlementsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Réf. &amp; période
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Collecté
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Commission
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Net à reverser
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Statut
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Justificatifs
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1276,7 +1299,6 @@ export function SettlementsPage() {
                               <ActionIconButton
                                 icon={Banknote}
                                 label="Reversement"
-                                tone="coral"
                                 onClick={() => openPay(s)}
                               />
                             ) : (
@@ -1329,31 +1351,31 @@ export function SettlementsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Reversement
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Net reversé
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Moyen
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Référence du paiement
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Preuve
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1362,7 +1384,7 @@ export function SettlementsPage() {
                   {payesPg.pageItems.map((s) => (
                     <TableRow
                       key={s.id}
-                      className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+                      className="cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
                       onClick={() => setSel(s.id)}
                     >
                       <TableCell className="py-3.5 pl-5">
@@ -1450,8 +1472,8 @@ export function SettlementsPage() {
               entity="paiement"
             />
             {payesSorted.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
-                <span className="text-[12px] font-medium text-neutral-500">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--tbm-border)] bg-[#F3F7F5]/50 px-5 py-3">
+                <span className="text-[12px] font-medium text-[var(--tbm-text-muted)]">
                   Total reversé aux compagnies (démonstration)
                 </span>
                 <span className="text-[13px] font-bold tabular-nums text-emerald-600">
@@ -1468,31 +1490,31 @@ export function SettlementsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Collecté cumulé
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Commissions TBM
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Net reversé
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       En attente
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Dernier reversement
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1652,10 +1674,10 @@ export function SettlementsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-dashed border-neutral-200 pt-1.5">
-                  <span className="font-semibold text-coral-700">
+                  <span className="font-semibold text-[#003B2D]">
                     Net à reverser
                   </span>
-                  <span className="font-black tabular-nums text-coral-600">
+                  <span className="font-black tabular-nums text-[#003B2D]">
                     {formatFcfa(selected.netAReverser)}
                   </span>
                 </div>
@@ -1670,7 +1692,7 @@ export function SettlementsPage() {
                 </Button>
                 <Button
                   onClick={confirmValidate}
-                  className="h-9 rounded-xl bg-emerald-500 text-[13px] font-semibold text-white hover:bg-emerald-600"
+                  className="h-9 rounded-xl bg-emerald-600 text-[13px] font-semibold text-white hover:bg-emerald-700"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   Valider et passer en cours
@@ -1691,7 +1713,7 @@ export function SettlementsPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-[16px]">
-                  <Banknote className="h-5 w-5 text-coral-500" />
+                  <Banknote className="h-5 w-5 text-[#003B2D]" />
                   Enregistrer le reversement {selected.id}
                 </DialogTitle>
                 <DialogDescription className="text-[12.5px] leading-relaxed">
@@ -1757,9 +1779,9 @@ export function SettlementsPage() {
                 </Button>
                 <Button
                   onClick={confirmPay}
-                  className="h-9 rounded-xl bg-coral-500 text-[13px] font-semibold text-white hover:bg-coral-600"
+                  className="h-9 rounded-xl bg-[#003B2D] text-[13px] font-semibold text-white hover:bg-[#002a20]"
                 >
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4 text-[#9BE000]" />
                   Enregistrer le reversement
                 </Button>
               </DialogFooter>

@@ -58,7 +58,7 @@ export function TbmShell() {
   const renderSection = () => {
     switch (active) {
       case "dashboard":
-        return <DashboardPage />;
+        return <DashboardPage onNavigate={goTo} />;
       case "companies":
         return <CompaniesPage />;
       case "transactions":
@@ -85,13 +85,13 @@ export function TbmShell() {
   };
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-white text-neutral-900 antialiased">
-      {/* ---- Sidebar bureau : épinglée, pleine hauteur ---- */}
+    <div className="fixed inset-0 flex h-dvh w-full overflow-hidden bg-[var(--tbm-background)] text-[var(--tbm-text)] antialiased">
+      {/* ---- Sidebar bureau : fixe / épinglée, pleine hauteur ---- */}
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 88 : 264 }}
+        animate={{ width: collapsed ? 80 : 260 }}
         transition={{ type: "spring", stiffness: 320, damping: 34 }}
-        className="z-30 hidden h-full shrink-0 overflow-hidden border-r border-neutral-200/80 lg:block"
+        className="relative z-30 hidden h-full shrink-0 overflow-hidden border-r border-[#003B2D]/40 bg-[var(--tbm-dark)] lg:block"
       >
         <SidebarContent
           collapsed={collapsed}
@@ -101,14 +101,14 @@ export function TbmShell() {
         />
       </motion.aside>
 
-      {/* ---- Colonne principale ---- */}
-      <div className="flex h-full min-w-0 flex-1 flex-col">
+      {/* ---- Colonne principale : Header fixe + Contenu scrollable ---- */}
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[var(--tbm-background)]">
         <TbmTopbar active={active} onOpenMenu={() => setMobileOpen(true)} />
 
-        {/* Contenu scrollable : pleine largeur, fond blanc */}
-        <main className="ff-scrollbar min-h-0 flex-1 overflow-y-auto">
+        {/* Contenu scrollable exclusif : seul ce conteneur défile */}
+        <main className="ff-scrollbar min-h-0 flex-1 overflow-y-auto bg-[var(--tbm-background)]">
           <h1 className="sr-only">TBM — Back-office, {active}</h1>
-          <div className="px-4 pb-10 pt-5 sm:px-6 lg:px-8">{renderSection()}</div>
+          <div className="p-4 sm:p-5 lg:p-6">{renderSection()}</div>
         </main>
       </div>
 

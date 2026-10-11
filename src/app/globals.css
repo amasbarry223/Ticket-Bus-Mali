@@ -9,23 +9,21 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* FiscalFlow Coral Accent */
-  --color-coral-50: #fef2f1;
-  --color-coral-100: #fde3e1;
-  --color-coral-200: #fbcbc7;
-  --color-coral-300: #f8a79f;
-  --color-coral-400: #f48277;
-  --color-coral-500: #f0655c;
-  --color-coral-600: #e04b44;
-  --color-coral-700: #bd3a35;
-  --color-coral-800: #9c322e;
-  --color-coral-900: #822d2a;
 
-  /* Chart palette */
-  --color-flipurple: #a78bfa;
-  --color-fliorange: #f59e0b;
-  --color-fligreen: #22c55e;
-  --color-fliviolet: #c084fc;
+
+  /* TBM Color Palette */
+  --color-tbm-primary: var(--tbm-primary);
+  --color-tbm-green: var(--tbm-green);
+  --color-tbm-dark: var(--tbm-dark);
+  --color-tbm-white: var(--tbm-white);
+  --color-tbm-background: var(--tbm-background);
+  --color-tbm-border: var(--tbm-border);
+  --color-tbm-text: var(--tbm-text);
+  --color-tbm-text-muted: var(--tbm-text-muted);
+  --color-tbm-muted: var(--tbm-text-muted);
+  --color-tbm-success: var(--tbm-success);
+  --color-tbm-warning: var(--tbm-warning);
+  --color-tbm-danger: var(--tbm-danger);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -63,38 +61,55 @@
 }
 
 :root {
+  /* Identité TBM */
+  --tbm-primary: #9BE000;
+  --tbm-green: #003B2D;
+  --tbm-dark: #001D18;
+
+  /* Interface */
+  --tbm-white: #FFFFFF;
+  --tbm-background: #F3F7F5;
+  --tbm-border: #D9E2DE;
+  --tbm-text: #172B25;
+  --tbm-text-muted: #718078;
+
+  /* États */
+  --tbm-success: #16A34A;
+  --tbm-warning: #F59E0B;
+  --tbm-danger: #EF4444;
+
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: var(--tbm-background);
+  --foreground: var(--tbm-text);
+  --card: var(--tbm-white);
+  --card-foreground: var(--tbm-text);
+  --popover: var(--tbm-white);
+  --popover-foreground: var(--tbm-text);
+  --primary: var(--tbm-primary);
+  --primary-foreground: var(--tbm-dark);
+  --secondary: var(--tbm-background);
+  --secondary-foreground: var(--tbm-text);
+  --muted: var(--tbm-background);
+  --muted-foreground: var(--tbm-text-muted);
+  --accent: var(--tbm-background);
+  --accent-foreground: var(--tbm-text);
+  --destructive: var(--tbm-danger);
+  --border: var(--tbm-border);
+  --input: var(--tbm-border);
+  --ring: var(--tbm-primary);
+  --chart-1: #9BE000;
+  --chart-2: #003B2D;
+  --chart-3: #16A34A;
+  --chart-4: #F59E0B;
+  --chart-5: #EF4444;
+  --sidebar: var(--tbm-dark);
+  --sidebar-foreground: var(--tbm-white);
+  --sidebar-primary: var(--tbm-primary);
+  --sidebar-primary-foreground: var(--tbm-dark);
+  --sidebar-accent: var(--tbm-green);
+  --sidebar-accent-foreground: var(--tbm-white);
+  --sidebar-border: rgba(217, 226, 222, 0.15);
+  --sidebar-ring: var(--tbm-primary);
 }
 
 .dark {
@@ -135,6 +150,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -162,48 +182,9 @@
   background-color: rgba(0, 0, 0, 0.28);
 }
 
-/* Soft card shadow used across the dashboard */
-.ff-card {
+.ff-card,
+.tbm-card {
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
     0 1px 3px rgba(16, 24, 40, 0.03);
-}
-
-/* Donut chart segments animation */
-@keyframes ff-donut-in {
-  from {
-    stroke-dasharray: 0 var(--seg-rest);
-  }
-  to {
-    stroke-dasharray: var(--seg-len) var(--seg-rest);
-  }
-}
-.ff-donut-segment {
-  animation: ff-donut-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Progress bar grow animation */
-@keyframes ff-progress-in {
-  from {
-    width: 0%;
-  }
-}
-.ff-progress-fill {
-  animation: ff-progress-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Subtle pulsing dot for the active chart point */
-@keyframes ff-ping-soft {
-  0% {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-  80%,
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-}
-.ff-ping {
-  animation: ff-ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

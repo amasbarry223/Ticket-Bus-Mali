@@ -72,14 +72,15 @@ function Kpi({
   value: string;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "coral" | "amber" | "rose" | "neutral";
+  tone: "coral" | "amber" | "rose" | "neutral" | "primary";
   index: number;
 }) {
   const tones: Record<string, string> = {
-    coral: "group-hover:bg-coral-50 group-hover:text-coral-500",
-    amber: "group-hover:bg-amber-50 group-hover:text-amber-600",
-    rose: "group-hover:bg-rose-50 group-hover:text-rose-600",
-    neutral: "group-hover:bg-neutral-200/60",
+    primary: "bg-[#003B2D]/10 text-[#003B2D]",
+    coral: "bg-[#003B2D]/10 text-[#003B2D]",
+    amber: "bg-amber-100 text-amber-600",
+    rose: "bg-rose-100 text-rose-600",
+    neutral: "bg-neutral-100 text-neutral-600",
   };
   return (
     <motion.article
@@ -90,23 +91,25 @@ function Kpi({
         delay: 0.05 + index * 0.06,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group ff-card rounded-2xl border border-neutral-200/70 bg-white p-4"
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[12.5px] font-medium text-neutral-500">{label}</h3>
+      <div className="flex items-start gap-3.5">
         <span
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors duration-300",
-            tones[tone]
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            tones[tone] ?? tones.primary
           )}
         >
-          <Icon className="h-4 w-4" aria-hidden="true" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
       </div>
-      <p className="mt-2.5 text-[21px] font-bold leading-none tracking-tight text-neutral-900">
-        {value}
-      </p>
-      <p className="mt-1.5 text-[11.5px] text-neutral-400">{hint}</p>
     </motion.article>
   );
 }
@@ -469,27 +472,32 @@ export function LinesPage() {
   return (
     <div>
       {/* ---- En-tête ---- */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Lignes &amp; Départs
-          </h2>
-          <p className="mt-0.5 max-w-xl text-[12.5px] text-neutral-400">
-            A09 — Supervision des départs de toutes les compagnies : lecture
-            seule, la programmation reste gérée par l’outil de chaque compagnie.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <Route className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Lignes &amp; Départs
+            </h1>
+            <p className="mt-0.5 max-w-xl text-[12px] text-[var(--tbm-text-muted)]">
+              A09 — Supervision des départs de toutes les compagnies : lecture
+              seule, la programmation reste gérée par l’outil de chaque compagnie.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* ---- Indicateurs du jour ---- */}
-      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           index={0}
           label="Départs aujourd’hui"
           value={formatNumber(kpis.count)}
           hint={`${formatNumber(companyDepartures.length)} sur 2 jours`}
           icon={CalendarClock}
-          tone="coral"
+          tone="primary"
         />
         <Kpi
           index={1}
@@ -505,7 +513,7 @@ export function LinesPage() {
           value={`${kpis.occ} %`}
           hint="capacité embarquée aujourd’hui"
           icon={Route}
-          tone="coral"
+          tone="primary"
         />
         <Kpi
           index={3}
@@ -517,40 +525,61 @@ export function LinesPage() {
         />
       </div>
 
-      {/* ---- Filtres partagés ---- */}
-      <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              view === "departs"
-                ? "Rechercher (trajet, bus, compagnie)…"
-                : "Rechercher (trajet, arrêt, compagnie)…"
-            }
-            aria-label="Rechercher une ligne ou un départ"
-            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
-          />
+      {/* ---- Vue : départs / lignes ---- */}
+      <Tabs
+        value={view}
+        onValueChange={(v) => setTabParam(v)}
+        className="mt-5"
+      >
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="departs"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Tableau des départs
+            </TabsTrigger>
+            <TabsTrigger
+              value="lignes"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Route className="h-4 w-4" />
+              Réseau de lignes
+            </TabsTrigger>
+          </TabsList>
         </div>
-        {view === "departs" && (
-          <>
+
+        {/* ============ Onglet Départs ============ */}
+        <TabsContent value="departs" className="mt-4">
+          {/* ---- Filtres partagés ---- */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher (trajet, bus, compagnie)…"
+                aria-label="Rechercher un départ"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
+              />
+            </div>
             <Select value={companyFilter} onValueChange={setCompanyFilter}>
               <SelectTrigger
                 aria-label="Filtrer par compagnie"
-                className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[170px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Toutes les compagnies
                 </SelectItem>
                 {companies.map((c) => (
                   <SelectItem
                     key={c.id}
                     value={c.id}
-                    className="rounded-lg text-[13px]"
+                    className="rounded-lg text-[12.5px]"
                   >
                     {c.nom}
                   </SelectItem>
@@ -560,19 +589,19 @@ export function LinesPage() {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous les statuts
                 </SelectItem>
                 {Object.entries(DEPARTURE_STATUS_META).map(([key, meta]) => (
                   <SelectItem
                     key={key}
                     value={key}
-                    className="rounded-lg text-[13px]"
+                    className="rounded-lg text-[12.5px]"
                   >
                     {meta.label}
                   </SelectItem>
@@ -582,79 +611,59 @@ export function LinesPage() {
             <Select value={dayFilter} onValueChange={setDayFilter}>
               <SelectTrigger
                 aria-label="Filtrer par jour"
-                className="h-9 w-[130px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[130px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous les jours
                 </SelectItem>
-                <SelectItem value="Aujourd'hui" className="rounded-lg text-[13px]">
+                <SelectItem value="Aujourd'hui" className="rounded-lg text-[12.5px]">
                   Aujourd’hui
                 </SelectItem>
-                <SelectItem value="Demain" className="rounded-lg text-[13px]">
+                <SelectItem value="Demain" className="rounded-lg text-[12.5px]">
                   Demain
                 </SelectItem>
               </SelectContent>
             </Select>
-          </>
-        )}
-        <span className="ml-auto text-[12px] text-neutral-400">
-          {view === "departs"
-            ? `${filteredDeparts.length} départ${filteredDeparts.length > 1 ? "s" : ""}`
-            : `${filteredNetwork.length} ligne${filteredNetwork.length > 1 ? "s" : ""}`}
-        </span>
-      </div>
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
+              {filteredDeparts.length} départ{filteredDeparts.length > 1 ? "s" : ""}
+            </span>
+          </div>
 
-      {/* ---- Vue : départs / lignes ---- */}
-      <Tabs
-        value={view}
-        onValueChange={(v) => setTabParam(v)}
-      >
-        <TabsList className="mt-3 h-9 rounded-xl bg-neutral-100 p-1">
-          <TabsTrigger value="departs" className="h-7 rounded-lg text-[12.5px]">
-            Tableau des départs
-          </TabsTrigger>
-          <TabsTrigger value="lignes" className="h-7 rounded-lg text-[12.5px]">
-            Réseau de lignes
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ============ Onglet Départs ============ */}
-        <TabsContent value="departs" className="mt-3">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Départ
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Trajet
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 md:table-cell">
+                    <TableHead className="hidden h-11 text-xs font-semibold text-[var(--tbm-text)] md:table-cell">
                       Bus
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       Tarif
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 sm:table-cell">
+                    <TableHead className="hidden h-11 text-xs font-semibold text-[var(--tbm-text)] sm:table-cell">
                       Capacité
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       Statut
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -669,7 +678,7 @@ export function LinesPage() {
                       <TableRow
                         key={d.id}
                         onClick={() => setSel(d.id)}
-                        className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                        className="cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
                       >
                         <TableCell className="py-3.5 pl-5">
                           <div className="flex items-center gap-2">
@@ -743,7 +752,6 @@ export function LinesPage() {
                             <ActionIconButton
                               icon={Eye}
                               label="Voir la fiche du départ"
-                              tone="coral"
                               onClick={() => setSel(d.id)}
                             />
                           </div>
@@ -779,33 +787,33 @@ export function LinesPage() {
         </TabsContent>
 
         {/* ============ Onglet Lignes ============ */}
-        <TabsContent value="lignes" className="mt-3">
+        <TabsContent value="lignes" className="mt-4">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Ligne interrégionale
                     </TableHead>
-                    <TableHead className="hidden h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400 md:table-cell">
+                    <TableHead className="hidden h-11 text-xs font-semibold text-[var(--tbm-text)] md:table-cell">
                       Arrêts intermédiaires
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Durée · Distance
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       Tarifs
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnies
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -818,7 +826,7 @@ export function LinesPage() {
                       <TableRow
                         key={n.key}
                         onClick={() => setSel(n.key)}
-                        className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                        className="cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
                       >
                         <TableCell className="py-3.5 pl-5">
                           <span className="block text-[13px] font-semibold text-neutral-800">
@@ -881,7 +889,6 @@ export function LinesPage() {
                             <ActionIconButton
                               icon={Eye}
                               label="Voir la fiche de la ligne"
-                              tone="coral"
                               onClick={() => setSel(n.key)}
                             />
                           </div>

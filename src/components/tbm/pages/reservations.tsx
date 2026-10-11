@@ -183,14 +183,15 @@ function Kpi({
   value: string;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "coral" | "amber" | "emerald" | "rose";
+  tone: "coral" | "amber" | "emerald" | "rose" | "primary";
   index: number;
 }) {
   const tones: Record<string, string> = {
-    coral: "group-hover:bg-coral-50 group-hover:text-coral-500",
-    amber: "group-hover:bg-amber-50 group-hover:text-amber-600",
-    emerald: "group-hover:bg-emerald-50 group-hover:text-emerald-600",
-    rose: "group-hover:bg-rose-50 group-hover:text-rose-600",
+    primary: "bg-[#003B2D]/10 text-[#003B2D]",
+    coral: "bg-[#003B2D]/10 text-[#003B2D]",
+    amber: "bg-amber-100 text-amber-600",
+    emerald: "bg-emerald-100 text-emerald-600",
+    rose: "bg-rose-100 text-rose-600",
   };
   return (
     <motion.article
@@ -201,23 +202,25 @@ function Kpi({
         delay: 0.05 + index * 0.06,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group ff-card rounded-2xl border border-neutral-200/70 bg-white p-4"
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[12.5px] font-medium text-neutral-500">{label}</h3>
+      <div className="flex items-start gap-3.5">
         <span
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors duration-300",
-            tones[tone]
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            tones[tone] ?? tones.primary
           )}
         >
-          <Icon className="h-4 w-4" aria-hidden="true" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
       </div>
-      <p className="mt-2.5 text-[21px] font-bold leading-none tracking-tight text-neutral-900">
-        {value}
-      </p>
-      <p className="mt-1.5 text-[11.5px] text-neutral-400">{hint}</p>
     </motion.article>
   );
 }
@@ -685,7 +688,7 @@ function ReservationSheet({
                           size="icon"
                           onClick={() => onOpenTicket(t)}
                           aria-label={`Voir le billet électronique de ${t.passager.nom}`}
-                          className="h-8 w-8 shrink-0 rounded-lg border-neutral-200 text-neutral-500 shadow-none hover:border-coral-300 hover:text-coral-600"
+                          className="h-8 w-8 shrink-0 rounded-lg border-[var(--tbm-border)] text-neutral-500 shadow-none hover:border-[#003B2D]/40 hover:bg-[#F3F7F5] hover:text-[#003B2D]"
                         >
                           <QrCode className="h-4 w-4" />
                         </Button>
@@ -770,7 +773,7 @@ function EticketDialog({
     : null;
   return (
     <Dialog open={!!data} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[400px] gap-0 overflow-hidden rounded-2xl border-neutral-200 p-0">
+      <DialogContent className="max-w-[400px] gap-0 overflow-hidden rounded-2xl border-[var(--tbm-border)] p-0">
         {data && (
           <>
             <DialogTitle className="sr-only">
@@ -780,14 +783,14 @@ function EticketDialog({
               Détails du ticket électronique et QR code de validation.
             </DialogDescription>
 
-            <div className="relative bg-gradient-to-r from-coral-500 to-coral-400 px-5 py-4 text-white">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-white/80">
+            <div className="relative bg-[#003B2D] px-5 py-4 text-white">
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[#9BE000]">
                 TBM — Billet électronique
               </p>
-              <p className="mt-0.5 text-[17px] font-bold tracking-tight">
+              <p className="mt-0.5 text-[17px] font-bold tracking-tight text-white">
                 {dep?.trajet ?? "—"}
               </p>
-              <p className="mt-0.5 text-[11.5px] text-white/85">
+              <p className="mt-0.5 text-[11.5px] text-white/80">
                 {dep ? `${dep.jour} · ${dep.heure}` : ""} · Réf. {data.res.id}
               </p>
             </div>
@@ -902,29 +905,29 @@ function ReservationsTable({
     <div className="ff-scrollbar max-h-[620px] overflow-auto">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+          <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Référence
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Passagers
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Départ associé
             </TableHead>
-            <TableHead className="sticky top-0 z-10 hidden h-11 bg-neutral-50 text-xs font-medium text-neutral-400 md:table-cell">
+            <TableHead className="sticky top-0 z-10 hidden h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur md:table-cell">
               Compagnie
             </TableHead>
-            <TableHead className="sticky top-0 z-10 hidden h-11 bg-neutral-50 text-xs font-medium text-neutral-400 lg:table-cell">
+            <TableHead className="sticky top-0 z-10 hidden h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur lg:table-cell">
               Billets
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-right text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-right text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Montant
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Statut
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
@@ -941,7 +944,7 @@ function ReservationsTable({
               <TableRow
                 key={r.id}
                 onClick={() => onOpen(r)}
-                className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                className="cursor-pointer border-b border-[var(--tbm-border)] transition-colors hover:bg-[#F3F7F5]/50"
               >
                 <TableCell className="py-3.5 pl-5">
                   <span className="block text-[13px] font-bold tabular-nums text-neutral-900">
@@ -1001,7 +1004,7 @@ function ReservationsTable({
                         {r.tickets.length > 1 ? "s" : ""}
                       </span>
                       <span className="mt-0.5 block text-[10.5px] text-neutral-400">
-                        <span className="text-coral-500">
+                        <span className="font-semibold text-[#003B2D]">
                           {issued} émis
                         </span>
                         {" · "}
@@ -1040,7 +1043,6 @@ function ReservationsTable({
                     {qrTicket && (
                       <ActionIconButton
                         icon={QrCode}
-                        tone="coral"
                         label="Voir le billet électronique"
                         onClick={() => onOpenEticket(r, qrTicket)}
                       />
@@ -1084,26 +1086,26 @@ function TicketsTable({
     <div className="ff-scrollbar max-h-[620px] overflow-auto">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+          <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Réf. billet
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Passager
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Réservation liée
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Départ
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Statut du billet
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               Dernier scan
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)] bg-[#F3F7F5]/95 backdrop-blur">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
@@ -1115,7 +1117,7 @@ function TicketsTable({
               <TableRow
                 key={ticket.id}
                 onClick={() => onOpen(res)}
-                className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                className="cursor-pointer border-b border-[var(--tbm-border)] transition-colors hover:bg-[#F3F7F5]/50"
               >
                 <TableCell className="py-3.5 pl-5">
                   <span className="block text-[12.5px] font-bold tabular-nums text-neutral-900">
@@ -1197,7 +1199,6 @@ function TicketsTable({
                     />
                     <ActionIconButton
                       icon={QrCode}
-                      tone="coral"
                       label="Voir le billet électronique"
                       onClick={() => onOpenEticket(res, ticket)}
                     />
@@ -1318,29 +1319,32 @@ export function ReservationsPage() {
   return (
     <div>
       {/* ---- En-tête ---- */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Réservations &amp; Billets
-          </h2>
-          <p className="mt-0.5 max-w-2xl text-[12.5px] text-neutral-400">
-            A10 — Toutes les réservations de la plateforme : billets
-            électroniques, statuts et historique des scans. Astuce support :
-            collez une référence (RES-…), un n° de billet (TKT-…), un téléphone
-            ou un nom de passager — espaces et tirets sont ignorés.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <TicketIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Réservations &amp; Billets
+            </h1>
+            <p className="mt-0.5 text-[12px] text-[var(--tbm-text-muted)]">
+              A10 — Toutes les réservations de la plateforme : billets
+              électroniques, statuts et historique des scans.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* ---- Indicateurs ---- */}
-      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           index={0}
           label="Réservations"
           value={formatNumber(reservations.length)}
           hint={`${online} en ligne · ${reservations.length - online} au guichet`}
           icon={ClipboardList}
-          tone="coral"
+          tone="primary"
         />
         <Kpi
           index={1}
@@ -1368,112 +1372,112 @@ export function ReservationsPage() {
         />
       </div>
 
-      {/* ---- Recherche & filtres ---- */}
-      <div className="mt-4 flex flex-wrap items-center gap-2.5">
-        <div className="relative min-w-[220px] flex-1 sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Référence, téléphone, n° de billet, passager…"
-            aria-label="Rechercher une réservation par référence, téléphone, numéro de billet ou passager"
-            className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par statut de réservation"
-            className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">
-              Tous les statuts
-            </SelectItem>
-            {Object.entries(RESERVATION_STATUS_META).map(([key, meta]) => (
-              <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={companyFilter} onValueChange={setCompanyFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par compagnie"
-            className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">
-              Toutes les compagnies
-            </SelectItem>
-            {companies.map((c) => (
-              <SelectItem key={c.id} value={c.id} className="rounded-lg text-[13px]">
-                {c.nom}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={dayFilter} onValueChange={setDayFilter}>
-          <SelectTrigger
-            aria-label="Filtrer par jour de départ"
-            className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl border-neutral-100">
-            <SelectItem value="all" className="rounded-lg text-[13px]">
-              Tous les jours
-            </SelectItem>
-            <SelectItem value="Aujourd'hui" className="rounded-lg text-[13px]">
-              Aujourd’hui
-            </SelectItem>
-            <SelectItem value="Demain" className="rounded-lg text-[13px]">
-              Demain
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="ml-auto text-[12px] text-neutral-400">
-          {tab === "billets"
-            ? `${ticketRows.length} billet${ticketRows.length > 1 ? "s" : ""}`
-            : `${filtered.length} réservation${filtered.length > 1 ? "s" : ""}`}
-        </span>
-      </div>
-
       {/* ---- Onglets page-level (synchronisés au paramètre ?tab=) ---- */}
-      <Tabs value={tab} onValueChange={setTabParam} className="mt-4">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
-          <TabsTrigger
-            value="reservations"
-            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <TicketIcon className="h-3.5 w-3.5" />
-            Réservations
-            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
-              {filtered.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="billets"
-            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <QrCode className="h-3.5 w-3.5" />
-            Billets &amp; contrôles
-            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
-              {ticketRows.length}
-            </span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="reservations"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <TicketIcon className="h-4 w-4" />
+              Réservations
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200/80 px-1 text-[9.5px] font-bold text-neutral-600">
+                {filtered.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="billets"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <QrCode className="h-4 w-4" />
+              Billets &amp; contrôles
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200/80 px-1 text-[9.5px] font-bold text-neutral-600">
+                {ticketRows.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ----- Onglet Réservations ----- */}
-        <TabsContent value="reservations" className="mt-3">
+        <TabsContent value="reservations" className="mt-4">
+          {/* ---- Recherche & filtres ---- */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] flex-1 sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Référence, téléphone, n° de billet, passager…"
+                aria-label="Rechercher une réservation par référence, téléphone, numéro de billet ou passager"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par statut de réservation"
+                className="h-10 w-[150px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
+                  Tous les statuts
+                </SelectItem>
+                {Object.entries(RESERVATION_STATUS_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par compagnie"
+                className="h-10 w-[170px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
+                  Toutes les compagnies
+                </SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id} className="rounded-lg text-[12.5px]">
+                    {c.nom}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={dayFilter} onValueChange={setDayFilter}>
+              <SelectTrigger
+                aria-label="Filtrer par jour de départ"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
+                  Tous les jours
+                </SelectItem>
+                <SelectItem value="Aujourd'hui" className="rounded-lg text-[12.5px]">
+                  Aujourd’hui
+                </SelectItem>
+                <SelectItem value="Demain" className="rounded-lg text-[12.5px]">
+                  Demain
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
+              {filtered.length} réservation{filtered.length > 1 ? "s" : ""}
+            </span>
+          </div>
+
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <ReservationsTable
               rows={resPg.pageItems}
@@ -1497,9 +1501,9 @@ export function ReservationsPage() {
             />
 
             {/* Pied de carte : rappel du périmètre support */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
-              <TicketIcon className="h-3.5 w-3.5 text-neutral-300" aria-hidden="true" />
-              <p className="text-[11.5px] text-neutral-400">
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--tbm-border)] bg-[#F3F7F5]/40 px-5 py-3">
+              <TicketIcon className="h-3.5 w-3.5 text-[#003B2D]" aria-hidden="true" />
+              <p className="text-[11.5px] text-[var(--tbm-text-muted)]">
                 Le support retrouve ici un billet en quelques secondes ;
                 l&apos;émission et le reporting restent gérés par les compagnies.
               </p>
@@ -1509,35 +1513,38 @@ export function ReservationsPage() {
         </TabsContent>
 
         {/* ----- Onglet Billets & contrôles : liste aplatie des tickets ----- */}
-        <TabsContent value="billets" className="mt-3">
-          <div className="flex flex-wrap items-center gap-2.5">
+        <TabsContent value="billets" className="mt-4">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={ticketStatusFilter} onValueChange={setTicketStatusFilter}>
               <SelectTrigger
                 aria-label="Filtrer par statut du billet"
-                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[160px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous les billets
                 </SelectItem>
                 {(Object.keys(TICKET_STATUS_META) as TicketStatus[]).map((s) => (
-                  <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
+                  <SelectItem key={s} value={s} className="rounded-lg text-[12.5px]">
                     {TICKET_STATUS_META[s].label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-[12px] text-neutral-400">
+            <span className="text-[12px] text-[var(--tbm-text-muted)]">
               Chaque billet avec son dernier événement de scan ou de validation.
+            </span>
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
+              {ticketRows.length} billet{ticketRows.length > 1 ? "s" : ""}
             </span>
           </div>
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <TicketsTable
               rows={ticketsPg.pageItems}
@@ -1560,9 +1567,9 @@ export function ReservationsPage() {
               onPageSizeChange={ticketsPg.setPageSize}
               entity="billet"
             />
-            <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
-              <ScanLine className="h-3.5 w-3.5 text-neutral-300" aria-hidden="true" />
-              <p className="text-[11.5px] text-neutral-400">
+            <div className="flex flex-wrap items-center gap-2 border-t border-[var(--tbm-border)] bg-[#F3F7F5]/40 px-5 py-3">
+              <ScanLine className="h-3.5 w-3.5 text-[#003B2D]" aria-hidden="true" />
+              <p className="text-[11.5px] text-[var(--tbm-text-muted)]">
                 Liste aplatie de tous les billets de la plateforme — le dernier scan
                 (embarquement, contrôle, annulation…) est dérivé de
                 l&apos;historique de la réservation liée.

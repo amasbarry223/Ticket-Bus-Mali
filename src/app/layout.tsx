@@ -19,7 +19,9 @@ export const metadata: Metadata = {
     "Back-office TBM : gestion des compagnies, supervision des transactions, remboursements, journal d’audit et paramétrage.",
   keywords: ["TBM", "Ticket Bus Mali", "back-office", "transport", "Bamako"],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [{ url: "/tbm-favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/tbm-favicon.svg",
+    apple: "/tbm-logo-clean.png",
   },
   openGraph: {
     title: "TBM — Back-office | Ticket Bus Mali",

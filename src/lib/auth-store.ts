@@ -11,13 +11,18 @@ interface AuthState {
 }
 
 /**
- * Authentification de démonstration (frontend only) :
- * la session est conservée dans le localStorage, aucun appel réseau.
+ * Authentification du back-office :
+ * Par défaut, initialise le compte administrateur « Daouda FOMBA »
+ * pour un accès direct au tableau de bord.
  */
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: null,
+      user: {
+        name: "Daouda FOMBA",
+        email: "admin@ticketbusmali.ml",
+        role: "admin",
+      },
       login: (user) => set({ user }),
       logout: () => set({ user: null }),
     }),

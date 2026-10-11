@@ -136,31 +136,51 @@ function MiniKpi({
   value,
   hint,
   tone,
+  rightElement,
+  index = 0,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   hint: string;
   tone: string;
+  rightElement?: React.ReactNode;
+  index?: number;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+      transition={{
+        duration: 0.45,
+        delay: 0.05 + index * 0.06,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tone)}>
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-neutral-400">{label}</span>
-        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
-          {value}
+      <div className="flex items-start gap-3.5">
+        <span
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            tone
+          )}
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="block truncate text-[11px] text-neutral-400">{hint}</span>
-      </span>
-    </motion.div>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
+      </div>
+      {rightElement && (
+        <div className="self-start pt-1 shrink-0">
+          {rightElement}
+        </div>
+      )}
+    </motion.article>
   );
 }
 
@@ -438,10 +458,10 @@ function RefundSheet({
               canDecide(reste) ? (
                 <Button
                   size="sm"
-                  className="h-8 gap-1.5 rounded-xl bg-coral-500 text-[12.5px] font-semibold text-white hover:bg-coral-600"
+                  className="h-8 gap-1.5 rounded-xl bg-[#003B2D] text-[12.5px] font-semibold text-white hover:bg-[#002a20]"
                   onClick={() => onVersement(r)}
                 >
-                  <Banknote className="h-3.5 w-3.5" />
+                  <Banknote className="h-3.5 w-3.5 text-[#9BE000]" />
                   Enregistrer un versement
                 </Button>
               ) : (
@@ -667,7 +687,7 @@ function RefundSheet({
               </h4>
               <div className="mt-2.5 rounded-2xl border border-neutral-200/70 p-4">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-coral-100 text-[12px] font-bold text-coral-600">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#003B2D]/10 text-[12px] font-bold text-[#003B2D]">
                     {initials(r.traitePar)}
                   </span>
                   <div className="min-w-0">
@@ -993,23 +1013,28 @@ export function RefundsPage() {
 
   return (
     <div>
-      {/* En-tête */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Remboursements &amp; litiges
-          </h2>
-          <p className="mt-0.5 text-[12.5px] text-neutral-400">
-            A03 — Traitement manuel des demandes, justification obligatoire, traçabilité complète.
-          </p>
+      {/* En-tête + action */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <HandCoins className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Remboursements &amp; litiges
+            </h1>
+            <p className="mt-0.5 text-[12px] text-[var(--tbm-text-muted)]">
+              A03 — Traitement manuel des demandes, justification obligatoire, traçabilité complète.
+            </p>
+          </div>
         </div>
         <Button
           variant="outline"
           onClick={exportCsv}
-          className="h-9 gap-1.5 rounded-xl border-neutral-200 text-[12.5px] font-medium shadow-none hover:border-neutral-300"
+          className="h-10 gap-2 rounded-xl border-[var(--tbm-border)] bg-white px-4 text-[13px] font-semibold text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
         >
-          <Download className="h-4 w-4 text-neutral-400" />
-          Exporter
+          <Download className="h-4 w-4 text-[var(--tbm-text-muted)]" />
+          Exporter CSV
         </Button>
       </div>
 
@@ -1018,27 +1043,27 @@ export function RefundsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/60 px-4 py-3"
+        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-[var(--tbm-border)] bg-white p-4 shadow-xs"
       >
-        <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
-          <ShieldCheck className="h-4 w-4 text-coral-500" />
+        <span className="flex items-center gap-2 text-[12px] font-semibold text-[var(--tbm-text)]">
+          <ShieldCheck className="h-4 w-4 text-[#003B2D]" />
           {isAdmin ? "Vos droits (administration)" : "Vos droits (support)"} :
         </span>
-        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
+        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-[var(--tbm-text-muted)]">
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#9BE000]" />
             {isAdmin
               ? "Traitement sans plafond de montant"
               : `Traitement jusqu'à ${formatNumber(plafond)} FCFA (paramétrage)`}
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#9BE000]" />
             {isAdmin
               ? "Levée des litiges"
               : "Escalade en litige (levée réservée à l'administration)"}
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#9BE000]" />
             Traçabilité complète au journal d&apos;audit (A06)
           </li>
         </ul>
@@ -1047,6 +1072,7 @@ export function RefundsPage() {
       {/* KPIs */}
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
+          index={0}
           icon={Clock}
           label="À traiter"
           value={`${pending.length} demande${pending.length > 1 ? "s" : ""}`}
@@ -1054,6 +1080,7 @@ export function RefundsPage() {
           tone="bg-amber-100 text-amber-600"
         />
         <MiniKpi
+          index={1}
           icon={Hourglass}
           label="Validés en cours"
           value={`${approuves.length} dossier${approuves.length > 1 ? "s" : ""}`}
@@ -1061,6 +1088,7 @@ export function RefundsPage() {
           tone="bg-sky-100 text-sky-600"
         />
         <MiniKpi
+          index={2}
           icon={Banknote}
           label="Déjà remboursés"
           value={formatFcfa(totalVerse)}
@@ -1068,6 +1096,7 @@ export function RefundsPage() {
           tone="bg-emerald-100 text-emerald-600"
         />
         <MiniKpi
+          index={3}
           icon={Scale}
           label="Litiges ouverts"
           value={`${litiges.length}`}
@@ -1078,68 +1107,70 @@ export function RefundsPage() {
 
       {/* Onglets — synchronisés au paramètre URL ?tab= */}
       <Tabs value={tab} onValueChange={setTab} className="mt-5">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
-          <TabsTrigger
-            value="dossiers"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <HandCoins className="h-3.5 w-3.5" />
-            Dossiers
-            {pending.length > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9.5px] font-bold text-white">
-                {pending.length}
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="dossiers"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <HandCoins className="h-4 w-4" />
+              Dossiers
+              {pending.length > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9.5px] font-bold text-white">
+                  {pending.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="versements"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Landmark className="h-4 w-4" />
+              Versements opérateur
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200 px-1 text-[9.5px] font-bold text-neutral-600">
+                {versementsFlat.length}
               </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="versements"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Landmark className="h-3.5 w-3.5" />
-            Versements opérateur
-            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200 px-1 text-[9.5px] font-bold text-neutral-600">
-              {versementsFlat.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="litiges"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Scale className="h-3.5 w-3.5" />
-            Litiges
-            {litiges.length > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
-                {litiges.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+            </TabsTrigger>
+            <TabsTrigger
+              value="litiges"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Scale className="h-4 w-4" />
+              Litiges
+              {litiges.length > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+                  {litiges.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* --------------------- Dossiers (liste) ---------------------- */}
         <TabsContent value="dossiers" className="mt-4">
           {/* Filtres */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Réf., passager, téléphone, TXN, réservation…"
                 aria-label="Rechercher un dossier de remboursement"
-                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
               />
             </div>
             <Select value={statut} onValueChange={setStatut}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">Tous statuts</SelectItem>
                 {Object.entries(REFUND_STATUS_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
                     {meta.label}
                   </SelectItem>
                 ))}
@@ -1148,14 +1179,14 @@ export function RefundsPage() {
             <Select value={motif} onValueChange={setMotif}>
               <SelectTrigger
                 aria-label="Filtrer par motif"
-                className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[170px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">Tous motifs</SelectItem>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">Tous motifs</SelectItem>
                 {Object.entries(REFUND_REASON_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
                     {meta.label}
                   </SelectItem>
                 ))}
@@ -1164,14 +1195,14 @@ export function RefundsPage() {
             <Select value={litige} onValueChange={setLitige}>
               <SelectTrigger
                 aria-label="Filtrer par litige"
-                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[150px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">Tous dossiers</SelectItem>
-                <SelectItem value="ouvert" className="rounded-lg text-[13px]">Litiges ouverts</SelectItem>
-                <SelectItem value="aucun" className="rounded-lg text-[13px]">Sans litige</SelectItem>
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">Tous dossiers</SelectItem>
+                <SelectItem value="ouvert" className="rounded-lg text-[12.5px]">Litiges ouverts</SelectItem>
+                <SelectItem value="aucun" className="rounded-lg text-[12.5px]">Sans litige</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1181,19 +1212,19 @@ export function RefundsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">Réf.</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Passager</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Motif</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Transaction</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Montants</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">Statut</TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">Réf.</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">Passager</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">Motif</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">Transaction</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">Montants</TableHead>
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">Statut</TableHead>
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1205,7 +1236,7 @@ export function RefundsPage() {
                     return (
                       <TableRow
                         key={r.id}
-                        className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+                        className="cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
                         onClick={() => setSel(r.id)}
                       >
                         <TableCell className="py-3.5 pl-5">
@@ -1288,7 +1319,6 @@ export function RefundsPage() {
                               ) : canDecide(reste) ? (
                                 <ActionIconButton
                                   icon={Banknote}
-                                  tone="coral"
                                   label="Enregistrer un versement opérateur"
                                   onClick={() => openVersement(r)}
                                 />
@@ -1336,13 +1366,13 @@ export function RefundsPage() {
 
         {/* ------------------ Versements opérateur --------------------- */}
         <TabsContent value="versements" className="mt-4">
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
-            <Landmark className="h-4 w-4 shrink-0 text-neutral-400" />
-            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--tbm-border)] bg-white px-4 py-3 shadow-xs">
+            <Landmark className="h-4 w-4 shrink-0 text-[#003B2D]" />
+            <p className="text-[12.5px] leading-relaxed text-[var(--tbm-text-muted)]">
               Liste aplatie de tous les versements opérateur enregistrés, tous dossiers
               confondus — chaque tranche est prouvée par sa référence opérateur.
             </p>
-            <span className="ml-auto text-[12px] font-semibold text-neutral-600">
+            <span className="ml-auto text-[12px] font-semibold text-[var(--tbm-text)]">
               {versementsFlat.length} versement{versementsFlat.length > 1 ? "s" : ""} ·{" "}
               {formatFcfa(totalVersementsFlat)} versés
             </span>
@@ -1352,28 +1382,28 @@ export function RefundsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Date
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Dossier
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Montant
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Réf. opérateur
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Agent
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1382,7 +1412,7 @@ export function RefundsPage() {
                   {versementsPg.pageItems.map(({ v, r }) => (
                     <TableRow
                       key={v.id}
-                      className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                      className="cursor-pointer border-b border-[var(--tbm-border)] transition-colors hover:bg-[#F3F7F5]/50"
                       onClick={() => setSel(r.id)}
                     >
                       <TableCell className="py-3.5 pl-5 text-[12.5px] text-neutral-600">
@@ -1400,7 +1430,7 @@ export function RefundsPage() {
                         {formatFcfa(v.montant)}
                       </TableCell>
                       <TableCell>
-                        <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-mono text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200/70">
+                        <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 font-mono text-[11px] font-semibold text-neutral-600 ring-1 ring-[var(--tbm-border)]">
                           {v.refOperateur}
                           <CopyRef value={v.refOperateur} />
                         </span>
@@ -1446,9 +1476,9 @@ export function RefundsPage() {
 
         {/* -------------------------- Litiges -------------------------- */}
         <TabsContent value="litiges" className="mt-4">
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/50 px-4 py-3">
-            <Scale className="h-4 w-4 shrink-0 text-neutral-400" />
-            <p className="text-[12.5px] leading-relaxed text-neutral-500">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--tbm-border)] bg-white px-4 py-3 shadow-xs">
+            <Scale className="h-4 w-4 shrink-0 text-[#003B2D]" />
+            <p className="text-[12.5px] leading-relaxed text-[var(--tbm-text-muted)]">
               Litiges ouverts (dossiers gelés) et litiges résolus — toute décision ou
               versement est suspendu jusqu&apos;à la levée du litige, réservée à
               l&apos;administration.
@@ -1459,25 +1489,25 @@ export function RefundsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Dossier
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Motif
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Litige
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Détail / résolution
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1490,7 +1520,7 @@ export function RefundsPage() {
                       <TableRow
                         key={r.id}
                         className={cn(
-                          "cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70",
+                          "cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50",
                           ouvert && "bg-rose-50/40"
                         )}
                         onClick={() => setSel(r.id)}

@@ -41,6 +41,7 @@ export function TablePagination({
   onPageSizeChange,
   entity,
   entityPlural,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
   className,
 }: {
   page: number;
@@ -55,6 +56,8 @@ export function TablePagination({
   entity: string;
   /** Pluriel explicite si différent de « entity + s ». */
   entityPlural?: string;
+  /** Choix « lignes par page » (défaut : PAGE_SIZE_OPTIONS). */
+  pageSizeOptions?: readonly number[];
   className?: string;
 }) {
   // Liste vide : aucun rendu (empty state géré par la page hôte).
@@ -67,17 +70,17 @@ export function TablePagination({
   const singlePage = pageCount <= 1;
 
   const navBtn =
-    "h-8 w-8 rounded-lg p-0 text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-700";
+    "h-8.5 w-8.5 rounded-xl border border-[var(--tbm-border)] bg-white p-0 text-[var(--tbm-text)] transition-colors hover:bg-[#F3F7F5] hover:text-[#003B2D] hover:border-[#003B2D]/40 disabled:opacity-40 disabled:pointer-events-none shadow-xs";
 
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-t border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-3 border-t border-[var(--tbm-border)] bg-[#F3F7F5]/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6",
         className
       )}
     >
       {/* Étiquette de plage */}
-      <p className="text-[11.5px] text-neutral-500" aria-live="polite">
+      <p className="text-[12px] font-medium text-[var(--tbm-text-muted)]" aria-live="polite">
         {label}
       </p>
 
@@ -91,13 +94,13 @@ export function TablePagination({
           >
             <SelectTrigger
               aria-label="Lignes par page"
-              className="h-8 w-[102px] shrink-0 rounded-xl border-neutral-200 text-[11.5px] text-neutral-600"
+              className="h-8.5 w-[112px] shrink-0 rounded-xl border-[var(--tbm-border)] bg-white text-[12px] font-medium text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <SelectItem key={n} value={String(n)} className="text-[12px]">
+            <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+              {pageSizeOptions.map((n) => (
+                <SelectItem key={n} value={String(n)} className="rounded-lg text-[12px]">
                   {n} / page
                 </SelectItem>
               ))}
@@ -118,12 +121,12 @@ export function TablePagination({
               aria-label="Page précédente"
               disabled={page <= 1}
               onClick={() => onPageChange(page - 1)}
-              className={cn(navBtn, "border-neutral-200")}
+              className={navBtn}
             >
               <ChevronLeft className="h-4 w-4" />
               <span className="sr-only">Page précédente</span>
             </Button>
-            <p className="min-w-[72px] text-center text-[11.5px] tabular-nums text-neutral-500">
+            <p className="min-w-[72px] text-center text-[12px] font-medium tabular-nums text-[var(--tbm-text)]">
               Page {page} / {pageCount}
             </p>
             <Button
@@ -133,7 +136,7 @@ export function TablePagination({
               aria-label="Page suivante"
               disabled={page >= pageCount}
               onClick={() => onPageChange(page + 1)}
-              className={cn(navBtn, "border-neutral-200")}
+              className={navBtn}
             >
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Page suivante</span>
@@ -147,7 +150,7 @@ export function TablePagination({
             aria-label="Pagination de la liste"
             className="mx-0 hidden w-auto justify-end sm:flex"
           >
-            <PaginationContent className="gap-1">
+            <PaginationContent className="gap-1.5">
               <PaginationItem>
                 <Button
                   type="button"
@@ -156,7 +159,7 @@ export function TablePagination({
                   aria-label="Page précédente"
                   disabled={page <= 1}
                   onClick={() => onPageChange(page - 1)}
-                  className={cn(navBtn, "border-neutral-200")}
+                  className={navBtn}
                 >
                   <ChevronLeft className="h-4 w-4" />
                   <span className="sr-only">Page précédente</span>
@@ -168,7 +171,7 @@ export function TablePagination({
                   {t === "ellipsis" ? (
                     <span
                       aria-hidden
-                      className="flex h-8 w-6 items-center justify-center text-neutral-300"
+                      className="flex h-8.5 w-6 items-center justify-center text-[var(--tbm-text-muted)]"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                       <span className="sr-only">Pages supplémentaires</span>
@@ -185,10 +188,10 @@ export function TablePagination({
                       }
                       onClick={() => onPageChange(t)}
                       className={cn(
-                        "h-8 min-w-8 rounded-lg px-1.5 text-[12px] font-semibold tabular-nums transition-colors",
+                        "h-8.5 min-w-8.5 rounded-xl px-2 text-[12px] font-semibold tabular-nums transition-colors shadow-xs",
                         t === page
-                          ? "border-coral-500 bg-coral-500 text-white hover:bg-coral-500 hover:text-white"
-                          : "border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-800"
+                          ? "border-[#003B2D] bg-[#003B2D] text-[#9BE000] hover:bg-[#002D22] hover:text-[#9BE000]"
+                          : "border-[var(--tbm-border)] bg-white text-[var(--tbm-text)] hover:bg-[#F3F7F5] hover:text-[#003B2D] hover:border-[#003B2D]/40"
                       )}
                     >
                       {t}
@@ -205,7 +208,7 @@ export function TablePagination({
                   aria-label="Page suivante"
                   disabled={page >= pageCount}
                   onClick={() => onPageChange(page + 1)}
-                  className={cn(navBtn, "border-neutral-200")}
+                  className={navBtn}
                 >
                   <ChevronRight className="h-4 w-4" />
                   <span className="sr-only">Page suivante</span>

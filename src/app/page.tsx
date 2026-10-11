@@ -26,7 +26,7 @@ export default function TbmBackOfficeRoot() {
   if (!mounted) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-white">
-        <LogoTbm className="h-12 w-12 animate-pulse" />
+        <LogoTbm className="h-16 w-auto max-w-[200px] object-contain animate-pulse" />
       </div>
     );
   }

@@ -52,3 +52,13 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Local SQLite database (rebuilt via prisma db push)
+/db/*.db
+
+# Raw user uploads (binary blobs, not source code)
+/upload/*.jpg
+/upload/*.webp
+
+*.pid
+/tool-results/

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Favicon TBM — version claire (fond blanc), couleurs du logo officiel -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="14" fill="#FFFFFF" stroke="#9BE000" stroke-width="3"/>
+  <!-- Traînée de vitesse (rappel du bus du logo) -->
+  <path d="M10 17 C 24 11, 40 10, 54 13" fill="none" stroke="#9BE000" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- Monogramme TBM -->
+  <text x="32" y="43" text-anchor="middle"
+        font-family="'Arial Black', 'Segoe UI Black', Arial, Helvetica, sans-serif"
+        font-weight="900" font-size="23" letter-spacing="-1">
+    <tspan fill="#0B3A24">TB</tspan><tspan fill="#7DC21E">M</tspan>
+  </text>
+  <!-- Ligne de route -->
+  <rect x="12" y="49" width="40" height="3.2" rx="1.6" fill="#9BE000"/>
+</svg>

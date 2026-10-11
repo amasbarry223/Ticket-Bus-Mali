@@ -98,12 +98,6 @@ export function companyLogoColor(id: string): string {
   );
 }
 
-export const DEFAULT_SALES_PARAMS: CompanySalesParams = {
-  venteEnLigne: true,
-  venteGuichet: true,
-  reservationJours: 30,
-  annulationGratuite: 24,
-};
 
 export const initialCompanies: Company[] = [
   {
@@ -2369,47 +2363,6 @@ export const initialNotifications: CityNotification[] = [
   },
 ];
 
-/* ------------------------- Statistiques (A08) --------------- */
-
-export interface SalesPoint {
-  day: string;
-  ventes: number;
-}
-
-export const salesSeries: SalesPoint[] = [
-  { day: "23/09", ventes: 845000 },
-  { day: "24/09", ventes: 912000 },
-  { day: "25/09", ventes: 780000 },
-  { day: "26/09", ventes: 1024000 },
-  { day: "27/09", ventes: 1189000 },
-  { day: "28/09", ventes: 967000 },
-  { day: "29/09", ventes: 745000 },
-  { day: "30/09", ventes: 892000 },
-  { day: "01/10", ventes: 1053000 },
-  { day: "02/10", ventes: 1231000 },
-  { day: "03/10", ventes: 1104000 },
-  { day: "04/10", ventes: 1348000 },
-  { day: "05/10", ventes: 1289000 },
-  { day: "06/10", ventes: 1245000 },
-];
-
-export const topCompanies = [
-  { nom: "Bamako Express", ventes: 486200, part: 39 },
-  { nom: "Djoliba Transport", ventes: 341800, part: 27 },
-  { nom: "Sahel Bus", ventes: 228500, part: 18 },
-  { nom: "Sikasso Voyage", ventes: 188500, part: 16 },
-];
-
-export const globalStats = {
-  ventesAujourdhui: 1245000,
-  deltaVentes: "+12 %",
-  ticketsMois: 3412,
-  deltaTickets: "+8,4 %",
-  compagniesActives: 4,
-  compagniesTotal: 6,
-  conversion: 62,
-  deltaConversion: "+3 pts",
-};
 
 /* ------------------------- Paramétrage (A04) ---------------- */
 

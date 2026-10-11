@@ -5,8 +5,7 @@ import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   ArrowLeftRight,
   Building2,
-  ChevronsUpDown,
-  EllipsisVertical,
+  ChevronRight,
   LayoutDashboard,
   LogOut,
   MapPin,
@@ -23,7 +22,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_LABEL, type StaffRole } from "@/components/tbm/data";
-import { LogoTbm } from "@/components/tbm/logo";
 
 export type SectionId =
   | "dashboard"
@@ -44,6 +42,7 @@ interface Section {
   icon: ComponentType<{ className?: string }>;
   roles: StaffRole[];
   badge?: string;
+  hasChevron?: boolean;
 }
 
 interface SectionGroup {
@@ -51,123 +50,113 @@ interface SectionGroup {
   sections: Section[];
 }
 
-/**
- * Sections du back-office (cahier des charges §3.4, A01 → A08),
- * filtrées par rôle : RBAC côté interface.
- */
 export const SECTION_GROUPS: SectionGroup[] = [
   {
-    label: "Pilotage",
-    sections: [
-      {
-        id: "dashboard",
-        label: "Tableau de bord",
-        icon: LayoutDashboard,
-        roles: ["admin", "support"], // A08
-      },
-    ],
-  },
-  {
-    label: "Opérations",
+    label: "PILOTAGE",
     sections: [
       {
         id: "companies",
         label: "Compagnies",
         icon: Building2,
-        roles: ["admin"], // A01
+        roles: ["admin"],
+        hasChevron: true,
       },
       {
         id: "transactions",
         label: "Transactions",
         icon: ArrowLeftRight,
-        roles: ["admin", "support"], // A02
+        roles: ["admin", "support"],
         badge: "2",
       },
       {
         id: "refunds",
         label: "Remboursements",
         icon: Undo2,
-        roles: ["admin", "support"], // A03
+        roles: ["admin", "support"],
         badge: "4",
       },
       {
         id: "settlements",
         label: "Reversements",
         icon: Percent,
-        roles: ["admin", "support"], // A11 — commissions & reversements
+        roles: ["admin", "support"],
         badge: "5",
       },
       {
         id: "cities",
         label: "Villes & Gares",
         icon: MapPin,
-        roles: ["admin"], // A07
+        roles: ["admin"],
       },
       {
         id: "lines",
         label: "Lignes & Départs",
         icon: Route,
-        roles: ["admin", "support"], // A09 — supervision inter-compagnies
+        roles: ["admin", "support"],
       },
       {
         id: "reservations",
         label: "Réservations",
         icon: Ticket,
-        roles: ["admin", "support"], // A10 — réservations & billets (support)
+        roles: ["admin", "support"],
         badge: "2",
       },
     ],
   },
   {
-    label: "Administration",
+    label: "ADMINISTRATION",
     sections: [
       {
         id: "users",
         label: "Utilisateurs",
         icon: Users,
-        roles: ["admin"], // A05
-        badge: "2", // comptes professionnels en attente d'activation
+        roles: ["admin"],
+        badge: "2",
       },
       {
         id: "audit",
         label: "Journal d’audit",
         icon: ScrollText,
-        roles: ["admin", "support"], // A06
+        roles: ["admin", "support"],
       },
       {
         id: "settings",
         label: "Paramétrage",
         icon: Settings,
-        roles: ["admin"], // A04
+        roles: ["admin"],
       },
     ],
   },
 ];
 
 export function sectionsForRole(role: StaffRole): Section[] {
-  return SECTION_GROUPS.flatMap((g) => g.sections).filter((s) =>
+  const list = SECTION_GROUPS.flatMap((g) => g.sections).filter((s) =>
     s.roles.includes(role)
   );
+  // Toujours inclure dashboard
+  return [
+    {
+      id: "dashboard",
+      label: "Tableau de bord",
+      icon: LayoutDashboard,
+      roles: ["admin", "support"],
+    },
+    ...list,
+  ];
 }
 
-export function sectionLabel(id: SectionId): string {
-  return (
-    SECTION_GROUPS.flatMap((g) => g.sections).find((s) => s.id === id)?.label ??
-    id
-  );
-}
 
 const listVariants: Variants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.04, delayChildren: 0.08 } },
+  show: { transition: { staggerChildren: 0.03, delayChildren: 0.05 } },
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, x: -10 },
+  hidden: { opacity: 0, x: -8 },
   show: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
@@ -200,76 +189,105 @@ export function SidebarContent({
     sections: g.sections.filter((s) => s.roles.includes(role)),
   })).filter((g) => g.sections.length > 0);
 
+  const displayName = user?.name ?? "Daouda FOMBA";
   const initials =
-    (user?.name ?? "TB")
+    displayName
       .split(" ")
       .map((p) => p[0])
       .slice(0, 2)
       .join("")
-      .toUpperCase() ?? "TB";
+      .toUpperCase() || "DF";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white">
-      {/* ---- Marque ---- */}
+    <div className="relative flex h-full flex-col overflow-hidden bg-[#001D18] text-[#d6e3dc]">
+      {/* Motifs géométriques subtils en bas à gauche */}
+      <div
+        className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 opacity-20"
+        style={{
+          backgroundImage: `radial-gradient(#9BE000 1px, transparent 1px), radial-gradient(#9BE000 1px, #001D18 1px)`,
+          backgroundSize: "16px 16px",
+          backgroundPosition: "0 0, 8px 8px",
+        }}
+      />
+
+      {/* ---- Logo officiel PNG transparent ---- */}
       <div
         className={cn(
-          "flex items-center justify-between px-4 pb-4 pt-5",
-          collapsed && "flex-col gap-2 px-2.5"
+          "flex items-center justify-between px-4 pb-3 pt-4",
+          collapsed && "flex-col gap-2 px-2"
         )}
       >
-        <div className="flex items-center gap-2.5">
-          <LogoTbm className="h-9 w-9" />
-          <AnimatePresence initial={false}>
-            {!collapsed && (
-              <motion.div {...labelMotion} className="min-w-0">
-                <p className="truncate text-[16px] font-bold leading-tight tracking-tight text-neutral-900">
-                  TBM <span className="text-coral-500">·</span> Back-office
-                </p>
-                <p className="truncate text-[10.5px] font-medium text-neutral-400">
-                  Ticket Bus Mali — Bamako
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex w-full items-center justify-center">
+          {collapsed ? (
+            <img
+              src="/tbm-logo-clean.png"
+              alt="TBM"
+              className="h-10 w-auto object-contain"
+            />
+          ) : (
+            <div className="flex w-full items-center justify-center py-1">
+              <img
+                src="/tbm-logo-clean.png"
+                alt="Ticket Bus Mali"
+                className="h-auto w-[180px] object-contain drop-shadow-sm"
+              />
+            </div>
+          )}
         </div>
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            className={cn(
+              "hidden h-7 w-7 items-center justify-center rounded-lg text-[#718078] transition-colors hover:bg-[#003B2D] hover:text-white lg:flex",
+              collapsed && "mt-1"
+            )}
+          >
+            {collapsed ? (
+              <PanelRightOpen className="h-4 w-4" />
+            ) : (
+              <PanelRightClose className="h-4 w-4" />
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* ---- Bouton Tableau de bord (Pilule vert primaire au sommet) ---- */}
+      <div className="px-3 pt-1 pb-2">
         <button
           type="button"
-          onClick={onToggleCollapse}
-          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          onClick={() => onSelect("dashboard")}
+          title={collapsed ? "Tableau de bord" : undefined}
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600",
-            collapsed && "mt-1"
+            "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-all duration-150",
+            collapsed && "justify-center px-0",
+            active === "dashboard"
+              ? "bg-[#9BE000] text-[#001D18] shadow-md shadow-[#9BE000]/25"
+              : "bg-[#9BE000]/90 text-[#001D18] hover:bg-[#9BE000]"
           )}
         >
-          {collapsed ? (
-            <PanelRightOpen className="h-4 w-4" />
-          ) : (
-            <PanelRightClose className="h-4 w-4" />
-          )}
+          <LayoutDashboard className="h-[18px] w-[18px] shrink-0 text-[#001D18]" />
+          {!collapsed && <span>Tableau de bord</span>}
         </button>
       </div>
 
-      {/* ---- Navigation ---- */}
-      <nav className="ff-scrollbar flex-1 overflow-y-auto px-3 pb-4">
-        {groups.map((group, gi) => (
-          <div key={group.label}>
-            {gi > 0 && <div className="mx-2 my-3 h-px bg-neutral-100" />}
+      {/* ---- Navigation Groupée ---- */}
+      <nav className="ff-scrollbar relative z-10 flex-1 overflow-y-auto px-3 py-1 space-y-3">
+        {groups.map((group) => (
+          <div key={group.label} className="space-y-1">
+            {/* Header du groupe */}
             <div
               className={cn(
-                "flex items-center justify-between px-2.5 pb-2 pt-1",
-                collapsed && "justify-center px-0"
+                "px-2.5 pb-1 pt-1.5",
+                collapsed && "text-center px-0"
               )}
             >
               {collapsed ? (
-                <span className="h-px w-7 bg-neutral-200" />
+                <span className="mx-auto block h-px w-6 bg-[#123827]" />
               ) : (
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6b8b7b]">
                   {group.label}
-                </span>
-              )}
-              {!collapsed && gi === 0 && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-300">
-                  <EllipsisVertical className="h-4 w-4" />
                 </span>
               )}
             </div>
@@ -291,18 +309,17 @@ export function SidebarContent({
                       title={collapsed ? section.label : undefined}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
-                        "group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] font-medium transition-all duration-200",
+                        "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150",
                         collapsed && "justify-center px-0",
                         isActive
-                          ? "bg-coral-500 text-white shadow-md shadow-coral-500/30"
-                          : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                          ? "bg-[#003B2D] text-white font-semibold border border-[#00513e] shadow-xs"
+                          : "text-[#c2d3c9] hover:bg-[#002f24] hover:text-white"
                       )}
                     >
                       <Icon
                         className={cn(
                           "h-[18px] w-[18px] shrink-0",
-                          !isActive &&
-                            "transition-transform duration-200 group-hover:scale-110"
+                          isActive ? "text-white" : "text-[#9cb5a8] group-hover:text-white"
                         )}
                       />
                       <AnimatePresence initial={false}>
@@ -312,20 +329,30 @@ export function SidebarContent({
                           </motion.span>
                         )}
                       </AnimatePresence>
+
+                      {/* Chevrons optionnels (ex: Compagnies) */}
+                      {!collapsed && section.hasChevron && (
+                        <ChevronRight
+                          className={cn(
+                            "ml-auto h-4 w-4",
+                            isActive ? "text-white" : "text-[#718078] group-hover:text-white"
+                          )}
+                        />
+                      )}
+
+                      {/* Badges verts circulaires */}
                       {!collapsed && section.badge != null && (
                         <span
                           className={cn(
-                            "ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-                            isActive
-                              ? "bg-white/25 text-white"
-                              : "bg-coral-50 text-coral-500"
+                            "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums bg-[#9BE000] text-[#001D18]"
                           )}
                         >
                           {section.badge}
                         </span>
                       )}
+
                       {collapsed && section.badge != null && (
-                        <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-coral-400" />
+                        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#9BE000]" />
                       )}
                     </button>
                   </motion.li>
@@ -336,65 +363,51 @@ export function SidebarContent({
         ))}
       </nav>
 
-      {/* ---- Carte utilisateur + déconnexion ---- */}
-      <div
-        className={cn(
-          "border-t border-neutral-100 p-3",
-          collapsed && "px-2.5"
-        )}
-      >
+      {/* ---- Utilisateur en bas ---- */}
+      <div className="relative z-10 border-t border-[#003B2D]/50 p-3 space-y-2">
         <div
           className={cn(
-            "flex w-full items-center gap-3 rounded-xl border border-neutral-200/80 p-2",
-            collapsed && "justify-center border-transparent p-1.5"
+            "flex w-full items-center gap-3 rounded-xl bg-[#002a20] border border-[#003B2D] p-2",
+            collapsed && "justify-center p-1.5"
           )}
         >
           <span
             className={cn(
-              "flex shrink-0 items-center justify-center rounded-full bg-coral-100 text-[12px] font-bold text-coral-600 ring-1 ring-coral-200",
-              collapsed ? "h-9 w-9" : "h-9 w-9"
+              "flex shrink-0 items-center justify-center rounded-full bg-[#9BE000] text-[12px] font-black text-[#001D18] shadow-sm",
+              "h-8 w-8"
             )}
           >
             {initials}
           </span>
           {!collapsed && (
             <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-semibold text-neutral-800">
-                  {user?.name ?? "Invité"}
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-[12.5px] font-semibold text-white">
+                  {displayName}
                 </span>
-                <span className="block truncate text-[11.5px] text-neutral-400">
-                  {ROLE_LABEL[role]}
+                <span className="block truncate text-[11px] font-normal text-[#718078]">
+                  {ROLE_LABEL[role] ?? "Administrateur TBM"}
                 </span>
-              </span>
+              </div>
               <button
                 type="button"
                 onClick={logout}
                 aria-label="Se déconnecter"
                 title="Se déconnecter"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#718078] transition-colors hover:bg-rose-500/20 hover:text-rose-400"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
               </button>
             </>
           )}
         </div>
-        {collapsed && (
-          <button
-            type="button"
-            onClick={logout}
-            aria-label="Se déconnecter"
-            title="Se déconnecter"
-            className="mx-auto mt-2 flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        )}
+
+        {/* Footer info avec puce verte */}
         {!collapsed && (
-          <p className="mt-2 flex items-center justify-center gap-1 text-[10.5px] text-neutral-300">
-            <ChevronsUpDown className="h-3 w-3" />
-            RBAC — accès limité à votre rôle
-          </p>
+          <div className="flex items-center gap-2 px-1 pt-1 text-[10.5px] text-[#718078]">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#9BE000] animate-pulse" />
+            <span className="truncate">TBM — Transport plus proche de vous</span>
+          </div>
         )}
       </div>
     </div>

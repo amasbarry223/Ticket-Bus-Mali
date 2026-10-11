@@ -20,12 +20,12 @@ type Tone =
 
 const TONES: Record<Tone, string> = {
   neutral:
-    "border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700",
+    "border-[var(--tbm-border)] text-[var(--tbm-text-muted)] hover:bg-[#F3F7F5] hover:text-[var(--tbm-text)]",
   coral:
-    "border-coral-200 text-coral-500 hover:bg-coral-50 hover:text-coral-600",
-  emerald: "border-emerald-200 text-emerald-600 hover:bg-emerald-50",
-  amber: "border-amber-200 text-amber-600 hover:bg-amber-50",
-  rose: "border-rose-200 text-rose-600 hover:bg-rose-50",
+    "border-[var(--tbm-border)] text-[#003B2D] hover:bg-[#003B2D]/10 hover:text-[#003B2D]",
+  emerald: "border-emerald-200 text-[var(--tbm-success)] hover:bg-emerald-50",
+  amber: "border-amber-200 text-[var(--tbm-warning)] hover:bg-amber-50",
+  rose: "border-rose-200 text-[var(--tbm-danger)] hover:bg-rose-50",
   sky: "border-sky-200 text-sky-600 hover:bg-sky-50",
   violet: "border-violet-200 text-violet-600 hover:bg-violet-50",
 };
@@ -62,7 +62,7 @@ export function ActionIconButton({
         if (!disabled) onClick?.(e);
       }}
       className={cn(
-        "h-8 w-8 shrink-0 rounded-lg p-0 transition-colors",
+        "h-8 w-8 shrink-0 rounded-full p-0 transition-colors border",
         TONES[tone],
         disabled && "cursor-not-allowed opacity-45",
         className

@@ -213,31 +213,51 @@ function MiniKpi({
   value,
   hint,
   tone,
+  rightElement,
+  index = 0,
 }: {
   icon: ElementType;
   label: string;
   value: string;
   hint: string;
   tone: string;
+  rightElement?: React.ReactNode;
+  index?: number;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+      transition={{
+        duration: 0.45,
+        delay: 0.05 + index * 0.06,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tone)}>
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-neutral-400">{label}</span>
-        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
-          {value}
+      <div className="flex items-start gap-3.5">
+        <span
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            tone
+          )}
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="block truncate text-[11px] text-neutral-400">{hint}</span>
-      </span>
-    </motion.div>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
+      </div>
+      {rightElement && (
+        <div className="self-start pt-1 shrink-0">
+          {rightElement}
+        </div>
+      )}
+    </motion.article>
   );
 }
 
@@ -322,18 +342,18 @@ function ReceiptDialog({
           Reçu du paiement {txn.id} — {formatFcfa(txn.montant)} via {txn.operateur}.
         </DialogDescription>
 
-        {/* En-tête corail */}
-        <div className="rounded-t-2xl bg-coral-500 px-6 pb-5 pt-6 text-white">
-          <p className="text-center text-[10px] font-bold uppercase tracking-[0.22em] text-coral-100">
+        {/* En-tête TBM vert & primary */}
+        <div className="rounded-t-2xl bg-[#003B2D] px-6 pb-5 pt-6 text-white">
+          <p className="text-center text-[10px] font-bold uppercase tracking-[0.22em] text-[#9BE000]">
             TBM · Ticket Bus Mali
           </p>
-          <p className="mt-1 text-center text-[15px] font-extrabold uppercase tracking-wide">
+          <p className="mt-1 text-center text-[15px] font-extrabold uppercase tracking-wide text-white">
             Reçu de paiement
           </p>
-          <p className="mt-4 text-center text-[30px] font-black leading-none tracking-tight">
+          <p className="mt-4 text-center text-[30px] font-black leading-none tracking-tight text-white">
             {formatFcfa(txn.montant)}
           </p>
-          <p className="mt-2 text-center font-mono text-[12px] text-coral-100">
+          <p className="mt-2 text-center font-mono text-[12px] text-[#9BE000]/90">
             {txn.refOperateur}
           </p>
         </div>
@@ -349,20 +369,20 @@ function ReceiptDialog({
           <DetailRow label="Date" value={txn.date} />
           <DetailRow label="Moyen de paiement" value={txn.operateur} />
           <DetailRow label="Téléphone débité" value={txn.telephone} />
-          <div className="flex items-center justify-between gap-3 border-b border-dashed border-neutral-200 pb-3">
-            <span className="text-[12px] text-neutral-400">Statut du paiement</span>
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--tbm-border)] pb-3">
+            <span className="text-[12px] text-[var(--tbm-text-muted)]">Statut du paiement</span>
             <StatusBadge statut={txn.statut} />
           </div>
-          <div className="flex items-center justify-between gap-3 border-b border-dashed border-neutral-200 pb-3">
-            <span className="text-[12px] text-neutral-400">Billets émis</span>
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--tbm-border)] pb-3">
+            <span className="text-[12px] text-[var(--tbm-text-muted)]">Billets émis</span>
             <span
               className={cn(
                 "text-[12.5px] font-semibold",
-                txn.billetsEmis > 0 ? "text-neutral-800" : "text-rose-600"
+                txn.billetsEmis > 0 ? "text-[var(--tbm-text)]" : "text-rose-600"
               )}
             >
               {txn.billetsEmis > 0
-                ? `${txn.billetsEmis} billet${txn.billetsEmis > 1 ? "s" : ""}`
+                 ? `${txn.billetsEmis} billet${txn.billetsEmis > 1 ? "s" : ""}`
                 : "Aucun billet émis"}
             </span>
           </div>
@@ -379,11 +399,11 @@ function ReceiptDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 px-6 py-4">
-          <p className="text-[11px] text-neutral-400">Aperçu de démonstration</p>
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--tbm-border)] px-6 py-4">
+          <p className="text-[11px] text-[var(--tbm-text-muted)]">Aperçu de démonstration</p>
           <Button
             size="sm"
-            className="h-9 gap-1.5 rounded-xl bg-coral-500 px-4 text-[13px] font-semibold text-white hover:bg-coral-600"
+            className="h-9 gap-1.5 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white hover:bg-[#002a20] hover:text-[#9BE000] shadow-sm transition-all"
             onClick={() => {
               toast({
                 title: "Impression du reçu",
@@ -473,9 +493,9 @@ function ResolveAnomalyDialog({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Ex. : Remboursement intégral effectué via Moov Money — réf. MM-2505-R10021 confirmée."
-            className="min-h-[90px] rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+            className="min-h-[90px] rounded-xl border-[var(--tbm-border)] text-[13px] focus-visible:ring-[#9BE000]"
           />
-          <p className="text-[11px] text-neutral-400">
+          <p className="text-[11px] text-[var(--tbm-text-muted)]">
             Minimum 10 caractères. La transaction passe alors en « anomalie résolue »
             et le rapprochement du jour peut être clôturé.
           </p>
@@ -491,17 +511,17 @@ function ResolveAnomalyDialog({
         <div className="mt-2 flex justify-end gap-2">
           <Button
             variant="outline"
-            className="h-9 rounded-xl border-neutral-200 text-[13px]"
+            className="h-9 rounded-xl border-[var(--tbm-border)] text-[13px]"
             onClick={() => onOpenChange(false)}
           >
             Annuler
           </Button>
           <Button
             disabled={!valid}
-            className="h-9 gap-1.5 rounded-xl bg-coral-500 px-4 text-[13px] font-semibold text-white hover:bg-coral-600 disabled:opacity-40"
+            className="h-9 gap-1.5 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white hover:bg-[#002a20] hover:text-[#9BE000] disabled:opacity-40"
             onClick={submit}
           >
-            <ShieldCheck className="h-4 w-4" />
+            <ShieldCheck className="h-4 w-4 stroke-[2.5] text-[#9BE000]" />
             Enregistrer la résolution
           </Button>
         </div>
@@ -954,122 +974,131 @@ export function TransactionsPage() {
 
   return (
     <div>
-      {/* En-tête */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Paiements &amp; Transactions
-          </h2>
-          <p className="mt-0.5 max-w-xl text-[12.5px] text-neutral-400">
-            A02 — Orange Money et Moov Money : suivi, détection des débits sans billet,
-            rapprochement quotidien avec les relevés opérateurs et reçus de paiement.
-          </p>
+      {/* En-tête + action */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <ArrowLeftRight className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Paiements &amp; Transactions
+            </h1>
+            <p className="mt-0.5 text-[12px] text-[var(--tbm-text-muted)]">
+              A02 — Orange Money et Moov Money : suivi, détection des débits sans billet, rapprochement quotidien et reçus.
+            </p>
+          </div>
         </div>
         <Button
-          variant="outline"
           onClick={exportCsv}
-          className="h-9 gap-1.5 rounded-lg border-neutral-200 bg-white px-3.5 text-[13px] font-medium text-neutral-600 shadow-none hover:border-neutral-300 hover:text-neutral-800"
+          className="h-10 gap-2 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white shadow-sm hover:bg-[#002a20] active:scale-[0.98] transition-all"
         >
-          <Download className="h-4 w-4" />
-          Export CSV
+          <Download className="h-4 w-4 stroke-[2.5] text-[#9BE000]" />
+          Exporter CSV
         </Button>
       </div>
 
       {/* KPIs */}
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
+          index={0}
           icon={ArrowLeftRight}
           label="Encaissé (réussi)"
           value={formatFcfa(encaisse)}
           hint={`${nbEncaisse} transaction${nbEncaisse > 1 ? "s" : ""} confirmée${nbEncaisse > 1 ? "s" : ""}`}
-          tone="bg-emerald-50 text-emerald-600"
+          tone="bg-[#eaf8e2] text-[var(--tbm-success)]"
         />
         <MiniKpi
+          index={1}
           icon={Hourglass}
           label="En attente de retour"
           value={`${enAttente}`}
           hint={`places bloquées ${blocageMinutes} min (RG1)`}
-          tone="bg-amber-50 text-amber-600"
+          tone="bg-[#fef3c7] text-[var(--tbm-warning)]"
         />
         <MiniKpi
+          index={2}
           icon={ShieldAlert}
           label="Débités sans billet"
           value={`${anomaliesOuvertes}`}
           hint={anomaliesOuvertes > 0 ? "à résoudre avant clôture" : "aucune anomalie ouverte"}
-          tone={anomaliesOuvertes > 0 ? "bg-rose-50 text-rose-600" : "bg-neutral-100 text-neutral-500"}
+          tone={anomaliesOuvertes > 0 ? "bg-[#fee2e2] text-[var(--tbm-danger)]" : "bg-[#f1f5f9] text-[#64748b]"}
         />
         <MiniKpi
+          index={3}
           icon={Scale}
           label="Rapprochement quotidien"
           value={ecartsRestants > 0 ? `${ecartsRestants} écart${ecartsRestants > 1 ? "s" : ""}` : "À jour"}
-          hint={`${operatorStatements.length} relevés reçus · ${nbClotures} clôturé${nbClotures > 1 ? "s" : ""}`}
-          tone={ecartsRestants > 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}
+          hint={`${operatorStatements.length} relevés · ${nbClotures} clôturé${nbClotures > 1 ? "s" : ""}`}
+          tone={ecartsRestants > 0 ? "bg-[#fee2e2] text-[var(--tbm-danger)]" : "bg-[#ede9fe] text-[#7c3aed]"}
         />
       </div>
 
       {/* Onglets — synchronisés au paramètre URL ?tab= */}
       <Tabs value={tab} onValueChange={setTab} className="mt-5">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
-          <TabsTrigger
-            value="transactions"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <ArrowLeftRight className="h-3.5 w-3.5" />
-            Transactions
-          </TabsTrigger>
-          <TabsTrigger
-            value="rapprochement"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Scale className="h-3.5 w-3.5" />
-            Rapprochement quotidien
-            {ecartsRestants > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
-                {ecartsRestants}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="anomalies"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            Anomalies
-            {anomaliesOuvertes > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
-                {anomaliesOuvertes}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="transactions"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Transactions
+            </TabsTrigger>
+            <TabsTrigger
+              value="rapprochement"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Scale className="h-4 w-4" />
+              Rapprochement quotidien
+              {ecartsRestants > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+                  {ecartsRestants}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="anomalies"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              Anomalies
+              {anomaliesOuvertes > 0 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9.5px] font-bold text-white">
+                  {anomaliesOuvertes}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ------------------------- Transactions ------------------------ */}
         <TabsContent value="transactions" className="mt-4">
           {/* Filtres */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Réf. opérateur (OM-…, MM-…), réf. réservation, TXN, téléphone…"
                 aria-label="Rechercher une transaction"
-                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
               />
             </div>
             <Select value={operator} onValueChange={setOperator}>
               <SelectTrigger
                 aria-label="Filtrer par opérateur"
-                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[150px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous opérateurs
                 </SelectItem>
                 {OPERATORS.map((o) => (
-                  <SelectItem key={o} value={o} className="rounded-lg text-[13px]">
+                  <SelectItem key={o} value={o} className="rounded-lg text-[12.5px]">
                     {o}
                   </SelectItem>
                 ))}
@@ -1078,16 +1107,16 @@ export function TransactionsPage() {
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous statuts
                 </SelectItem>
                 {Object.entries(PAYMENT_STATUS_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
                     {meta.label}
                   </SelectItem>
                 ))}
@@ -1096,22 +1125,22 @@ export function TransactionsPage() {
             <Select value={jour} onValueChange={setJour}>
               <SelectTrigger
                 aria-label="Filtrer par jour"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous les jours
                 </SelectItem>
                 {jours.map((j) => (
-                  <SelectItem key={j} value={j} className="rounded-lg text-[13px]">
+                  <SelectItem key={j} value={j} className="rounded-lg text-[12.5px]">
                     {j}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <span className="ml-auto text-[12px] text-neutral-400">
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
               {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -1121,31 +1150,31 @@ export function TransactionsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Référence
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Réservation
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Montant
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Billets
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Statut
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -1276,28 +1305,28 @@ export function TransactionsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-5 text-xs font-semibold text-[var(--tbm-text)]">
                       Jour · Opérateur
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Plateforme TBM
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Relevé opérateur
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Écarts
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Statut
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)]">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>

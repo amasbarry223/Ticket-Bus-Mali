@@ -147,24 +147,33 @@ function MiniKpi({
   label: string;
   value: string;
   hint: string;
-  tone: string;
+  tone?: string;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="ff-card flex items-center gap-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4"
+      className="flex items-center gap-3.5 rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tone)}>
-        <Icon className="h-[18px] w-[18px]" />
+      <span
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+          tone ?? "bg-[#003B2D]/10 text-[#003B2D]"
+        )}
+      >
+        <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-neutral-400">{label}</span>
-        <span className="block truncate text-[15.5px] font-bold tracking-tight text-neutral-900">
+        <span className="block truncate text-[12.5px] font-medium text-[var(--tbm-text)]">
+          {label}
+        </span>
+        <span className="block truncate text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
           {value}
         </span>
-        <span className="block truncate text-[11px] text-neutral-400">{hint}</span>
+        <span className="block truncate text-[11px] text-[var(--tbm-text-muted)]">
+          {hint}
+        </span>
       </span>
     </motion.div>
   );
@@ -203,10 +212,10 @@ function KindPill({ role }: { role: UserRole }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium",
+        "inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10.5px] font-semibold",
         kind === "professionnel"
-          ? "bg-coral-50 text-coral-500"
-          : "bg-neutral-100 text-neutral-500"
+          ? "bg-[#003B2D]/10 text-[#003B2D]"
+          : "bg-neutral-100 text-neutral-600"
       )}
     >
       {kind === "professionnel" ? "Compte pro" : "Compte voyageur"}
@@ -760,23 +769,23 @@ function UsersTable({
     <div className="ff-scrollbar max-h-[640px] overflow-auto">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+          <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 pl-5 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Utilisateur
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Rôle
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Périmètre
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Statut
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Dernière connexion
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-right text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 pr-5 text-right text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
@@ -788,22 +797,22 @@ function UsersTable({
             return (
               <TableRow
                 key={u.id}
-                className="cursor-pointer border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+                className="cursor-pointer border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
                 onClick={() => onOpen(u)}
               >
                 <TableCell className="py-3.5 pl-5">
                   <div className="flex items-center gap-3">
                     <Avatar nom={u.nom} />
                     <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold text-neutral-800">
+                      <span className="block truncate text-[13px] font-semibold text-[var(--tbm-text)]">
                         {u.nom}
                         {isSelf && (
-                          <span className="ml-1.5 rounded bg-neutral-100 px-1 py-0.5 text-[10px] font-medium text-neutral-400">
+                          <span className="ml-1.5 rounded bg-[var(--tbm-background)] px-1 py-0.5 text-[10px] font-medium text-[var(--tbm-text-muted)]">
                             vous
                           </span>
                         )}
                       </span>
-                      <span className="block truncate text-[11.5px] text-neutral-400">
+                      <span className="block truncate text-[11.5px] text-[var(--tbm-text-muted)]">
                         {u.telephone ?? u.email}
                       </span>
                     </span>
@@ -811,7 +820,7 @@ function UsersTable({
                 </TableCell>
                 <TableCell className="pt-3.5">
                   <RoleBadge role={u.role} />
-                  <span className="mt-1 block text-[11px] text-neutral-400">
+                  <span className="mt-1 block text-[11px] text-[var(--tbm-text-muted)]">
                     {USER_ROLE_META[u.role].scopeLabel}
                   </span>
                 </TableCell>
@@ -822,30 +831,30 @@ function UsersTable({
                   <StatusBadge statut={u.statut} />
                   {u.statut === "bloque" && u.bloqueMotif && (
                     <span
-                      className="mt-1 block max-w-[190px] truncate text-[11px] text-rose-400"
+                      className="mt-1 block max-w-[190px] truncate text-[11px] text-rose-500"
                       title={u.bloqueMotif}
                     >
                       {u.bloqueMotif}
                     </span>
                   )}
                   {u.statut === "attente" && (
-                    <span className="mt-1 block text-[11px] text-neutral-400">
+                    <span className="mt-1 block text-[11px] text-[var(--tbm-text-muted)]">
                       créé {u.creeLe.toLowerCase()}
                     </span>
                   )}
                 </TableCell>
                 <TableCell className="pt-3.5">
                   {u.derniereConnexion ? (
-                    <span className="block text-[12.5px] text-neutral-600">
+                    <span className="block text-[12.5px] font-medium text-[var(--tbm-text)]">
                       {u.derniereConnexion}
                     </span>
                   ) : (
-                    <span className="block text-[11.5px] text-neutral-300">
+                    <span className="block text-[11.5px] text-[var(--tbm-text-muted)]">
                       Jamais
                     </span>
                   )}
                   {u.connexions.length > 0 && (
-                    <span className="block text-[11px] text-neutral-400">
+                    <span className="block text-[11px] text-[var(--tbm-text-muted)]">
                       {u.connexions.length} connex. ·{" "}
                       {u.connexions.filter((c) => c.resultat === "echec").length} échec
                       {u.connexions.filter((c) => c.resultat === "echec").length > 1 ? "s" : ""}
@@ -914,7 +923,7 @@ function UsersTable({
           })}
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="py-10 text-center text-[13px] text-neutral-400">
+              <TableCell colSpan={6} className="py-10 text-center text-[13px] text-[var(--tbm-text-muted)]">
                 {emptyLabel}
               </TableCell>
             </TableRow>
@@ -941,17 +950,17 @@ function ActivityTable({
     <div className="ff-scrollbar max-h-[560px] overflow-auto">
       <Table>
         <TableHeader>
-          <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pl-5 text-xs font-medium text-neutral-400">
+          <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 pl-5 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Date
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Compte
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Type
             </TableHead>
-            <TableHead className="sticky top-0 z-10 h-11 bg-neutral-50 pr-5 text-xs font-medium text-neutral-400">
+            <TableHead className="sticky top-0 z-10 h-11 bg-[#F3F7F5]/90 pr-5 text-xs font-semibold text-[var(--tbm-text)] backdrop-blur">
               Détail
             </TableHead>
           </TableRow>
@@ -960,9 +969,9 @@ function ActivityTable({
           {entries.map((e) => (
             <TableRow
               key={e.key}
-              className="border-neutral-100 align-top transition-colors hover:bg-neutral-50/70"
+              className="border-b border-[var(--tbm-border)] align-top transition-colors hover:bg-[#F3F7F5]/50"
             >
-              <TableCell className="py-3 pl-5 text-[12px] tabular-nums text-neutral-500">
+              <TableCell className="py-3 pl-5 text-[12px] tabular-nums text-[var(--tbm-text-muted)]">
                 {e.date}
               </TableCell>
               <TableCell className="py-3">
@@ -972,7 +981,7 @@ function ActivityTable({
                     type="button"
                     onClick={() => onOpenCompte(e.userId)}
                     title={`Ouvrir la fiche de ${e.compte}`}
-                    className="max-w-[160px] truncate text-[12.5px] font-semibold text-neutral-700 transition-colors hover:text-coral-600"
+                    className="max-w-[160px] truncate text-[12.5px] font-semibold text-[var(--tbm-text)] transition-colors hover:text-[#003B2D]"
                   >
                     {e.compte}
                   </button>
@@ -980,12 +989,12 @@ function ActivityTable({
               </TableCell>
               <TableCell className="py-3">
                 {e.kind === "echec_connexion" ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
                     <ShieldAlert className="h-3 w-3" />
                     Connexion échouée
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-coral-50 px-2 py-0.5 text-[11px] font-semibold text-coral-600">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-[#003B2D]/10 px-2 py-0.5 text-[11px] font-semibold text-[#003B2D]">
                     <Activity className="h-3 w-3" />
                     {e.label}
                   </span>
@@ -993,7 +1002,7 @@ function ActivityTable({
               </TableCell>
               <TableCell className="max-w-[360px] py-3 pr-5">
                 <span
-                  className="block truncate text-[12.5px] text-neutral-600"
+                  className="block truncate text-[12.5px] text-[var(--tbm-text)]"
                   title={e.detail}
                 >
                   {e.detail}
@@ -1149,13 +1158,13 @@ export function UsersPage() {
 
   const searchInput = (
     <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Nom, e-mail, téléphone, compagnie, réf…"
         aria-label="Rechercher un utilisateur"
-        className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+        className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
       />
     </div>
   );
@@ -1356,29 +1365,34 @@ export function UsersPage() {
   return (
     <div>
       {/* En-tête */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Utilisateurs &amp; accès
-          </h2>
-          <p className="mt-0.5 text-[12.5px] text-neutral-400">
-            A05 — Comptes voyageurs et professionnels, rôles et permissions, isolation par compagnie.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000] shadow-sm">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Utilisateurs &amp; accès
+            </h2>
+            <p className="text-[12px] text-[var(--tbm-text-muted)]">
+              A05 — Comptes voyageurs et professionnels, rôles et permissions, isolation par compagnie.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
             onClick={openCreate}
-            className="h-9 gap-1.5 rounded-xl bg-coral-500 px-3.5 text-[12.5px] font-semibold text-white shadow-sm hover:bg-coral-600"
+            className="h-9 gap-1.5 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#002a20] active:scale-[0.98]"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 text-[#9BE000]" />
             Compte professionnel
           </Button>
           <Button
             variant="outline"
             onClick={exportCsv}
-            className="h-9 gap-1.5 rounded-xl border-neutral-200 text-[12.5px] font-medium shadow-none hover:border-neutral-300"
+            className="h-9 gap-1.5 rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] font-medium text-[var(--tbm-text)] shadow-xs hover:bg-[var(--tbm-background)]"
           >
-            <Download className="h-4 w-4 text-neutral-400" />
+            <Download className="h-4 w-4 text-[var(--tbm-text-muted)]" />
             Exporter
           </Button>
         </div>
@@ -1389,23 +1403,23 @@ export function UsersPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/60 px-4 py-3"
+        className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] px-4 py-3 shadow-xs"
       >
-        <span className="flex items-center gap-2 text-[12px] font-semibold text-neutral-600">
-          <ShieldCheck className="h-4 w-4 text-coral-500" />
+        <span className="flex items-center gap-2 text-[12px] font-semibold text-[var(--tbm-text)]">
+          <ShieldCheck className="h-4 w-4 text-[#003B2D]" />
           Vos droits (administration) :
         </span>
-        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-neutral-500">
+        <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-[var(--tbm-text-muted)]">
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             Créer et activer les comptes professionnels
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             Bloquer / débloquer tout compte (sauf administrateurs)
           </li>
           <li className="flex items-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-neutral-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#003B2D]" />
             Modifier les rôles — justification tracée
           </li>
           <li className="flex items-center gap-1.5">
@@ -1416,53 +1430,53 @@ export function UsersPage() {
       </motion.div>
 
       {/* KPIs */}
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
           icon={Users}
           label="Comptes"
           value={`${users.length}`}
           hint={`${voyageurs.length} voyageurs · ${pros} professionnels`}
-          tone="bg-coral-100 text-coral-600"
+          tone="bg-[#003B2D]/10 text-[#003B2D]"
         />
         <MiniKpi
           icon={Hourglass}
           label="À activer"
           value={`${enAttente.length}`}
           hint="comptes pro créés, sans accès"
-          tone="bg-amber-100 text-amber-600"
+          tone="bg-amber-500/10 text-amber-600"
         />
         <MiniKpi
           icon={Ban}
           label="Bloqués"
           value={`${bloques.length}`}
           hint="accès suspendus, motif tracé"
-          tone="bg-rose-100 text-rose-600"
+          tone="bg-rose-500/10 text-rose-600"
         />
         <MiniKpi
           icon={ShieldAlert}
           label="Connexions échouées"
           value={`${echecsRecents}`}
           hint="7 derniers jours — surveillance"
-          tone="bg-violet-100 text-violet-600"
+          tone="bg-violet-500/10 text-violet-600"
         />
       </div>
 
       {/* Onglets page-level — synchronisés au paramètre d'URL ?tab= */}
       <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
+        <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1 overflow-x-auto ff-scrollbar">
           <TabsTrigger
             value="comptes"
-            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
           >
             <Users className="h-3.5 w-3.5" />
             Comptes
-            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-500">
+            <span className="rounded-md bg-neutral-200/80 px-1.5 py-px text-[10.5px] font-semibold text-neutral-600">
               {users.length}
             </span>
           </TabsTrigger>
           <TabsTrigger
             value="a_activer"
-            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
           >
             <Hourglass className="h-3.5 w-3.5" />
             À activer
@@ -1470,7 +1484,7 @@ export function UsersPage() {
               className={cn(
                 "rounded-md px-1.5 py-px text-[10.5px] font-semibold",
                 enAttente.length > 0
-                  ? "bg-amber-100 text-amber-600"
+                  ? "bg-amber-100 text-amber-700"
                   : "bg-neutral-200/80 text-neutral-500"
               )}
             >
@@ -1479,7 +1493,7 @@ export function UsersPage() {
           </TabsTrigger>
           <TabsTrigger
             value="activite"
-            className="gap-1.5 rounded-lg px-3.5 text-[12.5px] data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
           >
             <ShieldAlert className="h-3.5 w-3.5" />
             Activité sensible
@@ -1487,7 +1501,7 @@ export function UsersPage() {
               className={cn(
                 "rounded-md px-1.5 py-px text-[10.5px] font-semibold",
                 activite.length > 0
-                  ? "bg-violet-100 text-violet-600"
+                  ? "bg-violet-100 text-violet-700"
                   : "bg-neutral-200/80 text-neutral-500"
               )}
             >
@@ -1503,11 +1517,11 @@ export function UsersPage() {
             <Select value={kindFilter} onValueChange={setKindFilter}>
               <SelectTrigger
                 aria-label="Filtrer par type de compte"
-                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[150px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-neutral-300"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                 <SelectItem value="all" className="rounded-lg text-[13px]">Tous comptes</SelectItem>
                 <SelectItem value="voyageur" className="rounded-lg text-[13px]">Voyageurs</SelectItem>
                 <SelectItem value="professionnel" className="rounded-lg text-[13px]">Professionnels</SelectItem>
@@ -1516,11 +1530,11 @@ export function UsersPage() {
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger
                 aria-label="Filtrer par rôle"
-                className="h-9 w-[170px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[170px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-neutral-300"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                 <SelectItem value="all" className="rounded-lg text-[13px]">Tous rôles</SelectItem>
                 {(Object.keys(USER_ROLE_META) as UserRole[]).map((r) => (
                   <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
@@ -1532,11 +1546,11 @@ export function UsersPage() {
             <Select value={statutFilter} onValueChange={setStatutFilter}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[140px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[140px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-neutral-300"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                 <SelectItem value="all" className="rounded-lg text-[13px]">Tous statuts</SelectItem>
                 {(Object.keys(USER_STATUS_META) as UserStatus[]).map((s) => (
                   <SelectItem key={s} value={s} className="rounded-lg text-[13px]">
@@ -1548,11 +1562,11 @@ export function UsersPage() {
             <Select value={compagnieFilter} onValueChange={setCompagnieFilter}>
               <SelectTrigger
                 aria-label="Filtrer par compagnie"
-                className="h-9 w-[160px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[160px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-neutral-300"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                 <SelectItem value="all" className="rounded-lg text-[13px]">Toutes compagnies</SelectItem>
                 {compagnieNames.map((c) => (
                   <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
@@ -1561,7 +1575,7 @@ export function UsersPage() {
                 ))}
               </SelectContent>
             </Select>
-            <span className="ml-auto text-[12px] text-neutral-400">
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
               {filtered.length} compte{filtered.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -1569,7 +1583,7 @@ export function UsersPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <UsersTable
               rows={comptesPg.pageItems}
@@ -1606,7 +1620,7 @@ export function UsersPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <UsersTable
               rows={aActiverPg.pageItems}
@@ -1654,7 +1668,7 @@ export function UsersPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <ActivityTable
               entries={activitePg.pageItems}
@@ -1710,7 +1724,7 @@ export function UsersPage() {
         <DialogContent className="rounded-2xl sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[16px]">
-              <Plus className="h-4 w-4 text-coral-500" />
+              <Plus className="h-4 w-4 text-[#003B2D]" />
               Créer un compte professionnel
             </DialogTitle>
             <DialogDescription className="text-[12.5px] leading-relaxed">
@@ -1729,7 +1743,7 @@ export function UsersPage() {
                 value={formNom}
                 onChange={(e) => setFormNom(e.target.value)}
                 placeholder="ex. Seydou BÂ"
-                className="h-9.5 rounded-xl border-neutral-200 focus-visible:ring-coral-200"
+                className="h-9.5 rounded-xl border-[var(--tbm-border)] focus-visible:ring-[#9BE000]"
               />
             </div>
             <div className="space-y-1.5">
@@ -1742,7 +1756,7 @@ export function UsersPage() {
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
                 placeholder="prenom.nom@compagnie.ml"
-                className="h-9.5 rounded-xl border-neutral-200 focus-visible:ring-coral-200"
+                className="h-9.5 rounded-xl border-[var(--tbm-border)] focus-visible:ring-[#9BE000]"
               />
             </div>
             <div className="space-y-1.5">
@@ -1756,7 +1770,7 @@ export function UsersPage() {
                   value={formTel}
                   onChange={(e) => setFormTel(e.target.value)}
                   placeholder="+223 76 00 00 00"
-                  className="h-9.5 rounded-xl border-neutral-200 pl-9 focus-visible:ring-coral-200"
+                  className="h-9.5 rounded-xl border-[var(--tbm-border)] pl-9 focus-visible:ring-[#9BE000]"
                 />
               </div>
             </div>
@@ -1764,10 +1778,10 @@ export function UsersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[12.5px] text-neutral-600">Rôle *</Label>
                 <Select value={formRole} onValueChange={(v) => setFormRole(v as UserRole)}>
-                  <SelectTrigger className="h-9.5 w-full rounded-xl border-neutral-200 text-[13px] shadow-none hover:border-neutral-300">
+                  <SelectTrigger className="h-9.5 w-full rounded-xl border-[var(--tbm-border)] text-[13px] shadow-none hover:border-neutral-300">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-neutral-100">
+                  <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                     {PRO_ROLES.map((r) => (
                       <SelectItem key={r} value={r} className="rounded-lg text-[13px]">
                         {USER_ROLE_META[r].label}
@@ -1779,10 +1793,10 @@ export function UsersPage() {
               <div className="space-y-1.5">
                 <Label className="text-[12.5px] text-neutral-600">Compagnie *</Label>
                 <Select value={formCompagnie} onValueChange={setFormCompagnie}>
-                  <SelectTrigger className="h-9.5 w-full rounded-xl border-neutral-200 text-[13px] shadow-none hover:border-neutral-300">
+                  <SelectTrigger className="h-9.5 w-full rounded-xl border-[var(--tbm-border)] text-[13px] shadow-none hover:border-neutral-300">
                     <SelectValue placeholder="Choisir…" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-neutral-100">
+                  <SelectContent className="rounded-xl border-[var(--tbm-border)]">
                     {compagnieNames.map((c) => (
                       <SelectItem key={c} value={c} className="rounded-lg text-[13px]">
                         {c}
@@ -1804,10 +1818,10 @@ export function UsersPage() {
             )}
           </div>
           <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-[var(--tbm-border)] shadow-none">
               Annuler
             </Button>
-            <Button onClick={confirmCreate} className="h-9 rounded-xl bg-coral-500 font-semibold text-white hover:bg-coral-600">
+            <Button onClick={confirmCreate} className="h-9 rounded-xl bg-[#003B2D] font-semibold text-white hover:bg-[#002a20]">
               Créer le compte
             </Button>
           </DialogFooter>
@@ -2044,7 +2058,7 @@ export function UsersPage() {
                   value={justification}
                   onChange={(e) => setJustification(e.target.value)}
                   placeholder="ex. Promotion suite au départ de l'ancien gestionnaire — validé par la direction."
-                  className="min-h-[84px] rounded-xl border-neutral-200 text-[13px] focus-visible:ring-coral-200"
+                  className="min-h-[84px] rounded-xl border-[var(--tbm-border)] text-[13px] focus-visible:ring-[#9BE000]"
                 />
                 <p className="text-[11px] text-neutral-400">
                   La justification sera citée au journal d&apos;audit (A06) avec votre
@@ -2059,10 +2073,10 @@ export function UsersPage() {
             </div>
           )}
           <DialogFooter className="gap-2 pt-1">
-            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-neutral-200 shadow-none">
+            <Button variant="outline" onClick={closeDialog} className="h-9 rounded-xl border-[var(--tbm-border)] shadow-none">
               Annuler
             </Button>
-            <Button onClick={confirmRole} className="h-9 rounded-xl bg-coral-500 font-semibold text-white hover:bg-coral-600">
+            <Button onClick={confirmRole} className="h-9 rounded-xl bg-[#003B2D] font-semibold text-white hover:bg-[#002a20]">
               Modifier le rôle
             </Button>
           </DialogFooter>

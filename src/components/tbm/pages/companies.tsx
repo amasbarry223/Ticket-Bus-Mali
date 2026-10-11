@@ -3,23 +3,24 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import {
-  BadgePercent,
   Ban,
   Building2,
   Bus,
   CheckCircle2,
   Eye,
   Hourglass,
-  LayoutDashboard,
   Mail,
   MapPin,
   Pencil,
+  Percent,
   Phone,
   Plus,
   Power,
   Route,
   Search,
   Ticket,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +69,6 @@ import {
   companyEvents,
   companyInitials,
   companyLines,
-  companyLogoColor,
   DEPARTURE_STATUS_META,
   formatFcfa,
   formatNumber,
@@ -323,13 +323,20 @@ function CompanyAvatar({
   company: Company;
   className?: string;
 }) {
+  const avatarColors: Record<string, string> = {
+    "CPG-001": "bg-[#eaf8e2] text-[#2d8e08]",
+    "CPG-002": "bg-[#e0f7f3] text-[#00897b]",
+    "CPG-003": "bg-[#fef3c7] text-[#d97706]",
+    "CPG-004": "bg-[#ede9fe] text-[#7c3aed]",
+    "CPG-005": "bg-[#f1f5f9] text-[#475569]",
+  };
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-xl font-bold ring-1",
-        companyLogoColor(company.id),
-        className ?? "h-9 w-9 text-[12.5px]"
+        "flex shrink-0 items-center justify-center rounded-xl font-bold",
+        avatarColors[company.id] ?? "bg-[#eaf8e2] text-[#2d8e08]",
+        className ?? "h-9 w-9 text-xs"
       )}
     >
       {companyInitials(company.nom)}
@@ -426,22 +433,18 @@ function MiniKpi({
   value,
   hint,
   icon: Icon,
-  tone,
+  iconClass,
+  rightElement,
   index,
 }: {
   label: string;
   value: string;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "coral" | "amber" | "emerald" | "neutral";
+  iconClass: string;
+  rightElement?: React.ReactNode;
   index: number;
 }) {
-  const tones: Record<string, string> = {
-    coral: "group-hover:bg-coral-50 group-hover:text-coral-500",
-    amber: "group-hover:bg-amber-50 group-hover:text-amber-600",
-    emerald: "group-hover:bg-emerald-50 group-hover:text-emerald-600",
-    neutral: "group-hover:bg-neutral-200/60",
-  };
   return (
     <motion.article
       initial={{ opacity: 0, y: 14 }}
@@ -451,23 +454,30 @@ function MiniKpi({
         delay: 0.05 + index * 0.06,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="group ff-card rounded-2xl border border-neutral-200/70 bg-white p-4"
+      className="flex items-center justify-between rounded-2xl border border-[var(--tbm-border)] bg-[var(--tbm-white)] p-4 shadow-xs"
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[12.5px] font-medium text-neutral-500">{label}</h3>
+      <div className="flex items-start gap-3.5">
         <span
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 transition-colors duration-300",
-            tones[tone]
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            iconClass
           )}
         >
-          <Icon className="h-4 w-4" aria-hidden="true" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
+        <div>
+          <h3 className="text-[12.5px] font-medium text-[var(--tbm-text)]">{label}</h3>
+          <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--tbm-text)]">
+            {value}
+          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--tbm-text-muted)]">{hint}</p>
+        </div>
       </div>
-      <p className="mt-2.5 text-[21px] font-bold leading-none tracking-tight text-neutral-900">
-        {value}
-      </p>
-      <p className="mt-1.5 text-[11.5px] text-neutral-400">{hint}</p>
+      {rightElement && (
+        <div className="self-start pt-1 shrink-0">
+          {rightElement}
+        </div>
+      )}
     </motion.article>
   );
 }
@@ -571,13 +581,13 @@ export function CompaniesPage() {
       .slice(0, 5);
     const resaMoy = total
       ? Math.round(
-          companies.reduce((a, c) => a + c.params.reservationJours, 0) / total
-        )
+        companies.reduce((a, c) => a + c.params.reservationJours, 0) / total
+      )
       : 0;
     const annulMoy = total
       ? Math.round(
-          companies.reduce((a, c) => a + c.params.annulationGratuite, 0) / total
-        )
+        companies.reduce((a, c) => a + c.params.annulationGratuite, 0) / total
+      )
       : 0;
     const enLigne = companies.filter((c) => c.params.venteEnLigne).length;
     const guichet = companies.filter((c) => c.params.venteGuichet).length;
@@ -604,8 +614,8 @@ export function CompaniesPage() {
       : [];
     const departs = selected
       ? companyDepartures.filter(
-          (d) => d.compagnie === selected.id && d.statut !== "termine"
-        )
+        (d) => d.compagnie === selected.id && d.statut !== "termine"
+      )
       : [];
     const events = selected
       ? companyEvents.filter((e) => e.compagnie === selected.id)
@@ -731,20 +741,24 @@ export function CompaniesPage() {
   return (
     <div>
       {/* ---- En-tête + action ---- */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-[17px] font-bold tracking-tight text-neutral-900">
-            Compagnies de transport
-          </h2>
-          <p className="mt-0.5 text-[12.5px] text-neutral-400">
-            A01 — Compagnies partenaires : fiches, paramètres commerciaux,
-            flotte et suivi des incidents.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#003B2D] text-[#9BE000]">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-[20px] font-bold tracking-tight text-[var(--tbm-text)] sm:text-[22px]">
+              Compagnies de transport
+            </h1>
+            <p className="mt-0.5 text-[12px] text-[var(--tbm-text-muted)]">
+              A01 — Compagnies partenaires : fiches, paramètres commerciaux, flotte et suivi des incidents.
+            </p>
+          </div>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="h-9 gap-1.5 rounded-lg bg-coral-500 px-3.5 text-[13px] font-medium text-white shadow-md shadow-coral-500/30 transition-all hover:bg-coral-600 active:scale-[0.98]">
-              <Plus className="h-4 w-4" />
+            <Button className="h-10 gap-2 rounded-xl bg-[#003B2D] px-4 text-[13px] font-semibold text-white shadow-sm hover:bg-[#002a20] active:scale-[0.98] transition-all">
+              <Plus className="h-4 w-4 stroke-[2.5] text-[#9BE000]" />
               Nouvelle compagnie
             </Button>
           </DialogTrigger>
@@ -783,7 +797,7 @@ export function CompaniesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  className="h-9 rounded-xl bg-coral-500 text-[13px] font-medium text-white shadow-md shadow-coral-500/30 hover:bg-coral-600"
+                  className="h-9 rounded-xl bg-[#003B2D] text-[13px] font-semibold text-white shadow-sm hover:bg-[#002a20]"
                 >
                   Créer la compagnie
                 </Button>
@@ -793,15 +807,16 @@ export function CompaniesPage() {
         </Dialog>
       </div>
 
-      {/* ---- Indicateurs ---- */}
-      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      {/* ---- Indicateurs (4 cartes KPI horizontales) ---- */}
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MiniKpi
           index={0}
           label="Partenaires actifs"
           value={`${kpis.actives} / ${kpis.total}`}
           hint="compagnies autorisées à vendre"
-          icon={Building2}
-          tone="coral"
+          icon={Users}
+          iconClass="bg-[#eaf8e2] text-[var(--tbm-success)]"
+          rightElement={<TrendingUp className="h-4 w-4 text-[var(--tbm-success)]" />}
         />
         <MiniKpi
           index={1}
@@ -810,18 +825,35 @@ export function CompaniesPage() {
           hint={
             kpis.suspendues > 0
               ? `${kpis.suspendues} suspendue${kpis.suspendues > 1 ? "s" : ""} actuellement`
-              : "aucune suspension en cours"
+              : "1 suspendue actuellement"
           }
           icon={Hourglass}
-          tone="amber"
+          iconClass="bg-[#fef3c7] text-[var(--tbm-warning)]"
+          rightElement={<TrendingUp className="h-4 w-4 text-[var(--tbm-text-muted)]" />}
         />
         <MiniKpi
           index={2}
           label="Commission moyenne"
           value={`${kpis.commissionMoy} %`}
           hint="toutes compagnies confondues"
-          icon={BadgePercent}
-          tone="emerald"
+          icon={Percent}
+          iconClass="bg-[#ede9fe] text-[#7c3aed]"
+          rightElement={
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#7c3aed"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+          }
         />
         <MiniKpi
           index={3}
@@ -829,65 +861,65 @@ export function CompaniesPage() {
           value={formatNumber(kpis.tickets)}
           hint="cumul des compagnies"
           icon={Ticket}
-          tone="neutral"
+          iconClass="bg-[#e0f2fe] text-[#0284c7]"
+          rightElement={<TrendingUp className="h-4 w-4 text-[var(--tbm-success)]" />}
         />
       </div>
 
-      {/* ---- Onglets page (liste / vue d'ensemble) — synchronisés à ?tab=… ---- */}
-      <Tabs value={tab} onValueChange={setTabParam} className="mt-4">
-        <TabsList className="h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200/70 bg-neutral-50/60 p-1 ff-scrollbar sm:w-auto">
-          <TabsTrigger
-            value="liste"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            Compagnies
-            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-200 px-1 text-[9.5px] font-bold text-neutral-600">
-              {kpis.total}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="apercu"
-            className="h-8 gap-1.5 rounded-lg px-3.5 text-[12.5px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            Vue d’ensemble
-          </TabsTrigger>
-        </TabsList>
+      {/* ---- Onglets page (liste / vue d'ensemble) ---- */}
+      <Tabs value={tab} onValueChange={setTabParam} className="mt-5">
+        <div className="flex items-center">
+          <TabsList className="h-auto p-1 rounded-xl border border-[var(--tbm-border)] bg-white/70 shadow-xs inline-flex gap-1">
+            <TabsTrigger
+              value="liste"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-semibold text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <Building2 className="h-4 w-4" />
+              Compagnies
+            </TabsTrigger>
+            <TabsTrigger
+              value="apercu"
+              className="h-9 gap-2 rounded-lg px-4 text-[12.5px] font-medium text-[var(--tbm-text-muted)] data-[state=active]:bg-[#003B2D] data-[state=active]:text-white shadow-none data-[state=active]:shadow-xs transition-colors"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Vue d’ensemble
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* --------- Liste des compagnies --------- */}
         <TabsContent value="liste" className="mt-4">
           {/* ---- Filtres ---- */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--tbm-text-muted)]" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher (nom, contact, ville)…"
+                placeholder="Rechercher (nom, contact, ville)..."
                 aria-label="Rechercher une compagnie"
-                className="h-9 rounded-xl border-neutral-200 bg-white pl-9 text-[13px] focus-visible:ring-coral-200"
+                className="h-10 rounded-xl border-[var(--tbm-border)] bg-white pl-9 text-[12.5px] text-[var(--tbm-text)] placeholder:text-[var(--tbm-text-muted)] focus-visible:ring-[#9BE000] shadow-xs"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger
                 aria-label="Filtrer par statut"
-                className="h-9 w-[150px] rounded-xl border-neutral-200 bg-white text-[13px] shadow-none hover:border-neutral-300"
+                className="h-10 w-[160px] rounded-xl border-[var(--tbm-border)] bg-white text-[12.5px] text-[var(--tbm-text)] shadow-xs hover:border-[#003B2D]/40"
               >
-                <SelectValue />
+                <SelectValue placeholder="Tous les statuts" />
               </SelectTrigger>
-              <SelectContent className="rounded-xl border-neutral-100">
-                <SelectItem value="all" className="rounded-lg text-[13px]">
+              <SelectContent className="rounded-xl border-[var(--tbm-border)]">
+                <SelectItem value="all" className="rounded-lg text-[12.5px]">
                   Tous les statuts
                 </SelectItem>
                 {Object.entries(COMPANY_STATUS_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key} className="rounded-lg text-[13px]">
+                  <SelectItem key={key} value={key} className="rounded-lg text-[12.5px]">
                     {meta.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <span className="ml-auto text-[12px] text-neutral-400">
+            <span className="ml-auto text-[12px] font-medium text-[var(--tbm-text-muted)]">
               {filtered.length} compagnie{filtered.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -897,32 +929,32 @@ export function CompaniesPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="ff-card mt-3 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+            className="mt-3 overflow-hidden rounded-2xl border border-[var(--tbm-border)] bg-white shadow-xs"
           >
             <div className="ff-scrollbar overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-neutral-100 hover:bg-transparent">
-                    <TableHead className="h-11 bg-neutral-50/60 pl-5 text-xs font-medium text-neutral-400">
+                  <TableRow className="border-b border-[var(--tbm-border)] bg-[#F3F7F5]/80 hover:bg-transparent">
+                    <TableHead className="h-11 pl-6 text-xs font-semibold text-[var(--tbm-text)]">
                       Compagnie
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Coordonnées
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Ville
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-center text-xs font-semibold text-[var(--tbm-text)]">
                       Commission
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-right text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-center text-xs font-semibold text-[var(--tbm-text)]">
                       Tickets / mois
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 text-xs font-medium text-neutral-400">
+                    <TableHead className="h-11 text-xs font-semibold text-[var(--tbm-text)]">
                       Statut
                     </TableHead>
-                    <TableHead className="h-11 bg-neutral-50/60 pr-5 text-right text-xs font-medium text-neutral-400">
-                      <span className="sr-only">Actions</span>
+                    <TableHead className="h-11 pr-6 text-center text-xs font-semibold text-[var(--tbm-text)]">
+                      Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -931,50 +963,67 @@ export function CompaniesPage() {
                     <TableRow
                       key={c.id}
                       onClick={() => setSel(c.id)}
-                      className="cursor-pointer border-neutral-100 transition-colors hover:bg-neutral-50/70"
+                      className="cursor-pointer border-b border-[#F3F7F5] transition-colors hover:bg-[#F3F7F5]/50"
                     >
-                      <TableCell className="py-3.5 pl-5">
+                      <TableCell className="py-3.5 pl-6">
                         <div className="flex items-center gap-3">
                           <CompanyAvatar company={c} />
-                          <span>
-                            <span className="block text-[13px] font-semibold text-neutral-800">
+                          <div>
+                            <span className="block text-[13px] font-bold text-[var(--tbm-text)]">
                               {c.nom}
                             </span>
-                            <span className="block text-[11px] text-neutral-400">
+                            <span className="block text-[11px] text-[var(--tbm-text-muted)]">
                               {c.id}
                             </span>
-                          </span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <span className="block truncate text-[12.5px] text-neutral-600">
-                          {c.contact}
-                        </span>
-                        <span className="block text-[11px] tabular-nums text-neutral-400">
-                          {c.telephone}
-                        </span>
+                      <TableCell className="py-3.5">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-[12px] text-[var(--tbm-text)]">
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-[var(--tbm-text-muted)]" />
+                            <span className="truncate">{c.contact}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11.5px] tabular-nums text-[var(--tbm-text)]">
+                            <Phone className="h-3.5 w-3.5 shrink-0 text-[var(--tbm-text-muted)]" />
+                            <span>{c.telephone}</span>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-[12.5px] text-neutral-500">
-                        {c.ville}
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-1.5 text-[12.5px] text-[var(--tbm-text)]">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--tbm-text-muted)]" />
+                          <span>{c.ville}</span>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                      <TableCell className="py-3.5 text-center text-[12.5px] font-medium tabular-nums text-[var(--tbm-text)]">
                         {c.commission} %
                       </TableCell>
-                      <TableCell className="text-right text-[12.5px] font-semibold tabular-nums text-neutral-700">
+                      <TableCell className="py-3.5 text-center text-[12.5px] font-medium tabular-nums text-[var(--tbm-text)]">
                         {formatNumber(c.ticketsMois)}
                       </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold",
-                            COMPANY_STATUS_META[c.statut].className
-                          )}
-                        >
-                          {COMPANY_STATUS_META[c.statut].label}
-                        </span>
+                      <TableCell className="py-3.5">
+                        {c.statut === "active" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf8e2] px-3 py-1 text-[11.5px] font-semibold text-[var(--tbm-success)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--tbm-success)]" />
+                            Active
+                          </span>
+                        )}
+                        {c.statut === "attente" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fef3c7] px-3 py-1 text-[11.5px] font-semibold text-[var(--tbm-warning)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--tbm-warning)]" />
+                            En attente
+                          </span>
+                        )}
+                        {c.statut === "suspendue" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ffe4e6] px-3 py-1 text-[11.5px] font-semibold text-[var(--tbm-danger)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--tbm-danger)]" />
+                            Suspendue
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="pr-5 pt-3.5 text-right">
-                        <span className="inline-flex items-center justify-end gap-1">
+                      <TableCell className="py-3.5 pr-6 text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5">
                           <ActionIconButton
                             icon={Power}
                             label={
@@ -982,7 +1031,7 @@ export function CompaniesPage() {
                                 ? "Suspendre la compagnie"
                                 : "Activer la compagnie"
                             }
-                            tone={c.statut === "active" ? "amber" : "emerald"}
+                            tone="emerald"
                             onClick={() =>
                               changeStatus(
                                 c,
@@ -990,25 +1039,25 @@ export function CompaniesPage() {
                               )
                             }
                           />
-                          {c.statut !== "attente" && (
-                            <ActionIconButton
-                              icon={Hourglass}
-                              label="Remettre en attente"
-                              tone="violet"
-                              onClick={() => changeStatus(c, "attente")}
-                            />
-                          )}
+                          <ActionIconButton
+                            icon={Hourglass}
+                            label="Remettre en attente"
+                            tone="rose"
+                            onClick={() => changeStatus(c, "attente")}
+                          />
                           <ActionIconButton
                             icon={Pencil}
                             label="Modifier la fiche"
+                            tone="neutral"
                             onClick={() => openEdit(c)}
                           />
                           <ActionIconButton
                             icon={Eye}
                             label="Voir la fiche"
+                            tone="neutral"
                             onClick={() => setSel(c.id)}
                           />
-                        </span>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
