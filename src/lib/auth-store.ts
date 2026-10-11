@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { StaffUser } from "@/components/tbm/data";
 
 interface AuthState {
@@ -10,22 +10,44 @@ interface AuthState {
   logout: () => void;
 }
 
+// Supprimer l'ancien cache localStorage qui connectait automatiquement un compte de test
+if (typeof window !== "undefined") {
+  try {
+    window.localStorage.removeItem("tbm-auth");
+  } catch {}
+}
+
 /**
- * Authentification du back-office :
- * Par défaut, initialise le compte administrateur « Daouda FOMBA »
- * pour un accès direct au tableau de bord.
+ * Authentification du back-office TBM :
+ * Par défaut, `user` est à `null`. L'utilisateur DOIT obligatoirement
+ * s'authentifier via l'écran de connexion avant d'ouvrir le tableau de bord.
+ * La session est conservée uniquement pendant la session active du navigateur (sessionStorage).
  */
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: {
-        name: "Daouda FOMBA",
-        email: "admin@ticketbusmali.ml",
-        role: "admin",
-      },
+      user: null,
       login: (user) => set({ user }),
-      logout: () => set({ user: null }),
+      logout: () => {
+        set({ user: null });
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.removeItem("tbm-auth-session");
+          } catch {}
+        }
+      },
     }),
-    { name: "tbm-auth" }
+    {
+      name: "tbm-auth-session",
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined"
+          ? window.sessionStorage
+          : ({
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+            } as unknown as Storage)
+      ),
+    }
   )
 );

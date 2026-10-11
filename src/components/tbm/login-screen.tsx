@@ -95,6 +95,7 @@ export function LoginScreen() {
   const pickRole = (next: StaffRole) => {
     setRole(next);
     setEmail(DEMO_ACCOUNTS[next].email);
+    setPassword("");
     setError(null);
   };
 
@@ -102,18 +103,35 @@ export function LoginScreen() {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
       setError("Veuillez renseigner votre e-mail et votre mot de passe.");
       return;
     }
 
     setLoading(true);
-    // Simulation d'une vérification côté serveur (aucun backend).
+    // Vérification des identifiants de démonstration
     window.setTimeout(() => {
-      const account = DEMO_ACCOUNTS[role];
-      login({ name: account.name, email: email.trim(), role });
+      const matchedRole = (Object.keys(DEMO_ACCOUNTS) as StaffRole[]).find(
+        (r) => DEMO_ACCOUNTS[r].email.toLowerCase() === trimmedEmail.toLowerCase()
+      );
+      const account = matchedRole ? DEMO_ACCOUNTS[matchedRole] : DEMO_ACCOUNTS[role];
+
+      if (trimmedPassword !== account.password && trimmedPassword !== "tbm2026") {
+        setError("Mot de passe incorrect. (Mot de passe démo : tbm2026)");
+        setLoading(false);
+        return;
+      }
+
+      login({
+        name: account.name,
+        email: trimmedEmail,
+        role: matchedRole ?? role,
+      });
       setLoading(false);
-    }, 700);
+    }, 600);
   };
 
   return (
